@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>GitLaTeX IDE</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+
+<!-- Home: repo list -->
+<div id="home-view" class="view">
+  <header id="home-toolbar" class="home-toolbar" role="toolbar">
+    <div class="toolbar-left">
+      <img src="/favicon.svg" alt="" class="home-brand-icon" width="28" height="28">
+      <span class="home-app-name"><span class="app-name-git">Git</span><span class="app-name-latex">LaTeX</span> IDE</span>
+    </div>
+    <div class="toolbar-right">
+      <button type="button" class="icon-btn" id="open-create-workspace-modal-btn" aria-label="Create new folder" title="Create new folder (local only)">
+        <span class="material-icons">create_new_folder</span>
+      </button>
+      <button type="button" class="icon-btn" id="open-clone-modal-btn" aria-label="Clone from URL" title="Clone from URL">
+        <i class="fa-brands fa-git-alt" aria-hidden="true"></i>
+      </button>
+      <a href="#/settings" class="icon-btn" aria-label="Settings" title="Settings">
+        <span class="material-icons">settings</span>
+      </a>
+    </div>
+  </header>
+  <main class="home-content">
+    <p class="home-subtitle" id="home-subtitle">Clone a repo, create a local folder, or open an existing one to start editing.</p>
+
+  <!-- Create new folder (workspace) modal -->
+  <div id="create-workspace-modal" class="modal-overlay hidden" aria-hidden="true">
+    <div class="modal" role="dialog" aria-labelledby="create-workspace-modal-title" aria-modal="true">
+      <div class="modal-header">
+        <h2 id="create-workspace-modal-title">New folder</h2>
+        <button type="button" class="modal-close" onclick="closeCreateWorkspaceModal()" aria-label="Close">
+          <span class="material-icons">close</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <label for="new-workspace-name">Folder name</label>
+        <p class="settings-hint">Creates a local folder only. No Git. Use Clone to get a Git repo.</p>
+        <input id="new-workspace-name" type="text" placeholder="my-project" aria-label="Folder name" autocomplete="off">
+        <div class="modal-actions">
+          <button type="button" class="btn-toolbar" onclick="closeCreateWorkspaceModal()">Cancel</button>
+          <button type="button" class="btn-toolbar primary" id="create-workspace-submit">Create</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Clone from URL modal -->
+  <div id="clone-modal" class="modal-overlay hidden" aria-hidden="true">
+    <div class="modal" role="dialog" aria-labelledby="clone-modal-title" aria-modal="true">
+      <div class="modal-header">
+        <h2 id="clone-modal-title">Clone from URL</h2>
+        <button type="button" class="modal-close" onclick="closeCloneModal()" aria-label="Close">
+          <span class="material-icons">close</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <label for="repoUrl">Repository URL</label>
+        <div class="clone-row">
+          <input id="repoUrl" type="text" placeholder="https://github.com/user/repo.git" aria-label="Repository URL">
+          <button type="button" class="btn-toolbar primary" id="clone-repo-btn" onclick="cloneRepoAndRefresh()"><span class="clone-btn-text">Clone</span></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+    <section class="home-repos">
+      <h2>Your repositories</h2>
+      <div id="repo-list" class="repo-list"></div>
+      <div id="repo-list-empty" class="repo-list-empty hidden" role="status">
+        <span class="material-icons repo-list-empty-icon" aria-hidden="true">folder_off</span>
+        <p class="repo-list-empty-text">No repositories yet. Create or clone one above.</p>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- Settings -->
+<div id="settings-view" class="view hidden">
+  <header class="settings-toolbar" role="toolbar">
+    <div class="toolbar-left">
+      <a href="#/" class="icon-btn" aria-label="Back to home" title="Back to home">
+        <span class="material-icons">arrow_back</span>
+      </a>
+      <span class="settings-title">Settings</span>
+    </div>
+    <div class="toolbar-right"></div>
+  </header>
+  <main class="settings-content">
+    <section class="settings-body">
+      <div class="settings-group">
+        <label class="settings-label">Theme</label>
+        <div class="theme-options" role="radiogroup" aria-label="Theme">
+          <button type="button" class="theme-option" data-theme="light" aria-pressed="false">
+            <span class="material-icons">light_mode</span>
+            Light
+          </button>
+          <button type="button" class="theme-option" data-theme="dark" aria-pressed="true">
+            <span class="material-icons">dark_mode</span>
+            Dark
+          </button>
+        </div>
+      </div>
+      <div class="settings-group settings-group-stack">
+        <label class="settings-label" for="settings-compiler-api">Compiler API (pdflatex)</label>
+        <p class="settings-hint">Leave empty to use local pdflatex. Or set a URL to an API that compiles LaTeX and returns a PDF.</p>
+        <input type="url" id="settings-compiler-api" class="settings-input" placeholder="https://your-pdflatex-api.example.com/compile" autocomplete="url">
+        <label class="settings-label" for="settings-compiler-api-key">API key</label>
+        <p class="settings-hint">Optional. Sent as <code>Authorization: Bearer &lt;key&gt;</code> when calling the compiler API.</p>
+        <input type="password" id="settings-compiler-api-key" class="settings-input" placeholder="Your API key" autocomplete="off">
+      </div>
+      <div class="settings-group settings-group-stack settings-tech-info">
+        <label class="settings-label">Technical info</label>
+        <dl class="settings-info-list">
+          <div class="settings-info-row"><dt>Version</dt><dd id="settings-info-version">—</dd></div>
+          <div class="settings-info-row"><dt>App URL</dt><dd id="settings-info-url">—</dd></div>
+          <div class="settings-info-row"><dt>Github</dt><dd id="settings-info-repo">—</dd></div>
+          <div class="settings-info-row"><dt>PyPI</dt><dd id="settings-info-pypi">—</dd></div>
+          <div class="settings-info-row"><dt>Developers</dt><dd id="settings-info-developers">Md Atiqur Rahman & Md Abdus Sami Akanda</dd></div>
+        </dl>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- Editor: full IDE for one repo -->
+<div id="editor-view" class="view hidden">
+  <header id="topbar" role="toolbar">
+    <div class="toolbar-left">
+      <button type="button" id="toggleSidebarBtn" class="icon-btn" onclick="toggleSidebar()" aria-label="Toggle file list" title="Toggle file list">
+        <span class="material-icons" aria-hidden="true">menu</span>
+      </button>
+      <a href="#/" class="icon-btn home-link" aria-label="Back to repositories" title="Back to repositories">
+        <span class="material-icons" aria-hidden="true">home</span>
+      </a>
+      <span id="editor-repo-name" class="repo-name"></span>
+    </div>
+    <div class="toolbar-right">
+      <button type="button" class="primary" id="btn-compile" onclick="compile()">
+          <span class="material-icons btn-compile-icon" aria-hidden="true">play_arrow</span>
+          <span class="btn-compile-text">Compile</span>
+        </button>
+      <button type="button" class="btn-errors" onclick="showCompileErrors()"><span class="material-icons" aria-hidden="true">error_outline</span><span>Errors</span></button>
+      <div class="toolbar-git git-dropdown" id="toolbar-git">
+        <button type="button" class="git-dropdown-btn" id="git-dropdown-btn" aria-haspopup="true" aria-expanded="false" aria-label="Git actions">
+          <i class="fa-brands fa-git-alt" aria-hidden="true"></i>
+          <span>Git</span>
+          <span class="material-icons git-dropdown-arrow" aria-hidden="true">arrow_drop_down</span>
+        </button>
+        <div class="git-dropdown-menu" id="git-dropdown-menu" role="menu" aria-hidden="true">
+          <button type="button" role="menuitem" onclick="showStatus(); closeGitDropdown();"><span class="material-icons git-dropdown-menu-icon" aria-hidden="true">info</span><span>Status</span></button>
+          <button type="button" role="menuitem" onclick="showDiff(); closeGitDropdown();"><span class="material-icons git-dropdown-menu-icon" aria-hidden="true">code</span><span>Diff</span></button>
+          <button type="button" role="menuitem" onclick="commit(); closeGitDropdown();"><span class="material-icons git-dropdown-menu-icon" aria-hidden="true">commit</span><span>Commit</span></button>
+          <button type="button" role="menuitem" onclick="pushChanges(); closeGitDropdown();"><span class="material-icons git-dropdown-menu-icon" aria-hidden="true">cloud_upload</span><span>Push</span></button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div id="container">
+    <div id="sidebar">
+      <div class="sidebar-header">
+        <button type="button" class="sidebar-btn" id="sidebar-new-file" title="New file" aria-label="New file">
+          <span class="material-icons">add</span>
+        </button>
+        <button type="button" class="sidebar-btn" id="sidebar-new-folder" title="New folder" aria-label="New folder">
+          <span class="material-icons">create_new_folder</span>
+        </button>
+        <button type="button" class="sidebar-btn" id="sidebar-upload" title="Upload files" aria-label="Upload files">
+          <span class="material-icons">upload_file</span>
+        </button>
+        <input type="file" id="sidebar-file-input" multiple hidden>
+      </div>
+      <div id="sidebar-tree"></div>
+    </div>
+    <div class="resizer resizer-v" id="resizer-sidebar" title="Resize sidebar"></div>
+    <div id="editor-pane">
+      <div id="editor"></div>
+      <div id="file-viewer" class="hidden" aria-hidden="true">
+        <img id="file-viewer-img" alt="" class="file-viewer-content">
+        <iframe id="file-viewer-pdf" class="file-viewer-content hidden" title="PDF viewer"></iframe>
+        <div id="file-viewer-unavailable" class="file-viewer-unavailable hidden">Preview not available</div>
+      </div>
+    </div>
+    <div class="resizer resizer-v" id="resizer-pdf" title="Resize editor / PDF"></div>
+    <iframe id="pdf"></iframe>
+  </div>
+
+  <div class="console-area">
+    <div class="console-content">
+      <div class="resizer resizer-h" id="resizer-console" title="Resize console"></div>
+      <pre id="console"></pre>
+    </div>
+    <div class="console-tab-anchor">
+      <button type="button" class="console-tab" id="console-toggle" aria-label="Toggle console" title="Toggle console">
+        <span class="material-icons console-tab-icon">expand_more</span>
+        <span class="console-tab-label">Console</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+  <!-- Generic input modal -->
+  <div id="input-modal" class="modal-overlay hidden" aria-hidden="true">
+    <div class="modal" role="dialog" aria-labelledby="input-modal-title" aria-modal="true">
+      <div class="modal-header">
+        <h2 id="input-modal-title">Input</h2>
+        <button type="button" class="modal-close" id="input-modal-cancel-btn" aria-label="Close">
+          <span class="material-icons">close</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <label id="input-modal-label" for="input-modal-field">Label</label>
+        <input type="text" id="input-modal-field" aria-label="Input" autocomplete="off">
+        <div class="modal-actions">
+          <button type="button" class="btn-toolbar" id="input-modal-cancel">Cancel</button>
+          <button type="button" class="btn-toolbar primary" id="input-modal-submit">Submit</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Generic confirm modal -->
+  <div id="confirm-modal" class="modal-overlay hidden" aria-hidden="true">
+    <div class="modal" role="dialog" aria-labelledby="confirm-modal-title" aria-modal="true">
+      <div class="modal-header">
+        <h2 id="confirm-modal-title">Confirm</h2>
+        <button type="button" class="modal-close" id="confirm-modal-close-btn" aria-label="Close">
+          <span class="material-icons">close</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p id="confirm-modal-message" class="confirm-message"></p>
+        <div class="modal-actions">
+          <button type="button" class="btn-toolbar" id="confirm-modal-cancel">Cancel</button>
+          <button type="button" class="btn-toolbar primary" id="confirm-modal-ok">Confirm</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script src="https://unpkg.com/monaco-editor@latest/min/vs/loader.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>
