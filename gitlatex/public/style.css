@@ -1,5 +1,7 @@
 /* --- Design tokens --- */
 :root {
+  --scrollbar-thumb: #484f58;
+
   --font-sans: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono", "Fira Code", "SF Mono", Consolas, monospace;
 
@@ -39,6 +41,8 @@
 
 /* Light theme */
 [data-theme="light"] {
+  --scrollbar-thumb: #a0a0a0;
+
   --bg-app: #f6f8fa;
   --bg-elevated: #ffffff;
   --bg-hover: #f0f2f5;
@@ -62,6 +66,29 @@
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.08);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+/* --- Scrollbar --- */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 /* --- Base --- */
