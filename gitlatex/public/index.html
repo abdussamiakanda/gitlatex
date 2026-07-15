@@ -115,6 +115,11 @@
         <label class="settings-label" for="settings-compiler-api-key">API key</label>
         <p class="settings-hint">Optional. Sent as <code>Authorization: Bearer &lt;key&gt;</code> when calling the compiler API.</p>
         <input type="password" id="settings-compiler-api-key" class="settings-input" placeholder="Your API key" autocomplete="off">
+        <div class="settings-actions">
+          <span id="settings-save-status" class="settings-save-status"></span>
+          <button type="button" id="settings-test-api" class="btn-toolbar">Test</button>
+          <button type="button" id="settings-save" class="btn-toolbar primary">Save</button>
+        </div>
       </div>
       <div class="settings-group settings-group-stack settings-tech-info">
         <label class="settings-label">Technical info</label>

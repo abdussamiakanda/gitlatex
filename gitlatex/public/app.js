@@ -1149,11 +1149,8 @@ async function loadFile(path) {
       const pdfEl = document.getElementById("pdf");
       if (pdfEl) {
         fetch(pdfUrl, { method: "HEAD" })
-          .then((r) => {
-            if (r.ok) pdfEl.src = pdfUrl;
-            else pdfEl.removeAttribute("src");
-          })
-          .catch(() => pdfEl.removeAttribute("src"));
+          .then((r) => { if (r.ok) pdfEl.src = pdfUrl; })
+          .catch(() => {});
       }
     }
   } catch (e) {
@@ -1679,17 +1676,56 @@ document.addEventListener("click", function (e) {
   }
 });
 
-document.getElementById("settings-compiler-api")?.addEventListener("change", function () {
-  setCompilerApi(this.value);
+document.getElementById("settings-save")?.addEventListener("click", function () {
+  const apiInput = document.getElementById("settings-compiler-api");
+  const keyInput = document.getElementById("settings-compiler-api-key");
+  const status = document.getElementById("settings-save-status");
+  if (apiInput) setCompilerApi(apiInput.value);
+  if (keyInput) setCompilerApiKey(keyInput.value);
+  if (status) {
+    status.textContent = "Saved";
+    status.className = "settings-save-status success";
+    setTimeout(function () { status.textContent = ""; status.className = "settings-save-status"; }, 2000);
+  }
 });
-document.getElementById("settings-compiler-api")?.addEventListener("blur", function () {
-  setCompilerApi(this.value);
-});
-document.getElementById("settings-compiler-api-key")?.addEventListener("change", function () {
-  setCompilerApiKey(this.value);
-});
-document.getElementById("settings-compiler-api-key")?.addEventListener("blur", function () {
-  setCompilerApiKey(this.value);
+
+document.getElementById("settings-test-api")?.addEventListener("click", async function () {
+  const btn = this;
+  const status = document.getElementById("settings-save-status");
+  const apiInput = document.getElementById("settings-compiler-api");
+  const keyInput = document.getElementById("settings-compiler-api-key");
+  const url = (apiInput && apiInput.value.trim()) ? apiInput.value.trim() : "";
+  const key = (keyInput && keyInput.value.trim()) ? keyInput.value.trim() : "";
+
+  if (!url) {
+    if (status) { status.textContent = "Enter a compiler API URL first"; status.className = "settings-save-status error"; }
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = "Testing…";
+  if (status) { status.textContent = "Testing…"; status.className = "settings-save-status"; }
+
+  try {
+    const headers = { "Content-Type": "application/json" };
+    if (key) headers["Authorization"] = "Bearer " + key;
+    const res = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ main: "test.tex", files: [{ path: "test.tex", content: "\\documentclass{article}\n\\begin{document}\nHello\n\\end{document}" }] })
+    });
+    const data = await res.json().catch(function () { return {}; });
+    if (res.ok && data.success) {
+      if (status) { status.textContent = "API works! PDF returned."; status.className = "settings-save-status success"; }
+    } else {
+      if (status) { status.textContent = "API error: " + (data.error || res.statusText || res.status); status.className = "settings-save-status error"; }
+    }
+  } catch (e) {
+    if (status) { status.textContent = "Connection failed: " + (e.message || "network error"); status.className = "settings-save-status error"; }
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Test";
+  }
 });
 
 document.getElementById("open-create-workspace-modal-btn")?.addEventListener("click", openCreateWorkspaceModal);

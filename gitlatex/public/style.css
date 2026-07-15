@@ -1272,6 +1272,27 @@ body.sidebar-hidden #toggleSidebarBtn {
   border-color: var(--accent);
 }
 
+.settings-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.settings-save-status {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-right: auto;
+}
+
+.settings-save-status.success {
+  color: var(--green, #28a745);
+}
+
+.settings-save-status.error {
+  color: var(--red, #dc3545);
+}
+
 .settings-tech-info .settings-label {
   margin-bottom: 4px;
 }

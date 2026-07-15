@@ -15,3 +15,5 @@ build/
 *.egg
 
 pypirc.example
+
+.env
