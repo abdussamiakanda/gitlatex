@@ -1470,5 +1470,89 @@ body.sidebar-hidden #toggleSidebarBtn {
   margin-top: 0;
 }
 
+/* Main file dropdown */
+.toolbar-mainfile.mainfile-dropdown {
+  position: relative;
+  display: inline-flex;
+  margin-left: 8px;
+}
+.toolbar-mainfile .mainfile-dropdown-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+  background: transparent;
+  border-radius: var(--radius-md);
+  padding: 4px 8px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.toolbar-mainfile .mainfile-dropdown-btn:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+.toolbar-mainfile .mainfile-dropdown-btn .material-icons:first-child {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+  color: var(--accent);
+}
+.toolbar-mainfile .mainfile-dropdown-arrow {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+}
+.mainfile-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  min-width: 200px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 4px 0;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  z-index: 1000;
+  display: none;
+}
+.mainfile-dropdown.open .mainfile-dropdown-menu,
+.mainfile-dropdown.open .mainfile-dropdown-menu {
+  display: block;
+}
+.mainfile-dropdown-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 6px 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+.mainfile-dropdown-menu button .material-icons {
+  font-size: 14px;
+  width: 14px;
+  height: 14px;
+  color: var(--accent);
+}
+.mainfile-dropdown-menu button:hover {
+  background: var(--bg-hover);
+}
+.mainfile-dropdown-menu button.active {
+  background: var(--bg-active);
+  color: var(--accent);
+}
+
 /* --- Fonts --- */
 @import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap");

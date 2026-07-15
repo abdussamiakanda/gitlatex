@@ -146,6 +146,14 @@
         <span class="material-icons" aria-hidden="true">home</span>
       </a>
       <span id="editor-repo-name" class="repo-name"></span>
+      <div class="toolbar-mainfile mainfile-dropdown" id="toolbar-mainfile">
+        <button type="button" class="mainfile-dropdown-btn" id="mainfile-dropdown-btn" aria-haspopup="true" aria-expanded="false" aria-label="Select main file">
+          <span class="material-icons" aria-hidden="true">description</span>
+          <span id="mainfile-label">main.tex</span>
+          <span class="material-icons mainfile-dropdown-arrow" aria-hidden="true">arrow_drop_down</span>
+        </button>
+        <div class="mainfile-dropdown-menu" id="mainfile-dropdown-menu" role="menu" aria-hidden="true"></div>
+      </div>
     </div>
     <div class="toolbar-right">
       <button type="button" class="primary" id="btn-compile" onclick="compile()">

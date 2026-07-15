@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gitlatex"
-version = "1.0.7"
+version = "1.0.8"
 description = "A simple UI for LaTeX projects with Git support. Clone repos, edit, compile, and push."
 readme = "README.md"
 license = "ISC"

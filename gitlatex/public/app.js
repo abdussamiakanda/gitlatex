@@ -1098,6 +1098,7 @@ async function loadFiles() {
       return;
     }
     renderFileTree(files, treeEl, "", currentFile, currentFolderPath);
+    refreshMainFileDropdown(files);
     const firstTex = findFirstTexFile(files);
     if (firstTex && !currentFolderPath) loadFile(firstTex);
   } catch (e) {
@@ -1299,9 +1300,116 @@ function setCompileLoading(loading) {
   }
 }
 
+function getMainFile() {
+  try {
+    return localStorage.getItem("gitlatex-mainfile") || "";
+  } catch (_) {}
+  return "";
+}
+
+function setMainFile(path) {
+  try {
+    if (path) localStorage.setItem("gitlatex-mainfile", path);
+    else localStorage.removeItem("gitlatex-mainfile");
+  } catch (_) {}
+  const label = document.getElementById("mainfile-label");
+  if (label) label.textContent = path || "main.tex";
+}
+
+function collectTexFiles(files, basePath) {
+  const list = [];
+  for (const node of files || []) {
+    const fullPath = basePath ? basePath + "/" + node.name : node.name;
+    if (node.type === "file" && node.name.endsWith(".tex")) list.push(fullPath);
+    else if (node.type === "folder" && node.children) list.push.apply(list, collectTexFiles(node.children, fullPath));
+  }
+  return list;
+}
+
+function populateMainFileDropdown() {
+  const dd = document.getElementById("toolbar-mainfile");
+  const btn = document.getElementById("mainfile-dropdown-btn");
+  if (!dd || !btn) return;
+
+  btn.addEventListener("click", function (e) {
+    e.stopPropagation();
+    if (dd.classList.contains("open")) {
+      closeMainFileDropdown();
+    } else {
+      openMainFileDropdown();
+    }
+  });
+
+  document.addEventListener("click", function (e) {
+    if (!e.target.closest(".toolbar-mainfile")) closeMainFileDropdown();
+  });
+}
+
+function openMainFileDropdown() {
+  const dd = document.getElementById("toolbar-mainfile");
+  const btn = document.getElementById("mainfile-dropdown-btn");
+  const menu = document.getElementById("mainfile-dropdown-menu");
+  if (!dd || !btn || !menu) return;
+  const rect = btn.getBoundingClientRect();
+  menu.style.position = "fixed";
+  menu.style.top = (rect.bottom + 4) + "px";
+  menu.style.left = "auto";
+  menu.style.right = (window.innerWidth - rect.right) + "px";
+  menu.style.minWidth = Math.max(rect.width, 200) + "px";
+  menu.style.display = "block";
+  menu.style.zIndex = "1001";
+  document.body.appendChild(menu);
+  dd.classList.add("open");
+  btn.setAttribute("aria-expanded", "true");
+  menu.setAttribute("aria-hidden", "false");
+}
+
+function closeMainFileDropdown() {
+  const dd = document.getElementById("toolbar-mainfile");
+  const btn = document.getElementById("mainfile-dropdown-btn");
+  const menu = document.getElementById("mainfile-dropdown-menu");
+  if (!dd || !btn || !menu) return;
+  dd.classList.remove("open");
+  btn.setAttribute("aria-expanded", "false");
+  menu.setAttribute("aria-hidden", "true");
+  menu.style.display = "none";
+  if (menu.parentElement === document.body) {
+    dd.appendChild(menu);
+  }
+  menu.style.position = "";
+  menu.style.top = "";
+  menu.style.right = "";
+  menu.style.zIndex = "";
+}
+
+async function refreshMainFileDropdown(files) {
+  const menu = document.getElementById("mainfile-dropdown-menu");
+  if (!menu) return;
+  const texFiles = collectTexFiles(files, "");
+  menu.innerHTML = "";
+  const selected = getMainFile();
+  texFiles.forEach(function (path) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.role = "menuitem";
+    btn.innerHTML = '<span class="material-icons">description</span><span>' + path + '</span>';
+    if (path === selected || (!selected && path === "main.tex")) btn.classList.add("active");
+    btn.addEventListener("click", function () {
+      setMainFile(path);
+      closeMainFileDropdown();
+    });
+    menu.appendChild(btn);
+  });
+  const label = document.getElementById("mainfile-label");
+  if (label) {
+    const isInList = texFiles.includes(selected);
+    label.textContent = isInList ? selected : (texFiles.includes("main.tex") ? "main.tex" : (texFiles[0] || "main.tex"));
+  }
+}
+
 async function compile() {
   if (currentFile && currentFile.endsWith(".tex")) await saveCurrentFile();
-  const mainFile = (currentFile && currentFile.endsWith(".tex")) ? currentFile : "main.tex";
+  const mainFile = getMainFile() || "main.tex";
   const compilerApi = getStoredCompilerApi();
   setCompileLoading(true);
   try {
@@ -1667,6 +1775,12 @@ function setupResizers() {
 
 // ----- Init -----
 document.documentElement.setAttribute("data-theme", getStoredTheme());
+populateMainFileDropdown();
+(function () {
+  const label = document.getElementById("mainfile-label");
+  const stored = getMainFile();
+  if (label && stored) label.textContent = stored;
+})();
 
 document.addEventListener("click", function (e) {
   const opt = e.target.closest(".theme-option");
