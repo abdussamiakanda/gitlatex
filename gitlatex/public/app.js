@@ -183,6 +183,66 @@ function setInfoLink(el, url, label) {
   }
 }
 
+// ----- Update check (PyPI) -----
+let updateInfo = null;
+
+/** Ask the server whether a newer gitlatex is on PyPI. Never throws. */
+async function checkForUpdate(force) {
+  try {
+    const res = await fetchApi("/api/update-check" + (force ? "?force=1" : ""));
+    const data = await res.json();
+    updateInfo = data && typeof data === "object" ? data : null;
+  } catch (_) {
+    updateInfo = null;
+  }
+  renderUpdateState();
+  return updateInfo;
+}
+
+/** Dot on every Settings gear, plus the notice inside Settings itself. */
+function renderUpdateState() {
+  const available = !!(updateInfo && updateInfo.updateAvailable && updateInfo.latest);
+  document.querySelectorAll('.icon-btn[href="#/settings"]').forEach(function (el) {
+    el.classList.toggle("has-update", available);
+    if (available) el.title = "Settings — version " + updateInfo.latest + " available";
+    else el.title = "Settings";
+  });
+
+  const notice = document.getElementById("update-notice");
+  if (notice) {
+    notice.classList.toggle("hidden", !available);
+    if (available) {
+      const latestEl = document.getElementById("update-notice-latest");
+      const currentEl = document.getElementById("update-notice-current");
+      const linkEl = document.getElementById("update-notice-link");
+      if (latestEl) latestEl.textContent = updateInfo.latest;
+      if (currentEl) currentEl.textContent = updateInfo.current || "—";
+      if (linkEl && updateInfo.pypi) linkEl.href = updateInfo.pypi;
+    }
+  }
+
+  const versionEl = document.getElementById("settings-info-version");
+  if (versionEl) {
+    const pill = versionEl.querySelector(".version-pill");
+    if (pill) pill.remove();
+    if (available) {
+      const el = document.createElement("span");
+      el.className = "version-pill";
+      el.textContent = "update available";
+      versionEl.appendChild(el);
+    }
+  }
+
+  const status = document.getElementById("update-status");
+  if (status) {
+    if (available || !updateInfo) status.textContent = "";
+    else if (updateInfo.disabled) status.textContent = "Update checks are disabled.";
+    else if (updateInfo.error) status.textContent = "Could not reach PyPI to check for updates.";
+    else if (updateInfo.latest) status.textContent = "You are on the latest version.";
+    else status.textContent = "";
+  }
+}
+
 async function populateSettingsTechInfo() {
   const versionEl = document.getElementById("settings-info-version");
   const urlEl = document.getElementById("settings-info-url");
@@ -200,6 +260,9 @@ async function populateSettingsTechInfo() {
     if (repoEl) repoEl.textContent = "—";
     if (pypiEl) pypiEl.textContent = "—";
   }
+  // Re-apply first (setting version wipes the pill), then refresh from PyPI.
+  renderUpdateState();
+  checkForUpdate();
 }
 
 function setConsole(text) {
@@ -332,6 +395,7 @@ function getRoute() {
   const parts = hash.split("/").filter(Boolean);
   if (parts[0] === "editor" && parts[1]) return { page: "editor", repo: parts[1] };
   if (parts[0] === "settings") return { page: "settings" };
+  if (parts[0] === "compiler-api") return { page: "compiler-api" };
   return { page: "home" };
 }
 
@@ -352,6 +416,12 @@ function route() {
     showView("settings-view");
     applyTheme(getStoredTheme());
     populateSettings();
+    return;
+  }
+  if (r.page === "compiler-api") {
+    showView("compiler-api-view");
+    const content = document.querySelector("#compiler-api-view .settings-content");
+    if (content) content.scrollTop = 0;
     return;
   }
   showView("editor-view");
@@ -1889,6 +1959,25 @@ document.addEventListener("click", function (e) {
   }
 });
 
+// Copy buttons on the Compiler API docs code samples
+document.addEventListener("click", function (e) {
+  const btn = e.target.closest(".docs-copy");
+  if (!btn) return;
+  const code = btn.parentElement && btn.parentElement.querySelector("code");
+  if (!code || !navigator.clipboard) return;
+  navigator.clipboard.writeText(code.textContent).then(function () {
+    btn.textContent = "Copied";
+    btn.classList.add("copied");
+    setTimeout(function () {
+      btn.textContent = "Copy";
+      btn.classList.remove("copied");
+    }, 1500);
+  }).catch(function () {
+    btn.textContent = "Press Ctrl+C";
+    setTimeout(function () { btn.textContent = "Copy"; }, 1500);
+  });
+});
+
 document.getElementById("settings-save")?.addEventListener("click", function () {
   const apiInput = document.getElementById("settings-compiler-api");
   const keyInput = document.getElementById("settings-compiler-api-key");
@@ -1988,4 +2077,5 @@ window.addEventListener("hashchange", route);
 window.addEventListener("load", function () {
   route();
   setupResizers();
+  checkForUpdate();
 });

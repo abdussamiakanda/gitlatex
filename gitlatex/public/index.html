@@ -23,6 +23,9 @@
       <button type="button" class="icon-btn" id="open-clone-modal-btn" aria-label="Clone from URL" title="Clone from URL">
         <i class="fa-brands fa-git-alt" aria-hidden="true"></i>
       </button>
+      <a href="https://buymeacoffee.com/abdussamiakanda" target="_blank" rel="noopener noreferrer" class="icon-btn coffee-btn" aria-label="Buy me a coffee" title="Buy me a coffee">
+        <i class="fa-solid fa-mug-hot" aria-hidden="true"></i>
+      </a>
       <a href="#/settings" class="icon-btn" aria-label="Settings" title="Settings">
         <span class="material-icons">settings</span>
       </a>
@@ -115,6 +118,7 @@
         <label class="settings-label" for="settings-compiler-api-key">API key</label>
         <p class="settings-hint">Optional. Sent as <code>Authorization: Bearer &lt;key&gt;</code> when calling the compiler API.</p>
         <input type="password" id="settings-compiler-api-key" class="settings-input" placeholder="Your API key" autocomplete="off">
+        <p class="settings-hint"><a href="#/compiler-api" class="settings-info-link">How to build a Compiler API &rarr;</a></p>
         <div class="settings-actions">
           <span id="settings-save-status" class="settings-save-status"></span>
           <button type="button" id="settings-test-api" class="btn-toolbar">Test</button>
@@ -128,10 +132,314 @@
           <div class="settings-info-row"><dt>App URL</dt><dd id="settings-info-url">—</dd></div>
           <div class="settings-info-row"><dt>Github</dt><dd id="settings-info-repo">—</dd></div>
           <div class="settings-info-row"><dt>PyPI</dt><dd id="settings-info-pypi">—</dd></div>
-          <div class="settings-info-row"><dt>Developers</dt><dd id="settings-info-developers">Md Atiqur Rahman & Md Abdus Sami Akanda</dd></div>
+          <div class="settings-info-row"><dt>Compiler API</dt><dd><a href="#/compiler-api" class="settings-info-link">Build your own &rarr;</a></dd></div>
         </dl>
+        <div id="update-notice" class="update-notice hidden" role="status">
+          <span class="material-icons update-notice-icon" aria-hidden="true">system_update_alt</span>
+          <div class="update-notice-text">
+            <strong>Version <span id="update-notice-latest">—</span> is available</strong>
+            <p class="settings-hint">You are running <span id="update-notice-current">—</span>. Update, then restart GitLaTeX:</p>
+            <div class="docs-code">
+              <button type="button" class="docs-copy">Copy</button>
+              <pre><code>pip install --upgrade gitlatex</code></pre>
+            </div>
+          </div>
+        </div>
+        <p id="update-status" class="settings-hint update-status"></p>
+      </div>
+      <div class="settings-group settings-group-stack support-group">
+        <label class="settings-label">Support</label>
+        <p class="settings-hint">Built and maintained by <span class="support-credit" id="settings-info-developers">Md Abdus Sami Akanda &amp; Md Atiqur Rahman</span>.</p>
+        <p class="settings-hint">GitLaTeX is free and open source. If it saves you some time, you can keep the coffee flowing.</p>
+        <a class="bmc-button" href="https://buymeacoffee.com/abdussamiakanda" target="_blank" rel="noopener noreferrer">
+          <span class="bmc-cup" aria-hidden="true">
+            <span class="bmc-steam"></span>
+            <span class="bmc-steam"></span>
+            <span class="bmc-steam"></span>
+            <i class="fa-solid fa-mug-hot"></i>
+          </span>
+          <span class="bmc-label">Buy me a coffee</span>
+        </a>
       </div>
     </section>
+  </main>
+</div>
+
+<!-- Compiler API docs -->
+<div id="compiler-api-view" class="view hidden">
+  <header class="settings-toolbar" role="toolbar">
+    <div class="toolbar-left">
+      <a href="#/settings" class="icon-btn" aria-label="Back to settings" title="Back to settings">
+        <span class="material-icons">arrow_back</span>
+      </a>
+      <span class="settings-title">Compiler API</span>
+    </div>
+    <div class="toolbar-right"></div>
+  </header>
+  <main class="settings-content">
+    <article class="docs-body">
+
+      <p class="docs-lead">
+        A <strong>Compiler API</strong> is any HTTP endpoint that accepts your project's files, runs
+        <code>pdflatex</code>, and returns a PDF. Set its URL in Settings and GitLaTeX stops using your
+        local <code>pdflatex</code> — every <strong>Compile</strong> goes to that URL instead. Useful when
+        you have no LaTeX install, or want one shared TeX box for several machines.
+      </p>
+
+      <section class="docs-section">
+        <h2>1. How it works</h2>
+        <p>Your API only has to handle one round trip:</p>
+        <ol class="docs-steps">
+          <li>GitLaTeX sends you a single <code>POST</code> containing every file in the project and the name of the main <code>.tex</code>.</li>
+          <li>You unpack those files, run <code>pdflatex</code>, and reply with JSON holding the PDF as base64 — or an error message.</li>
+          <li>GitLaTeX saves the PDF into the project and shows it in the preview pane.</li>
+        </ol>
+        <p class="docs-note">
+          Anything you put in the <code>error</code> field is printed to the console pane at the bottom of the
+          editor. That console is the only place your users will see it, so send back the <code>pdflatex</code> log.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>2. The request GitLaTeX sends you</h2>
+        <table class="docs-table">
+          <tbody>
+            <tr><th>Method</th><td><code>POST</code></td></tr>
+            <tr><th>URL</th><td>Exactly what you typed in Settings. A value with no scheme gets <code>https://</code> prepended.</td></tr>
+            <tr><th>Content-Type</th><td><code>application/json</code></td></tr>
+            <tr><th>Authorization</th><td><code>Bearer &lt;your API key&gt;</code> — sent only when the API key field is non-empty.</td></tr>
+          </tbody>
+        </table>
+        <p>Body:</p>
+        <div class="docs-code">
+          <button type="button" class="docs-copy">Copy</button>
+          <pre><code>{
+  "main": "main.tex",
+  "files": [
+    { "path": "main.tex",          "content": "\\documentclass{article}\n..." },
+    { "path": "chapters/intro.tex", "content": "\\section{Intro}\n..." },
+    { "path": "refs.bib",          "content": "@article{key, ...}" },
+    { "path": "figures/plot.png",  "base64": "iVBORw0KGgoAAAANSUhEUg..." }
+  ]
+}</code></pre>
+        </div>
+        <ul class="docs-list">
+          <li><code>main</code> — the file picked in the toolbar's main-file dropdown. It is a <em>repo-relative path</em>, so it can be nested (<code>thesis/main.tex</code>), not just a bare filename. Defaults to <code>main.tex</code>.</li>
+          <li><code>files</code> — every file in the repo, flattened. Paths are repo-relative and always use forward slashes, on Windows too.</li>
+          <li><strong>Two possible content keys.</strong> Text files arrive as <code>content</code> (a UTF-8 string); binary files arrive as <code>base64</code>. Always check <code>base64</code> first and fall back to <code>content</code> — the split is by file extension, so <code>.css</code>, <code>.js</code> and <code>.svg</code> also come through as <code>base64</code>.</li>
+          <li>The <code>.git</code> folder is excluded, and any single file over <strong>5 MB</strong> is dropped from the bundle.</li>
+          <li>Everything else is sent, including the PDF from the previous compile. Ignore it — <code>pdflatex</code> will overwrite it anyway.</li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>3. The response you must return</h2>
+        <p>JSON, always. On success:</p>
+        <div class="docs-code">
+          <button type="button" class="docs-copy">Copy</button>
+          <pre><code>{ "success": true, "pdf": "data:application/pdf;base64,JVBERi0xLjUK..." }</code></pre>
+        </div>
+        <p>On failure:</p>
+        <div class="docs-code">
+          <button type="button" class="docs-copy">Copy</button>
+          <pre><code>{ "error": "! Undefined control sequence.\nl.12 \\bogus" }</code></pre>
+        </div>
+        <ul class="docs-list">
+          <li>Both <code>success</code> and <code>pdf</code> are required for a compile to count. <code>success: true</code> with no <code>pdf</code> is treated as a failure.</li>
+          <li><strong>A base64 data URL is the recommended form.</strong> GitLaTeX strips the prefix and saves the bytes into your repository, so the PDF is a real file you can commit and push.</li>
+          <li>A plain <code>https://…</code> URL in <code>pdf</code> also works — but it is only loaded into the preview iframe, never saved into the repo.</li>
+          <li>Put the <code>pdflatex</code> log in <code>error</code>. It lands verbatim in the console pane, which is all your users get to debug with.</li>
+          <li>The status code is ignored on compile (only the body is read), so it is fine to return errors as <code>200</code>. The <strong>Test</strong> button, however, does check for a 2xx status.</li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>4. CORS is required</h2>
+        <p>
+          The request is made by the browser from the GitLaTeX page (<code>http://localhost:5000</code> by default),
+          not by the Python server. That makes it cross-origin, and the JSON <code>Content-Type</code> plus the
+          <code>Authorization</code> header trigger a preflight. Your API must answer <code>OPTIONS</code> and send:
+        </p>
+        <div class="docs-code">
+          <button type="button" class="docs-copy">Copy</button>
+          <pre><code>Access-Control-Allow-Origin: http://localhost:5000
+Access-Control-Allow-Methods: POST, OPTIONS
+Access-Control-Allow-Headers: Content-Type, Authorization</code></pre>
+        </div>
+        <p class="docs-note">
+          A "Connection failed" or "Failed to fetch" message with nothing in your server log is almost always
+          a missing preflight response, not a broken compile.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>5. Reference implementation — Python / Flask</h2>
+        <p>Complete and runnable. Needs <code>pip install flask</code> and a working <code>pdflatex</code> on the machine that runs it.</p>
+        <div class="docs-code">
+          <button type="button" class="docs-copy">Copy</button>
+          <pre><code>import base64, os, subprocess, tempfile
+from flask import Flask, jsonify, request
+
+app = Flask(__name__)
+API_KEY = os.environ.get("COMPILE_API_KEY")   # optional; unset = no auth
+
+
+@app.after_request
+def cors(resp):
+    resp.headers["Access-Control-Allow-Origin"] = request.headers.get("Origin", "*")
+    resp.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+    resp.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    return resp
+
+
+@app.route("/compile", methods=["POST", "OPTIONS"])
+def compile_tex():
+    if request.method == "OPTIONS":
+        return "", 204
+
+    if API_KEY and request.headers.get("Authorization") != "Bearer " + API_KEY:
+        return jsonify(error="Unauthorized"), 401
+
+    data = request.get_json(silent=True) or {}
+    main = (data.get("main") or "main.tex").replace("\\", "/").lstrip("/")
+    files = data.get("files") or []
+
+    with tempfile.TemporaryDirectory() as work:
+        for f in files:
+            rel = (f.get("path") or "").replace("\\", "/").lstrip("/")
+            parts = [p for p in rel.split("/") if p]
+            if not parts or ".." in parts:
+                continue                      # never write outside the work dir
+            dest = os.path.join(work, *parts)
+            os.makedirs(os.path.dirname(dest) or work, exist_ok=True)
+            blob = (base64.b64decode(f["base64"]) if f.get("base64") is not None
+                    else (f.get("content") or "").encode("utf-8"))
+            with open(dest, "wb") as fh:
+                fh.write(blob)
+
+        # Run in the main file's own folder so \input paths and the output
+        # land where GitLaTeX expects them.
+        main_dir = os.path.dirname(os.path.join(work, *main.split("/"))) or work
+        main_name = os.path.basename(main)
+        cmd = ["pdflatex", "-interaction=nonstopmode", "-halt-on-error", main_name]
+
+        log = ""
+        try:
+            for _ in range(2):                # twice, so refs and the ToC resolve
+                proc = subprocess.run(cmd, cwd=main_dir, capture_output=True,
+                                      text=True, errors="replace", timeout=120)
+                log = proc.stdout or proc.stderr or ""
+        except FileNotFoundError:
+            return jsonify(error="pdflatex is not installed on the API server.")
+        except subprocess.TimeoutExpired:
+            return jsonify(error="Compilation timed out after 120s.")
+
+        pdf_path = os.path.join(main_dir, os.path.splitext(main_name)[0] + ".pdf")
+        if not os.path.isfile(pdf_path):
+            return jsonify(error=log[-4000:] or "pdflatex produced no PDF")
+
+        with open(pdf_path, "rb") as fh:
+            pdf_b64 = base64.b64encode(fh.read()).decode("ascii")
+
+    return jsonify(success=True, pdf="data:application/pdf;base64," + pdf_b64)
+
+
+if __name__ == "__main__":
+    app.run(port=8080)</code></pre>
+        </div>
+        <p>Run it, then put <code>http://localhost:8080/compile</code> in the Compiler API field and press <strong>Test</strong>.</p>
+      </section>
+
+      <section class="docs-section">
+        <h2>6. Reference implementation — Node / Express</h2>
+        <p>Same contract, single <code>pdflatex</code> pass. Needs <code>npm i express</code>.</p>
+        <div class="docs-code">
+          <button type="button" class="docs-copy">Copy</button>
+          <pre><code>const express = require("express");
+const { execFile } = require("child_process");
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
+
+const app = express();
+app.use(express.json({ limit: "50mb" }));
+
+app.use((req, res, next) => {
+  res.set("Access-Control-Allow-Origin", req.headers.origin || "*");
+  res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  if (req.method === "OPTIONS") return res.sendStatus(204);
+  next();
+});
+
+app.post("/compile", (req, res) => {
+  const { main = "main.tex", files = [] } = req.body || {};
+  const work = fs.mkdtempSync(path.join(os.tmpdir(), "gitlatex-"));
+
+  for (const f of files) {
+    const parts = String(f.path || "").replace(/\\/g, "/").split("/").filter(Boolean);
+    if (!parts.length || parts.includes("..")) continue;
+    const dest = path.join(work, ...parts);
+    fs.mkdirSync(path.dirname(dest), { recursive: true });
+    fs.writeFileSync(dest, f.base64 != null
+      ? Buffer.from(f.base64, "base64")
+      : String(f.content || ""));
+  }
+
+  const mainParts = String(main).replace(/\\/g, "/").split("/").filter(Boolean);
+  const mainDir = path.dirname(path.join(work, ...mainParts));
+  const mainName = mainParts[mainParts.length - 1];
+
+  execFile("pdflatex", ["-interaction=nonstopmode", "-halt-on-error", mainName],
+    { cwd: mainDir, timeout: 120000 }, (err, stdout, stderr) => {
+      const pdf = path.join(mainDir, mainName.replace(/\.tex$/i, ".pdf"));
+      if (!fs.existsSync(pdf)) {
+        // err is set when pdflatex is missing from PATH or the timeout fires.
+        const log = stdout || stderr || (err && err.message) || "pdflatex produced no PDF";
+        return res.json({ error: log.slice(-4000) });
+      }
+      res.json({
+        success: true,
+        pdf: "data:application/pdf;base64," + fs.readFileSync(pdf).toString("base64")
+      });
+    });
+});
+
+app.listen(8080, () => console.log("Compiler API on http://localhost:8080/compile"));</code></pre>
+        </div>
+      </section>
+
+      <section class="docs-section">
+        <h2>7. Testing it</h2>
+        <p>
+          The <strong>Test</strong> button in Settings sends a minimal payload — it does not touch your repository:
+        </p>
+        <div class="docs-code">
+          <button type="button" class="docs-copy">Copy</button>
+          <pre><code>{
+  "main": "test.tex",
+  "files": [
+    { "path": "test.tex",
+      "content": "\\documentclass{article}\n\\begin{document}\nHello\n\\end{document}" }
+  ]
+}</code></pre>
+        </div>
+        <p>It passes when your API replies with a 2xx status and <code>success: true</code>. Note that Test reads the URL currently typed in the field, so you can try one out before saving it.</p>
+      </section>
+
+      <section class="docs-section">
+        <h2>8. Things to get right</h2>
+        <ul class="docs-list">
+          <li><strong>Never write files outside your work directory.</strong> Paths come from a client. Reject any segment equal to <code>..</code> and any absolute path, as both samples above do.</li>
+          <li><strong>Use a fresh directory per request.</strong> Concurrent compiles sharing one folder will overwrite each other's <code>.aux</code> files.</li>
+          <li><strong>Run <code>pdflatex</code> twice</strong> if the document uses <code>\ref</code>, <code>\cite</code> or a table of contents. Add a <code>bibtex</code> or <code>biber</code> pass between runs if there is a <code>.bib</code>.</li>
+          <li><strong>Always cap the run.</strong> A runaway macro will otherwise pin a CPU forever; <code>-interaction=nonstopmode</code> plus a timeout handles it.</li>
+          <li><strong>Sandbox anything public.</strong> LaTeX can read and write files and, with <code>-shell-escape</code>, run commands. Never enable shell escape on an API others can reach, and prefer a container.</li>
+          <li><strong>Serve it over HTTPS</strong> if it is not on localhost — the API key is sent as a bearer token on every compile.</li>
+        </ul>
+      </section>
+
+    </article>
   </main>
 </div>
 

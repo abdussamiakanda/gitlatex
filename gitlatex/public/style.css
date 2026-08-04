@@ -1581,5 +1581,393 @@ body.sidebar-hidden #toggleSidebarBtn {
   color: var(--accent);
 }
 
+/* --- Buy me a coffee --- */
+.coffee-btn i {
+  font-size: 15px;
+  transition: transform 0.2s ease;
+}
+.coffee-btn:hover {
+  color: #e8a417;
+}
+.coffee-btn:hover i {
+  transform: rotate(-9deg) scale(1.08);
+}
+
+.support-group .settings-hint {
+  margin-bottom: 4px;
+}
+.support-credit {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.bmc-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  align-self: flex-start;
+  margin-top: 6px;
+  padding: 11px 22px;
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #1f1400;
+  text-decoration: none;
+  background: linear-gradient(135deg, #ffdd00 0%, #ffc400 100%);
+  border-radius: 999px;
+  box-shadow: 0 2px 8px rgba(255, 196, 0, 0.3);
+  overflow: hidden;
+  isolation: isolate;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.bmc-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 9px 22px rgba(255, 196, 0, 0.45);
+  text-decoration: none;
+}
+.bmc-button:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(255, 196, 0, 0.3);
+}
+.bmc-button:focus-visible {
+  outline: 2px solid var(--text-primary);
+  outline-offset: 3px;
+}
+
+/* Light sweep across the button on hover */
+.bmc-button::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -70%;
+  width: 45%;
+  height: 100%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.75), transparent);
+  transform: skewX(-20deg);
+  pointer-events: none;
+}
+.bmc-button:hover::after {
+  animation: bmc-shine 0.85s ease;
+}
+@keyframes bmc-shine {
+  from { left: -70%; }
+  to { left: 130%; }
+}
+
+.bmc-cup {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  font-size: 16px;
+}
+.bmc-steam {
+  position: absolute;
+  top: -8px;
+  width: 2px;
+  height: 7px;
+  border-radius: 2px;
+  background: rgba(31, 20, 0, 0.4);
+  opacity: 0;
+}
+.bmc-steam:nth-child(1) { left: 2px; }
+.bmc-steam:nth-child(2) { left: 7px; }
+.bmc-steam:nth-child(3) { left: 12px; }
+.bmc-button:hover .bmc-steam {
+  animation: bmc-steam 1.5s ease-in-out infinite;
+}
+.bmc-button:hover .bmc-steam:nth-child(2) { animation-delay: 0.3s; }
+.bmc-button:hover .bmc-steam:nth-child(3) { animation-delay: 0.6s; }
+@keyframes bmc-steam {
+  0%   { opacity: 0; transform: translateY(3px) scaleY(0.6); }
+  35%  { opacity: 0.85; }
+  100% { opacity: 0; transform: translateY(-9px) scaleY(1.3); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bmc-button,
+  .coffee-btn i {
+    transition: none;
+  }
+  .bmc-button:hover,
+  .bmc-button:active {
+    transform: none;
+  }
+  .coffee-btn:hover i {
+    transform: none;
+  }
+  .bmc-button:hover::after,
+  .bmc-button:hover .bmc-steam {
+    animation: none;
+  }
+}
+
+/* --- Update available indicators --- */
+.icon-btn.has-update {
+  position: relative;
+}
+.icon-btn.has-update::after {
+  content: "";
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent-hover);
+  border: 2px solid var(--bg-elevated);
+  box-sizing: content-box;
+  pointer-events: none;
+}
+
+.version-pill {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 7px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--accent-hover);
+  background: rgba(241, 80, 47, 0.14);
+  border-radius: 999px;
+  vertical-align: 1px;
+}
+
+.update-notice {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-top: 14px;
+  padding: 14px 16px;
+  background: var(--bg-app);
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--accent-hover);
+  border-radius: var(--radius-sm);
+}
+.update-notice.hidden {
+  display: none;
+}
+.update-notice-icon {
+  font-size: 20px;
+  color: var(--accent-hover);
+  flex-shrink: 0;
+}
+.update-notice-text {
+  min-width: 0;
+  flex: 1;
+}
+.update-notice-text strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+.update-notice-text .settings-hint {
+  margin-bottom: 8px;
+}
+.update-notice-text .docs-code {
+  margin-bottom: 8px;
+}
+.update-notice-text .docs-code pre {
+  padding: 9px 12px;
+  background: var(--bg-elevated);
+}
+
+.update-status:empty {
+  display: none;
+}
+.update-status {
+  margin-top: 10px;
+}
+
+/* --- Compiler API docs page --- */
+#compiler-api-view {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.docs-body {
+  width: 100%;
+  max-width: 760px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.65;
+}
+.docs-body p {
+  margin: 0 0 12px;
+}
+.docs-body strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.docs-body em {
+  color: var(--text-secondary);
+}
+.docs-body a {
+  color: var(--accent);
+  text-decoration: none;
+}
+.docs-body a:hover {
+  text-decoration: underline;
+}
+
+.docs-lead {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text-secondary);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-md);
+  padding: 16px 20px;
+  margin: 0 0 24px;
+}
+
+.docs-section {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 20px 24px;
+  margin-bottom: 16px;
+}
+.docs-section h2 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.docs-body code {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  padding: 1px 5px;
+  background: var(--bg-hover);
+  border-radius: 3px;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+.docs-list,
+.docs-steps {
+  margin: 0 0 12px;
+  padding-left: 20px;
+}
+.docs-list li,
+.docs-steps li {
+  margin-bottom: 8px;
+}
+.docs-list li:last-child,
+.docs-steps li:last-child {
+  margin-bottom: 0;
+}
+
+.docs-steps {
+  list-style: decimal;
+}
+
+.docs-note {
+  font-size: 12px;
+  color: var(--text-muted);
+  background: var(--bg-app);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  margin: 12px 0 0;
+}
+
+.docs-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 12px;
+  font-size: 12.5px;
+}
+.docs-table th,
+.docs-table td {
+  text-align: left;
+  vertical-align: top;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.docs-table tr:last-child th,
+.docs-table tr:last-child td {
+  border-bottom: none;
+}
+.docs-table th {
+  width: 130px;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.docs-code {
+  position: relative;
+  margin: 0 0 12px;
+}
+.docs-code pre {
+  margin: 0;
+  padding: 14px 16px;
+  background: var(--bg-app);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+}
+.docs-code code {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  background: none;
+  padding: 0;
+  white-space: pre;
+  word-break: normal;
+}
+.docs-copy {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 3px 9px;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  color: var(--text-secondary);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.docs-code:hover .docs-copy,
+.docs-copy:focus-visible {
+  opacity: 1;
+}
+.docs-copy:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+.docs-copy.copied {
+  opacity: 1;
+  color: var(--success);
+  border-color: var(--success);
+}
+
+@media (max-width: 640px) {
+  .docs-section {
+    padding: 16px;
+  }
+  .docs-table th {
+    width: auto;
+  }
+  .docs-copy {
+    opacity: 1;
+  }
+}
+
 /* --- Fonts --- */
 @import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap");
