@@ -2,6 +2,7 @@
 
 import argparse
 import base64
+import datetime
 import json
 import os
 import re
@@ -38,7 +39,8 @@ _check_dependencies()
 from flask import Flask, Response, jsonify, request, send_file
 
 try:
-    from git import Repo
+    from git import Repo, NULL_TREE
+    from git.exc import GitCommandError
     try:
         from git.util import rmtree as git_rmtree
     except (ImportError, AttributeError):
@@ -46,6 +48,8 @@ try:
 except ImportError:
     Repo = None
     git_rmtree = None
+    GitCommandError = Exception
+    NULL_TREE = None
 
 try:
     from gitlatex import __version__ as GITLATEX_VERSION
@@ -765,6 +769,174 @@ def upload_files():
         return jsonify(error=str(e)), 500
 
 
+LATEX_ENGINES = ("pdflatex", "xelatex", "lualatex")
+
+# "Rerun to get cross-references right", "Please rerun LaTeX", "Rerun LaTeX" etc.
+_RERUN_RE = re.compile(r"rerun (?:to|LaTeX)|Please rerun|Label\(s\) may have changed", re.I)
+# -file-line-error output: "./chapters/nre.tex:42: Undefined control sequence"
+_FILE_LINE_RE = re.compile(r"^(?:\./)?([^:\r\n]+?):(\d+):\s*(.+)$")
+# "LaTeX Warning: Reference `fig:1' on page 1 undefined on input line 42."
+_WARN_LINE_RE = re.compile(
+    r"^(?:LaTeX|Package(?:\s+\w+)?)\s+Warning:\s*(.+?)(?:\s+on input line\s+(\d+))?\.?$"
+)
+
+
+def _run_tool(cmd, cwd, timeout=180):
+    """Runs a build tool; returns (returncode, combined_output)."""
+    proc = subprocess.run(
+        cmd, cwd=cwd, capture_output=True, text=True,
+        timeout=timeout, errors="replace",
+    )
+    return proc.returncode, (proc.stdout or "") + (proc.stderr or "")
+
+
+def parse_latex_log(log_text, main_file):
+    """Turns a LaTeX log into structured problems for the editor's error list."""
+    problems = []
+    seen = set()
+    lines = (log_text or "").splitlines()
+    for i, line in enumerate(lines):
+        line = line.rstrip()
+        entry = None
+
+        m = _FILE_LINE_RE.match(line)
+        if m and not line.startswith("!"):
+            path, lineno, msg = m.group(1), int(m.group(2)), m.group(3).strip()
+            # Only trust it if it looks like a source file, not a stray colon.
+            if path.lower().endswith((".tex", ".sty", ".cls", ".bib")):
+                low = msg.lower()
+                kind = "warning" if low.startswith("warning") or "warning:" in low else "error"
+                entry = (path, lineno, msg, kind)
+
+        if entry is None and line.startswith("! "):
+            msg = line[2:].strip()
+            lineno = None
+            # The offending line usually follows as "l.42 \badcommand"
+            for look in lines[i + 1:i + 6]:
+                lm = re.match(r"^l\.(\d+)", look.strip())
+                if lm:
+                    lineno = int(lm.group(1))
+                    break
+            entry = (main_file, lineno, msg, "error")
+
+        if entry is None:
+            wm = _WARN_LINE_RE.match(line.strip())
+            if wm:
+                lineno = int(wm.group(2)) if wm.group(2) else None
+                entry = (main_file, lineno, wm.group(1).strip(), "warning")
+
+        if entry is None:
+            continue
+        key = entry[:3]
+        if key in seen:
+            continue
+        seen.add(key)
+        problems.append({
+            "file": entry[0].replace("\\", "/"),
+            "line": entry[1],
+            "message": entry[2],
+            "severity": entry[3],
+        })
+    return problems
+
+
+def run_latex_build(repo_path, main_file, engine="pdflatex"):
+    """
+    Full LaTeX build: engine -> bibliography (biber/bibtex) -> engine reruns
+    until cross-references settle. Returns log, structured problems and steps.
+    """
+    base = os.path.splitext(main_file)[0]
+    workdir = repo_path
+    steps = []
+    log_parts = []
+
+    def engine_pass(label):
+        cmd = [engine, "-interaction=nonstopmode", "-file-line-error",
+               "-synctex=1", main_file]
+        try:
+            code, out = _run_tool(cmd, workdir)
+        except FileNotFoundError:
+            raise FileNotFoundError(
+                engine + " not found. Install a LaTeX distribution (e.g. TeX Live, MiKTeX)."
+            )
+        steps.append({"tool": engine, "label": label, "exitCode": code})
+        log_parts.append("$ " + " ".join(cmd) + "\n" + out)
+        return code
+
+    def read_aux_log():
+        # The .log file is far richer than stdout; prefer it when present.
+        log_file = os.path.join(workdir, base + ".log")
+        if os.path.isfile(log_file):
+            try:
+                with open(log_file, "r", encoding="utf-8", errors="replace") as f:
+                    return f.read()
+            except OSError:
+                return ""
+        return ""
+
+    engine_pass("pass 1")
+
+    # Bibliography: biblatex leaves a .bcf (biber), classic bibtex leaves
+    # \bibdata in the .aux. Skip entirely when neither is present.
+    bcf = os.path.join(workdir, base + ".bcf")
+    aux = os.path.join(workdir, base + ".aux")
+    aux_text = ""
+    if os.path.isfile(aux):
+        try:
+            with open(aux, "r", encoding="utf-8", errors="replace") as f:
+                aux_text = f.read()
+        except OSError:
+            aux_text = ""
+
+    bib_tool = None
+    if os.path.isfile(bcf):
+        bib_tool = ["biber", base]
+    elif "\\bibdata" in aux_text:
+        bib_tool = ["bibtex", base]
+
+    if bib_tool:
+        try:
+            code, out = _run_tool(bib_tool, workdir)
+            steps.append({"tool": bib_tool[0], "label": "bibliography", "exitCode": code})
+            log_parts.append("$ " + " ".join(bib_tool) + "\n" + out)
+        except FileNotFoundError:
+            log_parts.append(
+                bib_tool[0] + " not found - citations may be unresolved. "
+                "Install it with your LaTeX distribution."
+            )
+            steps.append({"tool": bib_tool[0], "label": "bibliography", "exitCode": -1,
+                          "missing": True})
+
+    # Rerun until references settle (bounded), always at least one extra pass
+    # when a bibliography ran.
+    max_reruns = 3 if bib_tool else 2
+    for n in range(max_reruns):
+        engine_pass("rerun %d" % (n + 1))
+        text = read_aux_log()
+        if not _RERUN_RE.search(text or "") and not (bib_tool and n == 0):
+            break
+
+    full_log = read_aux_log() or "\n".join(log_parts)
+    problems = parse_latex_log(full_log, main_file)
+
+    pdf_file = os.path.join(workdir, base + ".pdf")
+    error = None
+    if not os.path.isfile(pdf_file):
+        first_error = next((p for p in problems if p["severity"] == "error"), None)
+        error = first_error["message"] if first_error else "Compilation failed - no PDF produced."
+    elif steps and steps[-1]["exitCode"] not in (0, None):
+        first_error = next((p for p in problems if p["severity"] == "error"), None)
+        if first_error:
+            error = first_error["message"]
+
+    return {
+        "log": "\n".join(log_parts) if not full_log else full_log,
+        "problems": problems,
+        "steps": steps,
+        "error": error,
+    }
+
+
 @app.route("/compile", methods=["GET", "POST"])
 def compile_latex():
     global last_compile_error
@@ -782,31 +954,119 @@ def compile_latex():
         print("Compiling", main_file, "...")
     except Exception as e:
         return jsonify(error=str(e)), 500
+    engine = (data.get("engine") or "").strip().lower()
+    if engine not in LATEX_ENGINES:
+        engine = "pdflatex"
     try:
-        result = subprocess.run(
-            ["pdflatex", "-interaction=nonstopmode", main_file],
-            cwd=current_repo_path,
-            capture_output=True,
-            text=True,
-            timeout=120,
-        )
-        if result.returncode != 0:
-            last_compile_error = result.stderr or result.stdout or f"Exit code {result.returncode}"
-            print("Compile failed:", main_file)
-            return jsonify(error=last_compile_error), 500
-        last_compile_error = None
-        print("Compiled", main_file)
+        result = run_latex_build(current_repo_path, main_file, engine)
+        last_compile_error = result["error"]
         pdf_path = "/pdf/" + main_file.replace(".tex", ".pdf")
-        return jsonify(success=True, pdf=pdf_path)
+        payload = dict(
+            log=result["log"],
+            problems=result["problems"],
+            steps=result["steps"],
+            engine=engine,
+        )
+        if result["error"]:
+            print("Compile failed:", main_file)
+            return jsonify(error=result["error"], **payload), 500
+        print("Compiled", main_file, "in", len(result["steps"]), "step(s)")
+        return jsonify(success=True, pdf=pdf_path, **payload)
     except subprocess.TimeoutExpired:
         last_compile_error = "Compilation timed out"
         return jsonify(error=last_compile_error), 500
-    except FileNotFoundError:
-        last_compile_error = "pdflatex not found. Install a LaTeX distribution (e.g. TeX Live, MiKTeX)."
+    except FileNotFoundError as e:
+        last_compile_error = (
+            str(e) or engine + " not found. Install a LaTeX distribution (e.g. TeX Live, MiKTeX)."
+        )
         return jsonify(error=last_compile_error), 500
     except Exception as e:
         last_compile_error = str(e)
         return jsonify(error=last_compile_error), 500
+
+
+_LABEL_RE = re.compile(r"\\label\s*\{([^}]+)\}")
+_BIBKEY_RE = re.compile(r"^\s*@(\w+)\s*\{\s*([^,\s}]+)", re.M)
+_BIBFIELD_RE = re.compile(r"^\s*(title|author|year)\s*=\s*[{\"]\s*(.+?)\s*[}\"],?\s*$", re.M | re.I)
+_SECTION_RE = re.compile(
+    r"\\(chapter|section|subsection|subsubsection)\*?\s*(?:\[[^\]]*\])?\s*\{"
+)
+
+
+def _match_braces(text, start):
+    """Content of a {...} group starting at `start` (the opening brace)."""
+    depth = 0
+    for i in range(start, len(text)):
+        if text[i] == "{":
+            depth += 1
+        elif text[i] == "}":
+            depth -= 1
+            if depth == 0:
+                return text[start + 1:i]
+    return ""
+
+
+def _bib_entries(text):
+    entries = []
+    for m in _BIBKEY_RE.finditer(text):
+        key = m.group(2)
+        # Read only this entry's own {...} block, so fields can't leak in
+        # from the next entry.
+        brace = text.find("{", m.start())
+        body = _match_braces(text, brace) if brace != -1 else ""
+        fields = {}
+        for k, v in _BIBFIELD_RE.findall(body):
+            fields.setdefault(k.lower(), v)  # first occurrence wins
+        entries.append({
+            "key": key,
+            "type": m.group(1).lower(),
+            "title": (fields.get("title") or "").strip("{} ").rstrip(","),
+            "author": (fields.get("author") or "").strip("{} ").rstrip(","),
+            "year": (fields.get("year") or "").strip("{} ").rstrip(","),
+        })
+    return entries
+
+
+@app.route("/project-index")
+def project_index():
+    """Labels and bibliography keys across the project, for autocomplete."""
+    if not current_repo_path:
+        return jsonify(error="No repository selected"), 400
+    labels, citations = [], []
+    seen_labels, seen_keys = set(), set()
+    for root, dirs, files in os.walk(current_repo_path):
+        dirs[:] = [d for d in dirs if d != ".git"]
+        for name in files:
+            lower = name.lower()
+            if not lower.endswith((".tex", ".bib")):
+                continue
+            path = os.path.join(root, name)
+            rel = os.path.relpath(path, current_repo_path).replace("\\", "/")
+            try:
+                with open(path, "r", encoding="utf-8", errors="replace") as f:
+                    text = f.read()
+            except OSError:
+                continue
+            if lower.endswith(".tex"):
+                for m in _LABEL_RE.finditer(text):
+                    key = m.group(1).strip()
+                    if key and key not in seen_labels:
+                        seen_labels.add(key)
+                        labels.append({
+                            "label": key,
+                            "file": rel,
+                            "line": text.count("\n", 0, m.start()) + 1,
+                        })
+            else:
+                for e in _bib_entries(text):
+                    if e["key"] in seen_keys:
+                        continue
+                    seen_keys.add(e["key"])
+                    e["file"] = rel
+                    citations.append(e)
+    labels.sort(key=lambda x: x["label"])
+    citations.sort(key=lambda x: x["key"])
+    return jsonify(labels=labels, citations=citations)
 
 
 @app.route("/compile-error")
@@ -873,21 +1133,26 @@ def pdf_file(filename):
     return send_file(full, mimetype="application/pdf")
 
 
-@app.route("/commit", methods=["POST"])
-def commit():
+@app.route("/push", methods=["POST"])
+def push():
     if not current_repo_path:
         return jsonify(error="No repository selected"), 400
     if Repo is None:
         return jsonify(error="GitPython not installed"), 500
-    data = _json()
-    message = data.get("message") or ""
     try:
         repo = Repo(current_repo_path)
         try:
-            repo.index.add("*")
-            repo.index.commit(message)
-            print("Commit:", (message or "")[:60])
-            return jsonify(success=True)
+            # Stage and commit everything with a timestamp message, then push.
+            committed = False
+            repo.git.add("-A")
+            if repo.is_dirty(index=True, working_tree=True, untracked_files=True):
+                message = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                repo.index.commit(message)
+                committed = True
+                print("Commit:", message)
+            repo.remotes.origin.push()
+            print("Pushed to origin")
+            return jsonify(success=True, committed=committed)
         finally:
             if getattr(repo, "close", None):
                 try:
@@ -898,8 +1163,8 @@ def commit():
         return jsonify(error=str(e)), 500
 
 
-@app.route("/push", methods=["POST"])
-def push():
+@app.route("/pull", methods=["POST"])
+def pull():
     if not current_repo_path:
         return jsonify(error="No repository selected"), 400
     if Repo is None:
@@ -907,9 +1172,54 @@ def push():
     try:
         repo = Repo(current_repo_path)
         try:
-            repo.remotes.origin.push()
-            print("Pushed to origin")
-            return jsonify(success=True)
+            before = repo.head.commit.hexsha if repo.head.is_valid() else None
+            # --autostash keeps working-tree noise (compile artifacts like main.pdf)
+            # from blocking the pull; older gits don't support it for merges.
+            try:
+                output = repo.git.pull("--autostash")
+            except GitCommandError:
+                output = repo.git.pull()
+            after = repo.head.commit.hexsha if repo.head.is_valid() else None
+            print("Pulled from origin")
+            return jsonify(success=True, output=output, changed=before != after)
+        finally:
+            if getattr(repo, "close", None):
+                try:
+                    repo.close()
+                except Exception:
+                    pass
+    except Exception as e:
+        return jsonify(error=str(e)), 500
+
+
+@app.route("/remote-status")
+def remote_status():
+    """Fetch from origin and report how far the branch is behind/ahead."""
+    if not current_repo_path:
+        return jsonify(error="No repository selected"), 400
+    if Repo is None:
+        return jsonify(error="GitPython not installed"), 500
+    try:
+        repo = Repo(current_repo_path)
+        try:
+            dirty = repo.is_dirty(untracked_files=True)
+            if not repo.remotes:
+                return jsonify(hasRemote=False, behind=0, ahead=0, dirty=dirty)
+            if repo.head.is_detached:
+                return jsonify(hasRemote=True, tracking=None, behind=0, ahead=0, dirty=dirty)
+            branch = repo.active_branch
+            repo.git.fetch("--quiet")
+            tracking = branch.tracking_branch()
+            if tracking is None:
+                return jsonify(hasRemote=True, tracking=None, behind=0, ahead=0, dirty=dirty)
+            counts = repo.git.rev_list(
+                "--left-right", "--count", "%s...%s" % (tracking.name, branch.name)
+            ).split()
+            behind, ahead = int(counts[0]), int(counts[1])
+            return jsonify(
+                hasRemote=True, tracking=tracking.name,
+                branch=branch.name, behind=behind, ahead=ahead, dirty=dirty,
+            )
         finally:
             if getattr(repo, "close", None):
                 try:
@@ -929,11 +1239,46 @@ def status():
     try:
         repo = Repo(current_repo_path)
         try:
+            has_commits = repo.head.is_valid()
+            modified, deleted = [], []
+            # diff(None) = working tree vs index. A deleted_file entry here means
+            # the path is gone from disk, which is worth calling out separately.
+            for item in repo.index.diff(None):
+                (deleted if item.deleted_file else modified).append(item.a_path)
+            staged = []
+            if has_commits:
+                staged = [item.a_path for item in repo.index.diff("HEAD")]
+
+            ahead = behind = 0
+            tracking_name = None
+            branch_name = None
+            if not repo.head.is_detached:
+                try:
+                    branch = repo.active_branch
+                    branch_name = branch.name
+                    tracking = branch.tracking_branch() if has_commits else None
+                    if tracking is not None:
+                        tracking_name = tracking.name
+                        # Local knowledge only - no fetch, so /status stays fast.
+                        counts = repo.git.rev_list(
+                            "--left-right", "--count",
+                            "%s...%s" % (tracking.name, branch.name),
+                        ).split()
+                        behind, ahead = int(counts[0]), int(counts[1])
+                except (GitCommandError, TypeError, ValueError):
+                    pass
+
             status_dict = {
-                "current": repo.head.ref.name if not repo.head.is_detached else None,
-                "modified": [item.a_path for item in repo.index.diff(None)],
-                "staged": [item.a_path for item in repo.index.diff("HEAD")],
-                "untracked": repo.untracked_files,
+                "current": branch_name,
+                "detached": repo.head.is_detached,
+                "hasCommits": has_commits,
+                "tracking": tracking_name,
+                "ahead": ahead,
+                "behind": behind,
+                "modified": sorted(modified),
+                "deleted": sorted(deleted),
+                "staged": sorted(staged),
+                "untracked": sorted(repo.untracked_files),
             }
             return jsonify(status=status_dict)
         finally:
@@ -944,6 +1289,301 @@ def status():
                     pass
     except Exception as e:
         return jsonify(error=str(e)), 500
+
+
+def _open_repo():
+    """Returns (repo, error_response). Caller must close the repo."""
+    if not current_repo_path:
+        return None, (jsonify(error="No repository selected"), 400)
+    if Repo is None:
+        return None, (jsonify(error="GitPython not installed"), 500)
+    try:
+        repo = Repo(current_repo_path)
+    except Exception as e:
+        return None, (jsonify(error=str(e)), 500)
+    if not repo.head.is_valid():
+        return None, (jsonify(error="This project has no commits yet."), 400)
+    return repo, None
+
+
+def _close_repo(repo):
+    if repo is not None and getattr(repo, "close", None):
+        try:
+            repo.close()
+        except Exception:
+            pass
+
+
+def _blob_text(commit, path):
+    """Text of `path` at `commit`, or None if absent. ('', True) marks binary."""
+    try:
+        blob = commit.tree / path
+    except KeyError:
+        return None, False
+    data = blob.data_stream.read()
+    if b"\0" in data[:8000]:
+        return "", True
+    return data.decode("utf-8", errors="replace"), False
+
+
+@app.route("/commits")
+def commits():
+    """Commit history for the versions panel, newest first."""
+    repo, err = _open_repo()
+    if err:
+        return err
+    try:
+        try:
+            limit = max(1, min(int(request.args.get("limit", 50)), 200))
+            skip = max(0, int(request.args.get("skip", 0)))
+        except ValueError:
+            limit, skip = 50, 0
+        head = repo.head.commit
+        items = []
+        for c in repo.iter_commits(max_count=limit + 1, skip=skip):
+            items.append({
+                "hash": c.hexsha,
+                "short": c.hexsha[:7],
+                "message": (c.message or "").strip().split("\n")[0],
+                "author": c.author.name,
+                "date": datetime.datetime.fromtimestamp(c.committed_date).isoformat(),
+                "isHead": c.hexsha == head.hexsha,
+            })
+        has_more = len(items) > limit
+        return jsonify(commits=items[:limit], hasMore=has_more)
+    except Exception as e:
+        return jsonify(error=str(e)), 500
+    finally:
+        _close_repo(repo)
+
+
+@app.route("/commit-files")
+def commit_files():
+    """Files touched by a commit, with per-file change status."""
+    repo, err = _open_repo()
+    if err:
+        return err
+    try:
+        sha = request.args.get("hash") or ""
+        commit = repo.commit(sha)
+        parent = commit.parents[0] if commit.parents else None
+        # Against the empty tree for a root commit, so its files show as added.
+        diffs = (parent.diff(commit) if parent is not None
+                 else commit.diff(NULL_TREE))
+        stats = commit.stats.files
+        files = []
+        for d in diffs:
+            path = d.b_path or d.a_path
+            st = stats.get(path) or {}
+            files.append({
+                "path": path,
+                "oldPath": d.a_path if d.renamed_file else None,
+                "status": ("A" if d.new_file else
+                           "D" if d.deleted_file else
+                           "R" if d.renamed_file else "M"),
+                "insertions": st.get("insertions", 0),
+                "deletions": st.get("deletions", 0),
+            })
+        files.sort(key=lambda f: f["path"])
+        return jsonify(
+            files=files,
+            hash=commit.hexsha,
+            short=commit.hexsha[:7],
+            message=(commit.message or "").strip(),
+            author=commit.author.name,
+            date=datetime.datetime.fromtimestamp(commit.committed_date).isoformat(),
+            isRoot=parent is None,
+        )
+    except Exception as e:
+        return jsonify(error=str(e)), 500
+    finally:
+        _close_repo(repo)
+
+
+def _numstat(repo, rev_a, rev_b):
+    """{path: (insertions, deletions)} between two revisions."""
+    out = {}
+    try:
+        raw = repo.git.diff("--numstat", "-M", rev_a, rev_b)
+    except GitCommandError:
+        return out
+    for line in raw.splitlines():
+        parts = line.split("\t")
+        if len(parts) != 3:
+            continue
+        add, rem, path = parts
+        # "-" marks a binary file in numstat output.
+        out[path] = (0 if add == "-" else int(add), 0 if rem == "-" else int(rem))
+    return out
+
+
+@app.route("/working-files")
+def working_files():
+    """Uncommitted changes vs HEAD, shaped like the commit file lists."""
+    repo, err = _open_repo()
+    if err:
+        return err
+    try:
+        stats = {}
+        try:
+            raw = repo.git.diff("--numstat", "HEAD")
+            for line in raw.splitlines():
+                parts = line.split("\t")
+                if len(parts) == 3:
+                    add, rem, path = parts
+                    stats[path] = (0 if add == "-" else int(add),
+                                   0 if rem == "-" else int(rem))
+        except GitCommandError:
+            pass
+
+        files, seen = [], set()
+        for d in repo.head.commit.diff(None):
+            path = d.b_path or d.a_path
+            if path in seen:
+                continue
+            seen.add(path)
+            add, rem = stats.get(path, (0, 0))
+            # diff(HEAD -> working tree) reports these inverted.
+            files.append({
+                "path": path,
+                "oldPath": None,
+                "status": "D" if d.new_file else "A" if d.deleted_file else "M",
+                "insertions": add,
+                "deletions": rem,
+            })
+        for path in repo.untracked_files:
+            if path in seen:
+                continue
+            seen.add(path)
+            files.append({"path": path, "oldPath": None, "status": "A",
+                          "insertions": 0, "deletions": 0})
+        files.sort(key=lambda f: f["path"])
+        return jsonify(files=files)
+    except Exception as e:
+        return jsonify(error=str(e)), 500
+    finally:
+        _close_repo(repo)
+
+
+@app.route("/working-file")
+def working_file():
+    """HEAD version vs what's on disk right now."""
+    repo, err = _open_repo()
+    if err:
+        return err
+    try:
+        path = (request.args.get("path") or "").replace("\\", "/")
+        if not path:
+            return jsonify(error="No path given"), 400
+        before, before_bin = _blob_text(repo.head.commit, path)
+        full = resolve_repo_path(path)
+        after, after_bin = "", False
+        if full and os.path.isfile(full):
+            with open(full, "rb") as f:
+                raw = f.read()
+            if b"\0" in raw[:8000]:
+                after_bin = True
+            else:
+                after = raw.decode("utf-8", errors="replace")
+        if before_bin or after_bin:
+            return jsonify(binary=True, before="", after="", path=path)
+        return jsonify(binary=False, before=before or "", after=after, path=path)
+    except Exception as e:
+        return jsonify(error=str(e)), 500
+    finally:
+        _close_repo(repo)
+
+
+@app.route("/compare-files")
+def compare_files():
+    """Files that differ between two commits, for the versions compare view."""
+    repo, err = _open_repo()
+    if err:
+        return err
+    try:
+        a = repo.commit(request.args.get("from") or "")
+        b = repo.commit(request.args.get("to") or "")
+        stats = _numstat(repo, a.hexsha, b.hexsha)
+        files = []
+        for d in a.diff(b):
+            path = d.b_path or d.a_path
+            add, rem = stats.get(path, (0, 0))
+            files.append({
+                "path": path,
+                "oldPath": d.a_path if d.renamed_file else None,
+                "status": ("A" if d.new_file else
+                           "D" if d.deleted_file else
+                           "R" if d.renamed_file else "M"),
+                "insertions": add,
+                "deletions": rem,
+            })
+        files.sort(key=lambda f: f["path"])
+        return jsonify(
+            files=files,
+            fromHash=a.hexsha, fromShort=a.hexsha[:7],
+            fromMessage=(a.message or "").strip().split("\n")[0],
+            toHash=b.hexsha, toShort=b.hexsha[:7],
+            toMessage=(b.message or "").strip().split("\n")[0],
+        )
+    except Exception as e:
+        return jsonify(error=str(e)), 500
+    finally:
+        _close_repo(repo)
+
+
+@app.route("/compare-file")
+def compare_file():
+    """Text of one file at two commits, for the side-by-side diff."""
+    repo, err = _open_repo()
+    if err:
+        return err
+    try:
+        path = (request.args.get("path") or "").replace("\\", "/")
+        if not path:
+            return jsonify(error="No path given"), 400
+        a = repo.commit(request.args.get("from") or "")
+        b = repo.commit(request.args.get("to") or "")
+        before, before_bin = _blob_text(a, request.args.get("oldPath") or path)
+        after, after_bin = _blob_text(b, path)
+        if before_bin or after_bin:
+            return jsonify(binary=True, before="", after="", path=path)
+        return jsonify(binary=False, before=before or "", after=after or "", path=path)
+    except Exception as e:
+        return jsonify(error=str(e)), 500
+    finally:
+        _close_repo(repo)
+
+
+@app.route("/commit-file")
+def commit_file():
+    """Before/after text of one file in a commit, for the diff view."""
+    repo, err = _open_repo()
+    if err:
+        return err
+    try:
+        sha = request.args.get("hash") or ""
+        path = (request.args.get("path") or "").replace("\\", "/")
+        if not path:
+            return jsonify(error="No path given"), 400
+        commit = repo.commit(sha)
+        parent = commit.parents[0] if commit.parents else None
+        after, after_bin = _blob_text(commit, path)
+        before, before_bin = (None, False)
+        if parent is not None:
+            old_path = request.args.get("oldPath") or path
+            before, before_bin = _blob_text(parent, old_path)
+        if after_bin or before_bin:
+            return jsonify(binary=True, before="", after="", path=path)
+        return jsonify(
+            binary=False,
+            before=before or "",
+            after=after or "",
+            path=path,
+        )
+    except Exception as e:
+        return jsonify(error=str(e)), 500
+    finally:
+        _close_repo(repo)
 
 
 @app.route("/diff")

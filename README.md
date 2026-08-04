@@ -22,7 +22,7 @@ pip install gitlatex
 gitlatex
 ```
 
-Your browser will open at **http://localhost:5000**. Create a workspace or clone a repo, then open it to edit, compile, and use Git (status, diff, commit, push) from the toolbar.
+Your browser will open at **http://localhost:5000**. Create a workspace or clone a repo, then open it to edit, compile, and use Git (status, diff, pull, push) from the toolbar.
 
 **Options:**
 
@@ -43,7 +43,7 @@ Example: `gitlatex --port 3000 --repos /path/to/my/repos`
 - **File tree** – Create, rename, move, delete, and upload files and folders.
 - **Editor** – Monaco editor, multiple tabs, resizable panels.
 - **Compile** – Build with `pdflatex`, view PDF in-app, see errors in the console.
-- **Git** – Status, diff, commit, and push from the **Git** dropdown in the toolbar.
+- **Git** – Status, diff, pull, and push from the **Git** dropdown in the toolbar. Push commits all changes with a timestamp message, then pushes; pull and push are enabled only when there is something to pull or push.
 - **Settings** – Light/dark theme; optional remote Compiler API (URL + API key) to compile via a web service instead of local `pdflatex`.
 
 ---

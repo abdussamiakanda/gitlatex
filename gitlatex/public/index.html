@@ -112,13 +112,34 @@
         </div>
       </div>
       <div class="settings-group settings-group-stack">
-        <label class="settings-label" for="settings-compiler-api">Compiler API (pdflatex)</label>
-        <p class="settings-hint">Leave empty to use local pdflatex. Or set a URL to an API that compiles LaTeX and returns a PDF.</p>
-        <input type="url" id="settings-compiler-api" class="settings-input" placeholder="https://your-pdflatex-api.example.com/compile" autocomplete="url">
-        <label class="settings-label" for="settings-compiler-api-key">API key</label>
-        <p class="settings-hint">Optional. Sent as <code>Authorization: Bearer &lt;key&gt;</code> when calling the compiler API.</p>
-        <input type="password" id="settings-compiler-api-key" class="settings-input" placeholder="Your API key" autocomplete="off">
-        <p class="settings-hint"><a href="#/compiler-api" class="settings-info-link">How to build a Compiler API &rarr;</a></p>
+        <label class="settings-label" for="settings-engine">Compilation</label>
+        <p class="settings-hint">LaTeX engine used to build your document.</p>
+        <select id="settings-engine" class="settings-input">
+          <option value="pdflatex">pdflatex</option>
+          <option value="xelatex">xelatex</option>
+          <option value="lualatex">lualatex</option>
+        </select>
+
+        <label class="settings-toggle" for="settings-use-api">
+          <span class="settings-toggle-text">Compile with a remote Compiler API</span>
+          <input type="checkbox" id="settings-use-api" class="switch-input">
+          <span class="switch" aria-hidden="true"></span>
+        </label>
+        <p class="settings-hint" id="settings-engine-hint">
+          Local builds run the engine, then bibtex/biber when needed, then rerun until
+          cross-references and citations resolve.
+        </p>
+
+        <div id="settings-api-fields" class="settings-api-fields hidden">
+          <label class="settings-label" for="settings-compiler-api">Compiler API URL</label>
+          <p class="settings-hint">An API that compiles LaTeX and returns a PDF.</p>
+          <input type="url" id="settings-compiler-api" class="settings-input" placeholder="https://your-latex-api.example.com/compile" autocomplete="url">
+          <label class="settings-label" for="settings-compiler-api-key">API key</label>
+          <p class="settings-hint">Optional. Sent as <code>Authorization: Bearer &lt;key&gt;</code>.</p>
+          <input type="password" id="settings-compiler-api-key" class="settings-input" placeholder="Your API key" autocomplete="off">
+          <p class="settings-hint"><a href="#/compiler-api" class="settings-info-link">How to build a Compiler API &rarr;</a></p>
+        </div>
+
         <div class="settings-actions">
           <span id="settings-save-status" class="settings-save-status"></span>
           <button type="button" id="settings-test-api" class="btn-toolbar">Test</button>
@@ -129,7 +150,6 @@
         <label class="settings-label">Technical info</label>
         <dl class="settings-info-list">
           <div class="settings-info-row"><dt>Version</dt><dd id="settings-info-version">—</dd></div>
-          <div class="settings-info-row"><dt>App URL</dt><dd id="settings-info-url">—</dd></div>
           <div class="settings-info-row"><dt>Github</dt><dd id="settings-info-repo">—</dd></div>
           <div class="settings-info-row"><dt>PyPI</dt><dd id="settings-info-pypi">—</dd></div>
           <div class="settings-info-row"><dt>Compiler API</dt><dd><a href="#/compiler-api" class="settings-info-link">Build your own &rarr;</a></dd></div>
@@ -215,6 +235,7 @@
           <button type="button" class="docs-copy">Copy</button>
           <pre><code>{
   "main": "main.tex",
+  "engine": "pdflatex",
   "files": [
     { "path": "main.tex",          "content": "\\documentclass{article}\n..." },
     { "path": "chapters/intro.tex", "content": "\\section{Intro}\n..." },
@@ -225,6 +246,7 @@
         </div>
         <ul class="docs-list">
           <li><code>main</code> — the file picked in the toolbar's main-file dropdown. It is a <em>repo-relative path</em>, so it can be nested (<code>thesis/main.tex</code>), not just a bare filename. Defaults to <code>main.tex</code>.</li>
+          <li><code>engine</code> — the engine chosen in Settings: <code>pdflatex</code>, <code>xelatex</code> or <code>lualatex</code>. Honour it if you can; fall back to <code>pdflatex</code> if you only support one. <strong>Your API is responsible for running multiple passes and bibtex/biber</strong> — GitLaTeX's local multi-pass build cannot drive a remote compiler, so a single-pass API will return <code>??</code> for cross-references and unresolved citations.</li>
           <li><code>files</code> — every file in the repo, flattened. Paths are repo-relative and always use forward slashes, on Windows too.</li>
           <li><strong>Two possible content keys.</strong> Text files arrive as <code>content</code> (a UTF-8 string); binary files arrive as <code>base64</code>. Always check <code>base64</code> first and fall back to <code>content</code> — the split is by file extension, so <code>.css</code>, <code>.js</code> and <code>.svg</code> also come through as <code>base64</code>.</li>
           <li>The <code>.git</code> folder is excluded, and any single file over <strong>5 MB</strong> is dropped from the bundle.</li>
@@ -454,6 +476,8 @@ app.listen(8080, () => console.log("Compiler API on http://localhost:8080/compil
         <span class="material-icons" aria-hidden="true">home</span>
       </a>
       <span id="editor-repo-name" class="repo-name"></span>
+    </div>
+    <div class="toolbar-right">
       <div class="toolbar-mainfile mainfile-dropdown" id="toolbar-mainfile">
         <button type="button" class="mainfile-dropdown-btn" id="mainfile-dropdown-btn" aria-haspopup="true" aria-expanded="false" aria-label="Select main file">
           <span class="material-icons" aria-hidden="true">description</span>
@@ -462,13 +486,12 @@ app.listen(8080, () => console.log("Compiler API on http://localhost:8080/compil
         </button>
         <div class="mainfile-dropdown-menu" id="mainfile-dropdown-menu" role="menu" aria-hidden="true"></div>
       </div>
-    </div>
-    <div class="toolbar-right">
       <button type="button" class="primary" id="btn-compile" onclick="compile()">
           <span class="material-icons btn-compile-icon" aria-hidden="true">play_arrow</span>
           <span class="btn-compile-text">Compile</span>
         </button>
       <button type="button" class="btn-errors" onclick="showCompileErrors()"><span class="material-icons" aria-hidden="true">error_outline</span><span>Errors</span></button>
+      <button type="button" class="btn-versions" id="btn-versions" onclick="toggleVersionsPanel()" aria-pressed="false" title="Version history"><span class="material-icons" aria-hidden="true">history</span><span>Versions</span></button>
       <div class="toolbar-git git-dropdown" id="toolbar-git">
         <button type="button" class="git-dropdown-btn" id="git-dropdown-btn" aria-haspopup="true" aria-expanded="false" aria-label="Git actions">
           <i class="fa-brands fa-git-alt" aria-hidden="true"></i>
@@ -478,8 +501,8 @@ app.listen(8080, () => console.log("Compiler API on http://localhost:8080/compil
         <div class="git-dropdown-menu" id="git-dropdown-menu" role="menu" aria-hidden="true">
           <button type="button" role="menuitem" onclick="showStatus(); closeGitDropdown();"><span class="material-icons git-dropdown-menu-icon" aria-hidden="true">info</span><span>Status</span></button>
           <button type="button" role="menuitem" onclick="showDiff(); closeGitDropdown();"><span class="material-icons git-dropdown-menu-icon" aria-hidden="true">code</span><span>Diff</span></button>
-          <button type="button" role="menuitem" onclick="commit(); closeGitDropdown();"><span class="material-icons git-dropdown-menu-icon" aria-hidden="true">commit</span><span>Commit</span></button>
-          <button type="button" role="menuitem" onclick="pushChanges(); closeGitDropdown();"><span class="material-icons git-dropdown-menu-icon" aria-hidden="true">cloud_upload</span><span>Push</span></button>
+          <button type="button" role="menuitem" id="git-push-btn" disabled onclick="pushChanges(); closeGitDropdown();"><span class="material-icons git-dropdown-menu-icon" aria-hidden="true">cloud_upload</span><span id="git-push-label">Push</span></button>
+          <button type="button" role="menuitem" id="git-pull-btn" disabled onclick="pullChanges(); closeGitDropdown();"><span class="material-icons git-dropdown-menu-icon" aria-hidden="true">cloud_download</span><span id="git-pull-label">Pull</span></button>
         </div>
       </div>
     </div>
@@ -500,6 +523,17 @@ app.listen(8080, () => console.log("Compiler API on http://localhost:8080/compil
         <input type="file" id="sidebar-file-input" multiple hidden>
       </div>
       <div id="sidebar-tree"></div>
+      <div id="outline-section">
+        <button type="button" id="outline-header" aria-expanded="true" aria-controls="outline-tree">
+          <span class="material-icons outline-caret" aria-hidden="true">expand_more</span>
+          <span>Outline</span>
+        </button>
+        <div id="outline-tree"></div>
+      </div>
+      <button type="button" class="sidebar-console-toggle" id="console-toggle" aria-label="Toggle console" title="Toggle console">
+        <span class="material-icons console-tab-icon">expand_more</span>
+        <span class="console-tab-label">Console</span>
+      </button>
     </div>
     <div class="resizer resizer-v" id="resizer-sidebar" title="Resize sidebar"></div>
     <div id="editor-pane">
@@ -509,21 +543,69 @@ app.listen(8080, () => console.log("Compiler API on http://localhost:8080/compil
         <iframe id="file-viewer-pdf" class="file-viewer-content hidden" title="PDF viewer"></iframe>
         <div id="file-viewer-unavailable" class="file-viewer-unavailable hidden">Preview not available</div>
       </div>
+      <div id="diff-view" class="hidden" aria-hidden="true">
+        <div id="diff-view-header">
+          <span class="material-icons diff-view-icon" aria-hidden="true">history</span>
+          <div class="diff-view-titles">
+            <span id="diff-view-path"></span>
+            <span id="diff-view-meta"></span>
+          </div>
+          <button type="button" class="icon-btn" id="diff-view-close" title="Close diff" aria-label="Close diff">
+            <span class="material-icons" aria-hidden="true">close</span>
+          </button>
+        </div>
+        <div id="diff-editor"></div>
+        <div id="diff-view-message" class="hidden"></div>
+      </div>
     </div>
     <div class="resizer resizer-v" id="resizer-pdf" title="Resize editor / PDF"></div>
     <iframe id="pdf"></iframe>
+    <aside id="versions-panel" class="hidden" aria-hidden="true" aria-label="Version history">
+      <div class="versions-header">
+        <span class="material-icons" aria-hidden="true">history</span>
+        <span class="versions-title">Versions</span>
+        <button type="button" class="icon-btn" id="versions-refresh" title="Refresh history" aria-label="Refresh history">
+          <span class="material-icons" aria-hidden="true">refresh</span>
+        </button>
+        <button type="button" class="icon-btn" id="versions-close" title="Close versions" aria-label="Close versions">
+          <span class="material-icons" aria-hidden="true">close</span>
+        </button>
+      </div>
+      <div id="versions-compare-bar" class="hidden" aria-live="polite">
+        <div class="compare-slots">
+          <span class="compare-slot" id="compare-slot-a">Select a commit</span>
+          <span class="material-icons compare-arrow" aria-hidden="true">arrow_forward</span>
+          <span class="compare-slot" id="compare-slot-b">Select a second</span>
+        </div>
+        <div class="compare-actions">
+          <button type="button" class="btn-toolbar" id="compare-swap" title="Swap direction">Swap</button>
+          <button type="button" class="btn-toolbar" id="compare-clear" title="Clear selection">Clear</button>
+        </div>
+      </div>
+      <div id="versions-compare-files" class="hidden"></div>
+      <div id="versions-list"></div>
+    </aside>
   </div>
 
   <div class="console-area">
     <div class="console-content">
       <div class="resizer resizer-h" id="resizer-console" title="Resize console"></div>
-      <pre id="console"></pre>
-    </div>
-    <div class="console-tab-anchor">
-      <button type="button" class="console-tab" id="console-toggle" aria-label="Toggle console" title="Toggle console">
-        <span class="material-icons console-tab-icon">expand_more</span>
-        <span class="console-tab-label">Console</span>
-      </button>
+      <div class="console-toolbar" role="tablist">
+        <button type="button" class="console-tab-btn active" id="tab-problems" role="tab" aria-selected="true" aria-controls="problems-list" data-panel="problems">
+          Problems<span class="console-badge hidden" id="problems-badge">0</span>
+        </button>
+        <button type="button" class="console-tab-btn" id="tab-output" role="tab" aria-selected="false" aria-controls="console" data-panel="output">
+          Output
+        </button>
+        <span class="console-toolbar-gap"></span>
+        <button type="button" class="icon-btn console-tool" id="console-clear" title="Clear" aria-label="Clear console">
+          <span class="material-icons" aria-hidden="true">block</span>
+        </button>
+      </div>
+      <div class="console-panels">
+        <div id="problems-list" role="tabpanel" aria-labelledby="tab-problems"></div>
+        <pre id="console" role="tabpanel" aria-labelledby="tab-output" class="hidden"></pre>
+      </div>
     </div>
   </div>
 </div>

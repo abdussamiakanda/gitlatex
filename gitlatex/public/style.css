@@ -390,10 +390,28 @@ body.sidebar-hidden #toggleSidebarBtn {
 #sidebar-tree {
   flex: 1;
   min-height: 0;
-  min-width: var(--sidebar-width);
-  overflow: auto;
+  /* min-width must not be the sidebar width, or narrowing the sidebar
+     forces the tree to overflow horizontally. */
+  min-width: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
   box-sizing: border-box;
-  padding: 8px 0;
+  padding: 6px 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-default) transparent;
+}
+#sidebar-tree::-webkit-scrollbar {
+  width: 10px;
+}
+#sidebar-tree::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border: 3px solid transparent;
+  background-clip: content-box;
+  border-radius: 999px;
+}
+#sidebar-tree::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+  background-clip: content-box;
 }
 
 #sidebar .sidebar-placeholder {
@@ -412,23 +430,82 @@ body.sidebar-hidden #toggleSidebarBtn {
 #sidebar li {
   margin: 0;
   padding: 0;
-  font-size: 13px;
+  font-size: 12.5px;
   line-height: 1.4;
 }
 
 #sidebar .sidebar-item-row {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   min-width: 0;
   flex: 1;
 }
+/* File type icons. Colours are muted so the tree reads as one surface
+   rather than a rainbow; the active row takes the row's own colour. */
+/* One fixed 16px box for every icon - Font Awesome glyphs and the inline
+   TeX SVG alike - so the name column never shifts between rows. */
+#sidebar .sidebar-file-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--text-muted);
+  opacity: 0.85;
+  transition: color 0.12s ease, opacity 0.12s ease;
+}
+#sidebar .sidebar-file-icon svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+#sidebar li.file:hover .sidebar-file-icon,
+#sidebar li.folder > .sidebar-item-row:hover .sidebar-file-icon {
+  opacity: 1;
+}
+/* Label inside the inline doc icons: brighter than the page outline so
+   it stays legible at 16px. --doc-label is set per type below. */
+#sidebar .sidebar-file-icon .doc-label {
+  fill: var(--doc-label, currentColor);
+}
+#sidebar .sidebar-file-icon.kind-tex {
+  color: var(--accent);
+  --doc-label: #2dd4bf;
+  opacity: 1;
+}
+#sidebar .sidebar-file-icon.kind-vector { --doc-label: #4ade80; }
+#sidebar .sidebar-file-icon.kind-svg { --doc-label: #facc15; color: #ca8a04; }
+#sidebar .sidebar-file-icon.kind-bib { color: #a371f7; opacity: 1; }
+#sidebar .sidebar-file-icon.kind-pdf { color: var(--danger); }
+#sidebar .sidebar-file-icon.kind-image,
+#sidebar .sidebar-file-icon.kind-svg,
+#sidebar .sidebar-file-icon.kind-vector { color: var(--success); opacity: 1; }
+#sidebar .sidebar-file-icon.kind-style { color: var(--warning); }
+#sidebar .sidebar-file-icon.kind-data,
+#sidebar .sidebar-file-icon.kind-config,
+#sidebar .sidebar-file-icon.kind-code { color: #58a6ff; }
+#sidebar .sidebar-file-icon.kind-folder { color: var(--text-secondary); opacity: 1; }
+#sidebar li.file.active .sidebar-file-icon,
+#sidebar li.folder.selected > .sidebar-item-row .sidebar-file-icon {
+  color: currentColor;
+  opacity: 1;
+}
+
 #sidebar .sidebar-item-name {
   flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+#sidebar li:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  border-radius: var(--radius-sm);
 }
 #sidebar .sidebar-delete-btn {
   flex-shrink: 0;
@@ -446,7 +523,11 @@ body.sidebar-hidden #toggleSidebarBtn {
   opacity: 0;
   transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
 }
-#sidebar li:hover .sidebar-delete-btn {
+/* focus-within so keyboard users can reach a button that is otherwise
+   only revealed on hover. */
+#sidebar li:hover > .sidebar-item-row > .sidebar-delete-btn,
+#sidebar li:focus-within > .sidebar-item-row > .sidebar-delete-btn,
+#sidebar li:hover .sidebar-delete-btn:focus-visible {
   opacity: 1;
 }
 #sidebar .sidebar-delete-btn:hover {
@@ -457,33 +538,64 @@ body.sidebar-hidden #toggleSidebarBtn {
   font-size: 16px;
 }
 
-#sidebar li.folder {
-  color: var(--text-secondary);
-  font-weight: 500;
-  padding: 4px 12px;
-  padding-left: 12px;
+/* The pill is the row, not the <li> - a folder <li> wraps its whole
+   subtree, so styling it would tint nested children too. */
+#sidebar li.folder > .sidebar-item-row,
+#sidebar li.file > .sidebar-item-row {
+  position: relative;
+  min-height: 27px;
+  padding: 3px 6px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: background 0.1s ease, color 0.1s ease;
+  color: var(--text-secondary);
+  transition: background 0.12s ease, color 0.12s ease;
+}
+/* Must precede hover/active, or it overrides them by source order and
+   leaves a selected .tex row (and its icon) plain white. */
+#sidebar li.file.tex-file > .sidebar-item-row {
+  color: var(--text-primary);
+}
+#sidebar li.folder > .sidebar-item-row:hover,
+#sidebar li.file:hover > .sidebar-item-row {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+#sidebar li.folder.selected > .sidebar-item-row,
+#sidebar li.file.active > .sidebar-item-row {
+  background: var(--accent-muted);
+  color: var(--accent);
+  font-weight: 600;
+}
+/* Accent marker drawn inside the pill, so the row never shifts. */
+#sidebar li.folder.selected > .sidebar-item-row::after,
+#sidebar li.file.active > .sidebar-item-row::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 5px;
+  bottom: 5px;
+  width: 2px;
+  border-radius: 0 2px 2px 0;
+  background: var(--accent);
+}
+
+#sidebar li.folder,
+#sidebar li.file {
+  margin: 1px 6px;
+  color: var(--text-secondary);
+}
+
+#sidebar li.folder {
+  font-weight: 500;
   display: flex;
   flex-direction: column;
   align-items: stretch;
 }
-#sidebar li.folder > .sidebar-item-row {
-  margin-left: -2px;
-}
-#sidebar li.folder:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-}
-#sidebar li.folder.selected {
-  background: var(--accent-muted);
-  color: var(--accent);
-}
 #sidebar .sidebar-chevron {
   flex-shrink: 0;
-  font-size: 20px;
-  width: 20px;
-  height: 20px;
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -495,47 +607,41 @@ body.sidebar-hidden #toggleSidebarBtn {
 }
 
 #sidebar li.file {
-  padding: 6px 12px 6px 24px;
-  cursor: pointer;
-  color: var(--text-secondary);
-  border-left: 2px solid transparent;
-  margin-left: 0;
-  transition: background 0.1s ease, color 0.1s ease, border-color 0.1s ease;
   display: flex;
   align-items: center;
+  /* Folder rows lead with an 18px chevron; files indent by that much so
+     both name columns line up. */
+  padding-left: 24px;
 }
 
-#sidebar li.file:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-}
-
-#sidebar li.file.tex-file {
-  color: var(--text-primary);
-}
-
-#sidebar li.file.active {
-  background: var(--accent-muted);
-  color: var(--accent);
-  border-left-color: var(--accent);
-}
 
 #sidebar li.sidebar-drag-source {
   opacity: 0.6;
 }
 
+/* Drop target: a ring rather than a left border, so rows keep their
+   width and the pill shape stays intact. */
 #sidebar .sidebar-drop-target,
 #sidebar-tree.sidebar-drop-target {
   background: var(--accent-muted);
-  border-left: 2px solid var(--accent);
+  border-radius: var(--radius-sm);
+  box-shadow: inset 0 0 0 1px var(--accent);
   outline: none;
 }
 
+/* Indent guide for nested contents. --border-subtle and --border-default
+   are the same colour in the light theme, so hover uses --text-muted to
+   stay visible on both. */
 #sidebar li ul {
   padding-left: 8px;
-  border-left: 1px solid var(--border-default);
-  margin-left: 8px;
-  margin-top: 8px;
+  border-left: 1px solid var(--border-subtle);
+  margin: 1px 0 3px 13px;
+}
+#sidebar li.folder:hover > ul {
+  border-left-color: var(--text-muted);
+}
+#sidebar li.folder.selected > ul {
+  border-left-color: var(--accent);
 }
 
 /* --- Editor pane (contains editor and file viewer) --- */
@@ -633,22 +739,93 @@ body.sidebar-hidden #toggleSidebarBtn {
 }
 
 /* --- Console --- */
+/* Tabbed console: toolbar + one scrolling panel area of the resizable height */
+.console-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 6px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-bottom: none;
+  flex-shrink: 0;
+}
+.console-toolbar-gap {
+  flex: 1 1 auto;
+}
+.console-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px 6px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.console-tab-btn:hover {
+  color: var(--text-primary);
+}
+.console-tab-btn.active {
+  color: var(--text-primary);
+  border-bottom-color: var(--accent);
+}
+.console-badge {
+  min-width: 16px;
+  padding: 0 5px;
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 15px;
+  text-align: center;
+  border-radius: 999px;
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+.console-badge.has-errors {
+  background: rgba(248, 81, 73, 0.16);
+  color: #f85149;
+}
+.console-badge.hidden {
+  display: none;
+}
+.console-tool {
+  width: 26px;
+  height: 26px;
+}
+.console-tool .material-icons {
+  font-size: 15px;
+}
+.console-panels {
+  height: var(--console-height);
+  min-height: 80px;
+  background: var(--bg-app);
+  border: 1px solid var(--border-subtle);
+  border-top: none;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.console-panels > * {
+  height: 100%;
+  overflow: auto;
+  box-sizing: border-box;
+}
+.console-panels > .hidden {
+  display: none;
+}
+
 #console {
   margin: 0;
   padding: 12px 16px;
-  height: var(--console-height);
-  min-height: 80px;
-  overflow: auto;
   font-family: var(--font-mono);
   font-size: 12px;
   line-height: 1.5;
-  background: var(--bg-app);
   color: var(--text-secondary);
-  border: 1px solid var(--border-subtle);
-  border-top: none;
   white-space: pre-wrap;
   word-break: break-word;
-  flex-shrink: 0;
 }
 
 #console:not(:empty) {
@@ -677,57 +854,35 @@ body.sidebar-hidden #toggleSidebarBtn {
   max-height: 0;
 }
 
-/* Zero-height anchor at top of console; tab sits on its bottom edge and sticks up */
-.console-tab-anchor {
-  position: relative;
-  flex-shrink: 0;
-  height: 0;
-  min-height: 0;
-  margin: 0;
-  padding: 0;
-  overflow: visible;
-  line-height: 0;
-}
-
-/* Console tab: bottom of anchor = top of resizer; tab sticks up from there */
-.console-tab {
-  position: absolute;
-  left: 12px;
-  transform: translateY(-100%);
-  width: fit-content;
-  display: inline-flex;
+/* Console toggle: a sidebar row under the Outline section */
+.sidebar-console-toggle {
+  display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 12px 8px 12px;
-  border: 1px solid var(--border-subtle);
-  border-bottom: none;
-  border-radius: var(--radius-md) var(--radius-md) 0 0;
-  background: var(--bg-elevated);
+  gap: 4px;
+  width: 100%;
+  margin-top: auto;
+  padding: 6px 10px;
+  border: none;
+  border-top: 1px solid var(--border-subtle);
+  background: transparent;
   color: var(--text-secondary);
-  font-family: var(--font-sans);
-  font-size: 13px;
-  font-weight: 500;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-align: left;
   cursor: pointer;
-  transition: background 0.2s ease, color 0.2s ease;
-  z-index: 10;
+  flex-shrink: 0;
+  box-sizing: border-box;
 }
-.console-tab:hover {
-  background: var(--bg-hover);
+.sidebar-console-toggle:hover {
   color: var(--text-primary);
+  background: var(--bg-hover);
 }
 .console-tab-icon {
-  font-size: 18px;
-}
-.console-tab-label {
-  font-size: 12px;
-}
-/* When console hidden: tab fixed at bottom of viewport so it stays visible while area collapses */
-#editor-view.console-hidden .console-tab {
-  position: fixed;
-  bottom: 0px;
-  left: 12px;
-  transform: none;
-  border-bottom: 1px solid var(--border-subtle);
+  font-size: 16px;
+  transition: transform 0.15s ease;
 }
 #editor-view.console-hidden .console-tab-icon {
   transform: rotate(180deg);
@@ -1490,6 +1645,13 @@ body.sidebar-hidden #toggleSidebarBtn {
 .git-dropdown-menu button:hover {
   background: var(--bg-hover);
 }
+.git-dropdown-menu button:disabled,
+.git-dropdown-menu button:disabled:hover {
+  background: transparent;
+  color: var(--text-secondary);
+  opacity: 0.5;
+  cursor: default;
+}
 .git-dropdown-menu button:hover .git-dropdown-menu-icon {
   color: var(--text-primary);
 }
@@ -1497,11 +1659,586 @@ body.sidebar-hidden #toggleSidebarBtn {
   margin-top: 0;
 }
 
+/* --- Settings: compilation group --- */
+/* Engine select sits tight under its own hint, then a clear break
+   before the API toggle. */
+#settings-engine {
+  margin-bottom: 4px;
+}
+.settings-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+.settings-toggle-text {
+  flex: 1 1 auto;
+}
+/* Real checkbox stays focusable but invisible; .switch is the visual. */
+.switch-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  margin: 0;
+}
+.switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 34px;
+  height: 19px;
+  border-radius: 999px;
+  background: var(--border-subtle);
+  transition: background 0.18s ease;
+}
+.switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--bg-elevated);
+  transition: transform 0.18s ease;
+}
+.switch-input:checked + .switch {
+  background: var(--accent);
+}
+.switch-input:checked + .switch::after {
+  transform: translateX(15px);
+}
+.switch-input:focus-visible + .switch {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Children are block-level, so spacing is set per element rather than
+   by the parent group's flex gap. */
+.settings-api-fields .settings-label {
+  display: block;
+  margin: 16px 0 3px;
+}
+.settings-api-fields > .settings-label:first-child {
+  margin-top: 0;
+}
+.settings-api-fields .settings-hint {
+  margin: 0 0 8px;
+}
+.settings-api-fields.hidden,
+#settings-test-api.hidden {
+  display: none;
+}
+
+/* --- LaTeX environment pair colouring ---
+   \begin{X} and \end{X} share a colour picked from the name, so a matching
+   pair is obvious at a glance. Overrides the token colour, hence !important. */
+.tex-env {
+  font-weight: 600 !important;
+}
+.tex-env-0 { color: #4ec9b0 !important; }
+.tex-env-1 { color: #c586c0 !important; }
+.tex-env-2 { color: #dcdcaa !important; }
+.tex-env-3 { color: #569cd6 !important; }
+.tex-env-4 { color: #ce9178 !important; }
+.tex-env-5 { color: #b5cea8 !important; }
+.tex-env-6 { color: #d7ba7d !important; }
+.tex-env-7 { color: #9cdcfe !important; }
+.tex-env-8 { color: #e5a3c8 !important; }
+.tex-env-9 { color: #7fd3c5 !important; }
+.tex-env-10 { color: #cbb4f0 !important; }
+.tex-env-11 { color: #e0c46c !important; }
+
+/* Darker variants so they stay readable on the light theme's white page. */
+[data-theme="light"] .tex-env-0 { color: #0f766e !important; }
+[data-theme="light"] .tex-env-1 { color: #a21caf !important; }
+[data-theme="light"] .tex-env-2 { color: #854d0e !important; }
+[data-theme="light"] .tex-env-3 { color: #1d4ed8 !important; }
+[data-theme="light"] .tex-env-4 { color: #b45309 !important; }
+[data-theme="light"] .tex-env-5 { color: #3f6212 !important; }
+[data-theme="light"] .tex-env-6 { color: #9a3412 !important; }
+[data-theme="light"] .tex-env-7 { color: #0369a1 !important; }
+[data-theme="light"] .tex-env-8 { color: #9d174d !important; }
+[data-theme="light"] .tex-env-9 { color: #115e59 !important; }
+[data-theme="light"] .tex-env-10 { color: #6d28d9 !important; }
+[data-theme="light"] .tex-env-11 { color: #92400e !important; }
+
+/* Unclosed \begin, or an \end with no \begin. */
+.tex-env-unmatched {
+  color: var(--danger) !important;
+  text-decoration: underline wavy var(--danger);
+  text-underline-offset: 3px;
+}
+
+/* --- Document outline --- */
+#outline-section {
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 45%;
+  flex-shrink: 0;
+}
+#outline-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 6px 10px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+#outline-header:hover {
+  color: var(--text-primary);
+}
+.outline-caret {
+  font-size: 16px;
+  transition: transform 0.15s ease;
+}
+#outline-section.collapsed .outline-caret {
+  transform: rotate(-90deg);
+}
+#outline-section.collapsed #outline-tree {
+  display: none;
+}
+#outline-tree {
+  overflow-y: auto;
+  padding-bottom: 8px;
+  min-height: 0;
+}
+.outline-item {
+  display: block;
+  width: 100%;
+  padding: 3px 10px 3px 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+.outline-item:hover {
+  background: var(--bg-hover);
+}
+.outline-item.active {
+  background: var(--bg-active);
+  color: var(--accent);
+}
+.outline-empty {
+  padding: 6px 10px 10px;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+
+/* --- Compile problems list --- */
+#problems-list {
+  padding: 4px 0;
+}
+.problems-empty {
+  padding: 12px 16px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.problem-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+.problem-row:hover {
+  background: var(--bg-hover);
+}
+.problem-icon {
+  font-size: 15px;
+  flex-shrink: 0;
+}
+.problem-error .problem-icon { color: #f85149; }
+.problem-warning .problem-icon { color: #d29922; }
+.problem-message {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.problem-loc {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+/* --- Versions panel (commit history) --- */
+#versions-panel {
+  width: 320px;
+  min-width: 260px;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-elevated);
+  border-left: 1px solid var(--border-subtle);
+  overflow: hidden;
+}
+#versions-panel.hidden {
+  display: none;
+}
+.versions-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 8px 8px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+.versions-header .material-icons {
+  font-size: 18px;
+  color: var(--text-secondary);
+}
+.versions-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-right: auto;
+}
+#versions-list {
+  overflow-y: auto;
+  flex: 1 1 auto;
+  padding: 4px 0 12px;
+}
+
+/* Compare bar + compare results */
+#versions-compare-bar {
+  flex-shrink: 0;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-app);
+}
+#versions-compare-bar.hidden,
+#versions-compare-files.hidden {
+  display: none;
+}
+.compare-slots {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.compare-slot {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 3px 7px;
+  font-size: 11.5px;
+  text-align: center;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.compare-arrow {
+  font-size: 15px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+.compare-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+.compare-actions .btn-toolbar {
+  flex: 1 1 0;
+  height: 24px;
+  padding: 0 8px;
+  font-size: 11.5px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+.compare-actions .btn-toolbar:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+.compare-actions .btn-toolbar:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+#versions-compare-files {
+  flex: 0 1 auto;
+  max-height: 45%;
+  overflow-y: auto;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 6px;
+}
+.compare-files-head {
+  padding: 8px 10px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.version-item.selected {
+  background: var(--bg-active);
+}
+.version-select {
+  display: flex;
+  align-items: center;
+  padding: 6px 2px 6px 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.version-select .material-icons {
+  font-size: 16px;
+}
+.version-select:hover {
+  color: var(--accent);
+}
+.version-item.selected .version-select {
+  color: var(--accent);
+}
+.versions-placeholder {
+  padding: 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.version-row {
+  display: flex;
+  align-items: flex-start;
+  width: 100%;
+  box-sizing: border-box;
+}
+.version-row:hover {
+  background: var(--bg-hover);
+}
+.version-expand {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 7px 10px 7px 2px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+.version-caret {
+  font-size: 16px;
+  color: var(--text-secondary);
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.version-item.expanded .version-caret {
+  transform: rotate(90deg);
+}
+.version-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.version-message {
+  font-size: 12.5px;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.version-meta {
+  font-size: 11px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.version-head-tag {
+  align-self: flex-start;
+  margin-top: 2px;
+  padding: 0 5px;
+  font-size: 10px;
+  line-height: 15px;
+  border-radius: 7px;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+}
+.version-files {
+  padding: 2px 0 6px 22px;
+}
+.version-files.hidden {
+  display: none;
+}
+.version-file {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 4px 10px 4px 4px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 11.5px;
+  text-align: left;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+.version-file:hover {
+  background: var(--bg-hover);
+}
+.version-file.active {
+  background: var(--bg-active);
+}
+.version-file-status {
+  width: 13px;
+  flex-shrink: 0;
+  font-weight: 700;
+  font-size: 10.5px;
+  text-align: center;
+  color: var(--text-secondary);
+}
+.version-file-status.status-A { color: #3fb950; }
+.version-file-status.status-D { color: #f85149; }
+.version-file-status.status-M { color: #d29922; }
+.version-file-status.status-R { color: #58a6ff; }
+.version-file-path {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.version-file-stat {
+  flex-shrink: 0;
+  display: flex;
+  gap: 4px;
+  font-size: 10.5px;
+}
+.version-file-stat .stat-add { color: #3fb950; }
+.version-file-stat .stat-del { color: #f85149; }
+
+/* --- Diff view (inside the editor pane) --- */
+#editor-pane.diff-active #editor,
+#editor-pane.diff-active #file-viewer {
+  visibility: hidden;
+  pointer-events: none;
+}
+#diff-view {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-app);
+  z-index: 5;
+}
+#diff-view.hidden {
+  display: none;
+}
+#diff-view-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px 6px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+.diff-view-icon {
+  font-size: 18px;
+  color: var(--text-secondary);
+}
+.diff-view-titles {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+#diff-view-path {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#diff-view-meta {
+  font-size: 11px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#diff-editor {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+#diff-editor.hidden {
+  display: none;
+}
+#diff-view-message {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+#diff-view-message.hidden {
+  display: none;
+}
+
+/* Versions toolbar button */
+#topbar button.btn-versions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+#topbar button.btn-versions .material-icons {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+}
+#topbar button.btn-versions.active {
+  background: var(--bg-active);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 /* Main file dropdown */
 .toolbar-mainfile.mainfile-dropdown {
   position: relative;
   display: inline-flex;
-  margin-left: 8px;
 }
 .toolbar-mainfile .mainfile-dropdown-btn {
   display: inline-flex;
@@ -1550,6 +2287,19 @@ body.sidebar-hidden #toggleSidebarBtn {
 .mainfile-dropdown.open .mainfile-dropdown-menu,
 .mainfile-dropdown.open .mainfile-dropdown-menu {
   display: block;
+}
+/* Non-interactive hint at the top of the main file menu */
+.mainfile-dropdown-menu-hint,
+.mainfile-dropdown-hint {
+  padding: 6px 12px 8px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--text-secondary);
+  white-space: normal;
+  cursor: default;
+  user-select: none;
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: 4px;
 }
 .mainfile-dropdown-menu button {
   display: flex;
@@ -1722,6 +2472,12 @@ body.sidebar-hidden #toggleSidebarBtn {
   pointer-events: none;
 }
 
+.version-latest {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
 .version-pill {
   display: inline-block;
   margin-left: 8px;
