@@ -1,0 +1,153 @@
+/*
+ * The bottom console: output text, tabs and its toolbar.
+ */
+
+/* --- Console --- */
+/* Tabbed console: toolbar + one scrolling panel area of the resizable height */
+.console-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 6px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-bottom: none;
+  flex-shrink: 0;
+}
+.console-toolbar-gap {
+  flex: 1 1 auto;
+}
+.console-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px 6px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.console-tab-btn:hover {
+  color: var(--text-primary);
+}
+.console-tab-btn.active {
+  color: var(--text-primary);
+  border-bottom-color: var(--accent);
+}
+.console-badge {
+  min-width: 16px;
+  padding: 0 5px;
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 15px;
+  text-align: center;
+  border-radius: 999px;
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+.console-badge.has-errors {
+  background: rgba(248, 81, 73, 0.16);
+  color: #f85149;
+}
+.console-badge.hidden {
+  display: none;
+}
+.console-tool {
+  width: 26px;
+  height: 26px;
+}
+.console-tool .material-icons {
+  font-size: 15px;
+}
+.console-panels {
+  height: var(--console-height);
+  min-height: 80px;
+  background: var(--bg-app);
+  border: 1px solid var(--border-subtle);
+  border-top: none;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.console-panels > * {
+  height: 100%;
+  overflow: auto;
+  box-sizing: border-box;
+}
+.console-panels > .hidden {
+  display: none;
+}
+
+#console {
+  margin: 0;
+  padding: 12px 16px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+#console:not(:empty) {
+  color: var(--console-text);
+}
+
+/* Console area: tab anchor + content; only content collapses so tab is never clipped */
+.console-area {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+/* Resizer + pre live here; this part animates (overflow hidden only here, not on tab) */
+.console-content {
+  display: flex;
+  flex-direction: column;
+  max-height: 80vh;
+  overflow: hidden;
+  transition: max-height 0.25s ease;
+  margin: 0;
+  padding: 0;
+  margin-top: -1px;
+}
+#editor-view.console-hidden .console-content {
+  max-height: 0;
+}
+
+/* Console toggle: a sidebar row under the Outline section */
+.sidebar-console-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  margin-top: auto;
+  padding: 6px 10px;
+  border: none;
+  border-top: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-align: left;
+  cursor: pointer;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+.sidebar-console-toggle:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+.console-tab-icon {
+  font-size: 16px;
+  transition: transform 0.15s ease;
+}
+#editor-view.console-hidden .console-tab-icon {
+  transform: rotate(180deg);
+}

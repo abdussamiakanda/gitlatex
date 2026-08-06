@@ -1,0 +1,126 @@
+/*
+ * The 'buy me a coffee' support button and card.
+ */
+
+/* --- Buy me a coffee --- */
+.coffee-btn i {
+  font-size: 15px;
+  transition: transform 0.2s ease;
+}
+.coffee-btn:hover {
+  color: #e8a417;
+}
+.coffee-btn:hover i {
+  transform: rotate(-9deg) scale(1.08);
+}
+
+.support-group .settings-hint {
+  margin-bottom: 4px;
+}
+.support-credit {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.bmc-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  align-self: flex-start;
+  margin-top: 6px;
+  padding: 11px 22px;
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #1f1400;
+  text-decoration: none;
+  background: linear-gradient(135deg, #ffdd00 0%, #ffc400 100%);
+  border-radius: 999px;
+  box-shadow: 0 2px 8px rgba(255, 196, 0, 0.3);
+  overflow: hidden;
+  isolation: isolate;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.bmc-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 9px 22px rgba(255, 196, 0, 0.45);
+  text-decoration: none;
+}
+.bmc-button:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(255, 196, 0, 0.3);
+}
+.bmc-button:focus-visible {
+  outline: 2px solid var(--text-primary);
+  outline-offset: 3px;
+}
+
+/* Light sweep across the button on hover */
+.bmc-button::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -70%;
+  width: 45%;
+  height: 100%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.75), transparent);
+  transform: skewX(-20deg);
+  pointer-events: none;
+}
+.bmc-button:hover::after {
+  animation: bmc-shine 0.85s ease;
+}
+@keyframes bmc-shine {
+  from { left: -70%; }
+  to { left: 130%; }
+}
+
+.bmc-cup {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  font-size: 16px;
+}
+.bmc-steam {
+  position: absolute;
+  top: -8px;
+  width: 2px;
+  height: 7px;
+  border-radius: 2px;
+  background: rgba(31, 20, 0, 0.4);
+  opacity: 0;
+}
+.bmc-steam:nth-child(1) { left: 2px; }
+.bmc-steam:nth-child(2) { left: 7px; }
+.bmc-steam:nth-child(3) { left: 12px; }
+.bmc-button:hover .bmc-steam {
+  animation: bmc-steam 1.5s ease-in-out infinite;
+}
+.bmc-button:hover .bmc-steam:nth-child(2) { animation-delay: 0.3s; }
+.bmc-button:hover .bmc-steam:nth-child(3) { animation-delay: 0.6s; }
+@keyframes bmc-steam {
+  0%   { opacity: 0; transform: translateY(3px) scaleY(0.6); }
+  35%  { opacity: 0.85; }
+  100% { opacity: 0; transform: translateY(-9px) scaleY(1.3); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bmc-button,
+  .coffee-btn i {
+    transition: none;
+  }
+  .bmc-button:hover,
+  .bmc-button:active {
+    transform: none;
+  }
+  .coffee-btn:hover i {
+    transform: none;
+  }
+  .bmc-button:hover::after,
+  .bmc-button:hover .bmc-steam {
+    animation: none;
+  }
+}

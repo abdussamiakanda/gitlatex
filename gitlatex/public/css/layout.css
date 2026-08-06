@@ -1,0 +1,45 @@
+/*
+ * The main split container and its drag-to-resize handles.
+ */
+
+/* --- Resizers --- */
+.resizer {
+  flex-shrink: 0;
+  background: var(--border-subtle);
+  transition: background 0.15s ease;
+}
+.resizer:hover,
+.resizer.active {
+  background: var(--accent);
+}
+.resizer-v {
+  width: 6px;
+  min-width: 6px;
+  cursor: col-resize;
+}
+.resizer-h {
+  height: 6px;
+  min-height: 6px;
+  cursor: row-resize;
+}
+.sidebar-hidden .resizer-v#resizer-sidebar {
+  width: 0;
+  min-width: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* The versions handle only exists while the panel does, otherwise it would
+   sit against the right edge with nothing to resize. */
+#resizer-versions:has(+ #versions-panel.hidden) {
+  display: none;
+}
+
+/* --- Main content area --- */
+#container {
+  display: flex;
+  flex: 1 1 0;
+  min-height: 0;
+  border-bottom: 1px solid var(--border-subtle);
+  overflow: hidden;
+}

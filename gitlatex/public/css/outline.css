@@ -1,0 +1,116 @@
+/*
+ * Document outline, and the colours for matching \begin/\end pairs.
+ */
+
+/* --- LaTeX environment pair colouring ---
+   \begin{X} and \end{X} share a colour picked from the name, so a matching
+   pair is obvious at a glance. Overrides the token colour, hence !important. */
+.tex-env {
+  font-weight: 600 !important;
+}
+.tex-env-0 { color: #4ec9b0 !important; }
+.tex-env-1 { color: #c586c0 !important; }
+.tex-env-2 { color: #dcdcaa !important; }
+.tex-env-3 { color: #569cd6 !important; }
+.tex-env-4 { color: #ce9178 !important; }
+.tex-env-5 { color: #b5cea8 !important; }
+.tex-env-6 { color: #d7ba7d !important; }
+.tex-env-7 { color: #9cdcfe !important; }
+.tex-env-8 { color: #e5a3c8 !important; }
+.tex-env-9 { color: #7fd3c5 !important; }
+.tex-env-10 { color: #cbb4f0 !important; }
+.tex-env-11 { color: #e0c46c !important; }
+
+/* Darker variants so they stay readable on the light theme's white page. */
+[data-theme="light"] .tex-env-0 { color: #0f766e !important; }
+[data-theme="light"] .tex-env-1 { color: #a21caf !important; }
+[data-theme="light"] .tex-env-2 { color: #854d0e !important; }
+[data-theme="light"] .tex-env-3 { color: #1d4ed8 !important; }
+[data-theme="light"] .tex-env-4 { color: #b45309 !important; }
+[data-theme="light"] .tex-env-5 { color: #3f6212 !important; }
+[data-theme="light"] .tex-env-6 { color: #9a3412 !important; }
+[data-theme="light"] .tex-env-7 { color: #0369a1 !important; }
+[data-theme="light"] .tex-env-8 { color: #9d174d !important; }
+[data-theme="light"] .tex-env-9 { color: #115e59 !important; }
+[data-theme="light"] .tex-env-10 { color: #6d28d9 !important; }
+[data-theme="light"] .tex-env-11 { color: #92400e !important; }
+
+/* Unclosed \begin, or an \end with no \begin. */
+.tex-env-unmatched {
+  color: var(--danger) !important;
+  text-decoration: underline wavy var(--danger);
+  text-underline-offset: 3px;
+}
+
+/* --- Document outline --- */
+#outline-section {
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 45%;
+  flex-shrink: 0;
+}
+#outline-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 6px 10px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+#outline-header:hover {
+  color: var(--text-primary);
+}
+.outline-caret {
+  font-size: 16px;
+  transition: transform 0.15s ease;
+}
+#outline-section.collapsed .outline-caret {
+  transform: rotate(-90deg);
+}
+#outline-section.collapsed #outline-tree {
+  display: none;
+}
+#outline-tree {
+  overflow-y: auto;
+  padding-bottom: 8px;
+  min-height: 0;
+}
+.outline-item {
+  display: block;
+  width: 100%;
+  padding: 3px 10px 3px 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+.outline-item:hover {
+  background: var(--bg-hover);
+}
+.outline-item.active {
+  background: var(--bg-active);
+  color: var(--accent);
+}
+.outline-empty {
+  padding: 6px 10px 10px;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}

@@ -1,0 +1,97 @@
+/*
+ * The editor pane and the PDF preview beside it.
+ */
+
+/* --- Editor pane (contains editor and file viewer) --- */
+#editor-pane {
+  flex: 1 1 0;
+  min-width: 180px;
+  min-height: 0;
+  width: 0;
+  border-right: 1px solid var(--border-subtle);
+  position: relative;
+  overflow: hidden;
+}
+
+#editor {
+  position: absolute;
+  inset: 0;
+  min-height: 0;
+}
+
+#editor-pane.viewer-active #editor {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+#file-viewer {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-app);
+  overflow: auto;
+}
+
+#file-viewer.hidden {
+  display: none !important;
+}
+
+.file-viewer-content {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+#file-viewer-pdf.file-viewer-content {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+#file-viewer-pdf.hidden {
+  display: none !important;
+}
+
+.file-viewer-unavailable {
+  color: var(--text-muted, #888);
+  font-size: 1rem;
+  padding: 1rem;
+}
+
+.file-viewer-unavailable.hidden {
+  display: none !important;
+}
+
+/* Monaco fills the pane; absolute so it stays within #editor below the navbar */
+#editor > .monaco-editor {
+  position: absolute !important;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* --- PDF pane --- */
+#pdf {
+  width: var(--pdf-width);
+  min-width: 200px;
+  flex: 0 0 auto;
+  height: 100%;
+  border: none;
+  background: var(--bg-app);
+}
+
+/* Sidebar hidden: collapse with animation */
+.sidebar-hidden #sidebar {
+  width: 0;
+  min-width: 0;
+  border-right-color: transparent;
+}
+
+.sidebar-hidden #editor-pane {
+  flex: 1;
+}

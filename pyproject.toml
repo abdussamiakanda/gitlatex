@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gitlatex"
-version = "1.4.0"
+version = "1.5.1"
 description = "A simple UI for LaTeX projects with Git support. Clone repos, edit, compile, and push."
 readme = "README.md"
 license = "ISC"
@@ -25,6 +25,7 @@ requires-python = ">=3.8"
 dependencies = [
     "flask>=2.0",
     "gitpython>=3.1",
+    "symspellpy>=6.7",
 ]
 
 [project.optional-dependencies]
@@ -43,4 +44,11 @@ where = ["."]
 include = ["gitlatex*"]
 
 [tool.setuptools.package-data]
-gitlatex = ["public/**"]
+# public/ is now nested (js/ and css/ subfolders), so list the levels
+# explicitly rather than relying on ** being expanded recursively.
+gitlatex = [
+    "public/*",
+    "public/js/*.js",
+    "public/js/*/*.js",
+    "public/css/*.css",
+]

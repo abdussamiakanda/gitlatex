@@ -1,0 +1,161 @@
+/*
+ * Loading states: skeleton placeholders, pane overlays and the spinner.
+ *
+ * Driven from js/ui/loading.js. Skeletons imitate the shape of the content
+ * that is coming so nothing jumps when it lands.
+ */
+
+/* --- Skeletons --- */
+
+.skeleton {
+  display: flex;
+  flex-direction: column;
+}
+
+.skeleton-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.skeleton-line,
+.skeleton-square {
+  background: var(--bg-hover);
+  border-radius: var(--radius-sm, 4px);
+  position: relative;
+  overflow: hidden;
+}
+
+/* One sweep across the whole group reads as a single object loading, rather
+   than each row pulsing on its own schedule. */
+.skeleton-line::after,
+.skeleton-square::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--bg-active, rgba(255, 255, 255, 0.06)),
+    transparent
+  );
+  animation: skeleton-sweep 1.4s ease-in-out infinite;
+}
+
+@keyframes skeleton-sweep {
+  100% { transform: translateX(100%); }
+}
+
+.skeleton-line { height: 10px; width: 100%; }
+.skeleton-title { height: 13px; width: 42%; }
+.skeleton-sub { height: 9px; width: 62%; }
+.skeleton-pill { height: 14px; width: 38px; border-radius: 999px; }
+.skeleton-chip { height: 10px; width: 58px; }
+
+.skeleton-square {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.skeleton-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Repo rows: same grid as .repo-row so the table does not resize on load. */
+.skeleton-row-repo-row {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) 70px 120px 110px;
+  align-items: center;
+  gap: 12px;
+  padding: 0 12px;
+  height: 44px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+/* Sidebar tree rows: icon + label on one line, at the tree's row rhythm. */
+.skeleton-row-tree-row {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+}
+
+.skeleton-row-commit-row {
+  gap: 6px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.skeleton-row-file-row {
+  padding: 5px 12px;
+}
+
+/* --- Pane overlay --- */
+
+.pane-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: var(--bg-base);
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.pane-loading-text {
+  font-family: var(--font-sans);
+}
+
+/* A pane an overlay can cover must establish a containing block. */
+#editor-pane {
+  position: relative;
+}
+
+/* --- Row-level busy state --- */
+/* A row that is being deleted: dimmed and inert, but still in place so the
+   list does not jump before the server confirms. */
+.repo-row-busy {
+  opacity: 0.5;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+/* --- Spinner --- */
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border-subtle);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spinner-rotate 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spinner-rotate {
+  to { transform: rotate(360deg); }
+}
+
+/* --- Reduced motion --- */
+/* Keep the placeholders (they still communicate "not ready") but stop the
+   movement for anyone who has asked the OS for less of it. */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-line::after,
+  .skeleton-square::after {
+    animation: none;
+  }
+  .skeleton-line,
+  .skeleton-square {
+    opacity: 0.7;
+  }
+  .spinner {
+    animation-duration: 2.4s;
+  }
+}

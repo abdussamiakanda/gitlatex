@@ -1,0 +1,195 @@
+/*
+ * Editor toolbar: buttons, the main-file picker and the Git dropdown.
+ */
+
+/* --- Toolbar --- */
+#topbar {
+  height: var(--toolbar-height);
+  min-height: var(--toolbar-height);
+  max-height: var(--toolbar-height);
+  padding: 0 16px;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: nowrap;
+  gap: 12px;
+  flex-shrink: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  z-index: 10;
+}
+
+.toolbar-left,
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.toolbar-right {
+  margin-left: auto;
+}
+
+.toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-right: 12px;
+  margin-right: 8px;
+  border-right: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.toolbar-group:last-of-type {
+  border-right: none;
+  margin-right: 0;
+  padding-right: 0;
+}
+
+/* Icon buttons: hamburger + home */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.icon-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+body.sidebar-hidden #toggleSidebarBtn {
+  background: var(--bg-active);
+  color: var(--text-primary);
+}
+
+.icon-btn .material-icons,
+.icon-btn .fa-git-alt {
+  font-size: 22px;
+  width: 22px;
+  height: 22px;
+}
+
+#topbar input[type="text"] {
+  width: 280px;
+  height: 32px;
+  padding: 0 12px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-primary);
+  background: var(--bg-app);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+#topbar input[type="text"]::placeholder {
+  color: var(--text-muted);
+}
+
+#topbar input[type="text"]:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-muted);
+}
+
+#topbar select {
+  height: 32px;
+  min-width: 160px;
+  padding: 0 32px 0 12px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--text-primary);
+  background: var(--bg-app);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238b949e' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  transition: border-color 0.15s ease;
+}
+
+#topbar select:hover,
+#topbar select:focus {
+  border-color: var(--text-muted);
+}
+
+#topbar button {
+  height: 32px;
+  padding: 0 14px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  background: var(--bg-hover);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  outline: none;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+#topbar button:hover {
+  background: var(--bg-active);
+  border-color: var(--text-muted);
+}
+
+#topbar button:active {
+  background: var(--border-subtle);
+}
+
+#topbar button.primary {
+  display: inline-flex;
+  align-items: center;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+#topbar button.primary:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+#topbar button.primary .btn-compile-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  margin-right: 6px;
+}
+#topbar button.btn-errors {
+  display: inline-flex;
+  align-items: center;
+}
+#topbar button.btn-errors .material-icons:first-child {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  margin-right: 6px;
+}
+#topbar button.primary.loading {
+  pointer-events: none;
+  opacity: 0.85;
+}
+#topbar button.primary.loading .btn-compile-icon {
+  animation: compile-spin 0.8s linear infinite;
+}
+@keyframes compile-spin {
+  to { transform: rotate(360deg); }
+}

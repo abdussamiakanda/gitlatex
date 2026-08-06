@@ -1,0 +1,88 @@
+/*
+ * Banners and badges shown when a newer gitlatex is on PyPI.
+ */
+
+/* --- Update available indicators --- */
+.icon-btn.has-update {
+  position: relative;
+}
+.icon-btn.has-update::after {
+  content: "";
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent-hover);
+  border: 2px solid var(--bg-elevated);
+  box-sizing: content-box;
+  pointer-events: none;
+}
+
+.version-latest {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+.version-pill {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 7px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--accent-hover);
+  background: rgba(241, 80, 47, 0.14);
+  border-radius: 999px;
+  vertical-align: 1px;
+}
+
+.update-notice {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-top: 14px;
+  padding: 14px 16px;
+  background: var(--bg-app);
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--accent-hover);
+  border-radius: var(--radius-sm);
+}
+.update-notice.hidden {
+  display: none;
+}
+.update-notice-icon {
+  font-size: 20px;
+  color: var(--accent-hover);
+  flex-shrink: 0;
+}
+.update-notice-text {
+  min-width: 0;
+  flex: 1;
+}
+.update-notice-text strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+.update-notice-text .settings-hint {
+  margin-bottom: 8px;
+}
+.update-notice-text .docs-code {
+  margin-bottom: 8px;
+}
+.update-notice-text .docs-code pre {
+  padding: 9px 12px;
+  background: var(--bg-elevated);
+}
+
+.update-status:empty {
+  display: none;
+}
+.update-status {
+  margin-top: 10px;
+}

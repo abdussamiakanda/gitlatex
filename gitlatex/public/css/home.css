@@ -1,0 +1,692 @@
+/*
+ * Home view: repository cards, the create/clone modals and the empty state.
+ *
+ * Starts with the .view rules that switch between home and editor.
+ */
+
+/* --- Views (home vs editor) --- */
+.view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.view.hidden {
+  display: none !important;
+}
+
+#editor-view.view:not(.hidden) {
+  flex: 1;
+  min-height: 0;
+}
+
+/* --- Home page --- */
+#home-view {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* Home toolbar: same look as editor #topbar */
+.home-toolbar {
+  height: var(--toolbar-height);
+  min-height: var(--toolbar-height);
+  max-height: var(--toolbar-height);
+  padding: 0 16px;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: nowrap;
+  gap: 12px;
+  flex-shrink: 0;
+  z-index: 10;
+}
+.home-toolbar .toolbar-left,
+.home-toolbar .toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.home-toolbar .toolbar-right {
+  margin-left: auto;
+}
+.home-brand-icon {
+  display: block;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+}
+.home-app-name {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+  padding: 0 8px;
+}
+.app-name-git {
+  color: var(--accent-hover);
+}
+.app-name-latex {
+  color: var(--accent);
+}
+
+.home-content {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 32px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Clone modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 24px;
+}
+.modal-overlay.hidden {
+  display: none !important;
+}
+.modal {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  width: 100%;
+  max-width: 480px;
+  max-height: 90vh;
+  overflow: auto;
+}
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.modal-header h2 {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.modal-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.modal-close:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+.modal-close .material-icons {
+  font-size: 22px;
+}
+.modal-body {
+  padding: 20px;
+}
+.modal-body label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+.modal-body .clone-row {
+  display: flex;
+  gap: 10px;
+}
+.modal-body .clone-row input {
+  flex: 1;
+  height: 32px;
+  padding: 0 12px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-primary);
+  background: var(--bg-app);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  outline: none;
+}
+.modal-body .clone-row input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-muted);
+}
+/* Toolbar-style buttons (editor toolbar look, use in modals) */
+.btn-toolbar {
+  height: 32px;
+  padding: 0 14px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  background: var(--bg-hover);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  outline: none;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.btn-toolbar:hover {
+  background: var(--bg-active);
+  border-color: var(--text-muted);
+}
+.btn-toolbar:active {
+  background: var(--border-subtle);
+}
+.btn-toolbar.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.btn-toolbar.primary:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+.btn-toolbar.loading {
+  pointer-events: none;
+  opacity: 0.85;
+}
+.btn-toolbar.primary.loading {
+  cursor: not-allowed;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+#create-workspace-modal .modal-body input[type="text"] {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  margin-bottom: 4px;
+  height: 36px;
+  padding: 0 12px;
+  font-size: 13px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-app);
+  color: var(--text-primary);
+}
+#create-workspace-modal .modal-body input[type="text"]:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-muted);
+}
+
+#input-modal .modal-body label,
+#input-modal .modal-body input[type="text"] {
+  display: block;
+  width: 100%;
+  margin-bottom: 8px;
+}
+#input-modal .modal-body input[type="text"] {
+  height: 36px;
+  padding: 0 12px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-primary);
+  background: var(--bg-app);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  outline: none;
+}
+#input-modal .modal-body input[type="text"]:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-muted);
+}
+
+.confirm-message {
+  margin: 0 0 8px 0;
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.home-subtitle {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  margin: 0 0 24px 0;
+  text-align: center;
+}
+
+.clone-row {
+  display: flex;
+  gap: 10px;
+}
+
+.clone-row input {
+  flex: 1;
+  height: 40px;
+  padding: 0 14px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  outline: none;
+}
+
+.clone-row input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-muted);
+}
+
+.clone-row .btn-toolbar {
+  flex-shrink: 0;
+}
+
+.home-repos {
+  width: 100%;
+  max-width: 880px;
+}
+
+/* --- Toolbar: heading, search, count --- */
+
+.repo-toolbar {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.repo-toolbar-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+  flex-shrink: 0;
+}
+
+/* Sits right after the heading, reading as "Your repositories · 6". */
+.repo-count:not(:empty)::before {
+  content: "·";
+  margin-right: 8px;
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+
+.repo-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 0 1 300px;
+  margin-left: auto;
+}
+
+.repo-search-icon {
+  position: absolute;
+  left: 10px;
+  font-size: 18px;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.repo-search-input {
+  width: 100%;
+  height: 34px;
+  padding: 0 32px 0 34px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.repo-search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.repo-search-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-muted);
+}
+
+.repo-search-clear {
+  position: absolute;
+  right: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.repo-search-clear:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.repo-search-clear .material-icons {
+  font-size: 15px;
+}
+
+.repo-search-clear.hidden,
+.repo-search.hidden {
+  display: none;
+}
+
+.repo-count {
+  font-size: 12px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+/* --- The list --- */
+
+.repo-table {
+  width: 100%;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.repo-table.hidden {
+  display: none;
+}
+
+/* One grid definition, shared by the header and every row, so the columns
+   line up without a real <table>. */
+.repo-thead,
+.repo-row {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) 70px 120px 110px 36px;
+  align-items: center;
+  gap: 12px;
+  padding: 0 12px;
+}
+
+.repo-thead {
+  height: 36px;
+  background: var(--bg-hover);
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+/* The header has no icon column; the name header spans it. */
+.repo-thead > :first-child {
+  grid-column: 1 / span 2;
+}
+
+.repo-th {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+}
+
+.repo-th-sortable {
+  padding: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  border-radius: var(--radius-sm, 4px);
+  transition: color 0.15s ease;
+}
+
+.repo-th-sortable:hover {
+  color: var(--text-secondary);
+}
+
+.repo-th-active {
+  color: var(--text-primary);
+}
+
+.repo-sort-icon {
+  font-size: 14px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.repo-th-sortable:hover .repo-sort-icon,
+.repo-th-active .repo-sort-icon {
+  opacity: 1;
+}
+
+.repo-row {
+  height: 44px;
+  border-bottom: 1px solid var(--border-subtle);
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.repo-row:last-child {
+  border-bottom: none;
+}
+
+.repo-row:hover {
+  background: var(--bg-hover);
+}
+
+/* Keyboard focus lands on the name button; light the whole row so it is
+   obvious which one is selected. */
+.repo-row:focus-within {
+  background: var(--bg-hover);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.repo-cell {
+  min-width: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.repo-row-icon {
+  font-size: 18px;
+  color: var(--text-muted);
+}
+
+.repo-cell-name {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.repo-open {
+  min-width: 0;
+  padding: 0;
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.repo-open:hover {
+  color: var(--accent);
+}
+
+.repo-open:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+.repo-match {
+  background: var(--accent-muted);
+  color: var(--accent-hover);
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+.repo-type-tag {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 7px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-radius: 4px;
+}
+
+.repo-type-git {
+  background: var(--accent-muted);
+  color: var(--accent-hover);
+  border: 1px solid var(--accent-hover);
+}
+
+.repo-type-local {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+}
+
+.repo-cell-modified {
+  font-variant-numeric: tabular-nums;
+}
+
+.repo-cell-actions {
+  display: flex;
+  justify-content: flex-end;
+  overflow: visible;
+}
+
+.repo-delete {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm, 4px);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.repo-delete .material-icons {
+  font-size: 17px;
+}
+
+.repo-row:hover .repo-delete,
+.repo-row:focus-within .repo-delete,
+.repo-delete:focus-visible {
+  opacity: 1;
+}
+
+.repo-delete:hover {
+  color: var(--danger, #f85149);
+  background: var(--bg-active);
+}
+
+/* --- Narrow screens: drop the columns that matter least --- */
+
+@media (max-width: 720px) {
+  .repo-thead,
+  .repo-row,
+  .skeleton-row-repo-row {
+    grid-template-columns: 20px minmax(0, 1fr) 70px 100px 36px;
+  }
+  .repo-th-owner,
+  .repo-cell-owner {
+    display: none;
+  }
+}
+
+@media (max-width: 520px) {
+  .repo-thead,
+  .repo-row,
+  .skeleton-row-repo-row {
+    grid-template-columns: 20px minmax(0, 1fr) 90px 36px;
+  }
+  .repo-th-type,
+  .repo-cell-type {
+    display: none;
+  }
+  .repo-search {
+    max-width: none;
+    margin-left: 0;
+  }
+}
+
+
+.repo-list-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 0;
+  padding: 48px 24px;
+  text-align: center;
+  background: var(--bg-hover);
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.repo-list-empty-icon {
+  font-size: 48px;
+  width: 48px;
+  height: 48px;
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+
+.repo-list-empty-text {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.repo-list-empty.hidden,
+.home-subtitle.hidden {
+  display: none !important;
+}

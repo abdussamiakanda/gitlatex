@@ -1,0 +1,308 @@
+/*
+ * File tree sidebar, including drag-and-drop and per-filetype icon colours.
+ */
+
+/* --- Sidebar (file tree) --- */
+#sidebar {
+  width: var(--sidebar-width);
+  min-width: 160px;
+  max-width: 480px;
+  background: var(--bg-elevated);
+  border-right: 1px solid var(--border-subtle);
+  overflow: hidden;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  transition: width 0.25s ease, min-width 0.25s ease, padding 0.25s ease, border-right-color 0.2s ease;
+}
+#editor-view.resizing #sidebar {
+  transition: none;
+}
+
+.sidebar-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-subtle);
+  min-width: 0;
+}
+.sidebar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.sidebar-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.sidebar-btn .material-icons {
+  font-size: 20px;
+}
+
+#sidebar-tree {
+  flex: 1;
+  min-height: 0;
+  /* min-width must not be the sidebar width, or narrowing the sidebar
+     forces the tree to overflow horizontally. */
+  min-width: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
+  padding: 6px 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-default) transparent;
+}
+#sidebar-tree::-webkit-scrollbar {
+  width: 10px;
+}
+#sidebar-tree::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border: 3px solid transparent;
+  background-clip: content-box;
+  border-radius: 999px;
+}
+#sidebar-tree::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+  background-clip: content-box;
+}
+
+#sidebar .sidebar-placeholder {
+  padding: 16px;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+#sidebar ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+#sidebar li {
+  margin: 0;
+  padding: 0;
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+#sidebar .sidebar-item-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+/* File type icons. Colours are muted so the tree reads as one surface
+   rather than a rainbow; the active row takes the row's own colour. */
+/* One fixed 16px box for every icon - Font Awesome glyphs and the inline
+   TeX SVG alike - so the name column never shifts between rows. */
+#sidebar .sidebar-file-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--text-muted);
+  opacity: 0.85;
+  transition: color 0.12s ease, opacity 0.12s ease;
+}
+#sidebar .sidebar-file-icon svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+#sidebar li.file:hover .sidebar-file-icon,
+#sidebar li.folder > .sidebar-item-row:hover .sidebar-file-icon {
+  opacity: 1;
+}
+/* Label inside the inline doc icons: brighter than the page outline so
+   it stays legible at 16px. --doc-label is set per type below. */
+#sidebar .sidebar-file-icon .doc-label {
+  fill: var(--doc-label, currentColor);
+}
+#sidebar .sidebar-file-icon.kind-tex {
+  color: var(--accent);
+  --doc-label: #2dd4bf;
+  opacity: 1;
+}
+#sidebar .sidebar-file-icon.kind-vector { --doc-label: #4ade80; }
+#sidebar .sidebar-file-icon.kind-svg { --doc-label: #facc15; color: #ca8a04; }
+#sidebar .sidebar-file-icon.kind-bib { color: #a371f7; opacity: 1; }
+#sidebar .sidebar-file-icon.kind-pdf { color: var(--danger); }
+#sidebar .sidebar-file-icon.kind-image,
+#sidebar .sidebar-file-icon.kind-svg,
+#sidebar .sidebar-file-icon.kind-vector { color: var(--success); opacity: 1; }
+#sidebar .sidebar-file-icon.kind-style { color: var(--warning); }
+#sidebar .sidebar-file-icon.kind-data,
+#sidebar .sidebar-file-icon.kind-config,
+#sidebar .sidebar-file-icon.kind-code { color: #58a6ff; }
+#sidebar .sidebar-file-icon.kind-folder { color: var(--text-secondary); opacity: 1; }
+#sidebar li.file.active .sidebar-file-icon,
+#sidebar li.folder.selected > .sidebar-item-row .sidebar-file-icon {
+  color: currentColor;
+  opacity: 1;
+}
+
+#sidebar .sidebar-item-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#sidebar li:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  border-radius: var(--radius-sm);
+}
+#sidebar .sidebar-delete-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+/* focus-within so keyboard users can reach a button that is otherwise
+   only revealed on hover. */
+#sidebar li:hover > .sidebar-item-row > .sidebar-delete-btn,
+#sidebar li:focus-within > .sidebar-item-row > .sidebar-delete-btn,
+#sidebar li:hover .sidebar-delete-btn:focus-visible {
+  opacity: 1;
+}
+#sidebar .sidebar-delete-btn:hover {
+  background: var(--danger);
+  color: #fff;
+}
+#sidebar .sidebar-delete-btn .material-icons {
+  font-size: 16px;
+}
+
+/* The pill is the row, not the <li> - a folder <li> wraps its whole
+   subtree, so styling it would tint nested children too. */
+#sidebar li.folder > .sidebar-item-row,
+#sidebar li.file > .sidebar-item-row {
+  position: relative;
+  min-height: 27px;
+  padding: 3px 6px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: background 0.12s ease, color 0.12s ease;
+}
+/* Must precede hover/active, or it overrides them by source order and
+   leaves a selected .tex row (and its icon) plain white. */
+#sidebar li.file.tex-file > .sidebar-item-row {
+  color: var(--text-primary);
+}
+#sidebar li.folder > .sidebar-item-row:hover,
+#sidebar li.file:hover > .sidebar-item-row {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+#sidebar li.folder.selected > .sidebar-item-row,
+#sidebar li.file.active > .sidebar-item-row {
+  background: var(--accent-muted);
+  color: var(--accent);
+  font-weight: 600;
+}
+/* Accent marker drawn inside the pill, so the row never shifts. */
+#sidebar li.folder.selected > .sidebar-item-row::after,
+#sidebar li.file.active > .sidebar-item-row::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 5px;
+  bottom: 5px;
+  width: 2px;
+  border-radius: 0 2px 2px 0;
+  background: var(--accent);
+}
+
+#sidebar li.folder,
+#sidebar li.file {
+  margin: 1px 6px;
+  color: var(--text-secondary);
+}
+
+#sidebar li.folder {
+  font-weight: 500;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+#sidebar .sidebar-chevron {
+  flex-shrink: 0;
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  transition: transform 0.15s ease;
+}
+#sidebar li.folder.collapsed > ul {
+  display: none;
+}
+
+#sidebar li.file {
+  display: flex;
+  align-items: center;
+  /* Folder rows lead with an 18px chevron; files indent by that much so
+     both name columns line up. */
+  padding-left: 24px;
+}
+
+
+#sidebar li.sidebar-drag-source {
+  opacity: 0.6;
+}
+
+/* Drop target: a ring rather than a left border, so rows keep their
+   width and the pill shape stays intact. */
+#sidebar .sidebar-drop-target,
+#sidebar-tree.sidebar-drop-target {
+  background: var(--accent-muted);
+  border-radius: var(--radius-sm);
+  box-shadow: inset 0 0 0 1px var(--accent);
+  outline: none;
+}
+
+/* Indent guide for nested contents. --border-subtle and --border-default
+   are the same colour in the light theme, so hover uses --text-muted to
+   stay visible on both. */
+#sidebar li ul {
+  padding-left: 8px;
+  border-left: 1px solid var(--border-subtle);
+  margin: 1px 0 3px 13px;
+}
+#sidebar li.folder:hover > ul {
+  border-left-color: var(--text-muted);
+}
+#sidebar li.folder.selected > ul {
+  border-left-color: var(--accent);
+}

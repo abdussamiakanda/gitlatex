@@ -5,7 +5,25 @@
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
-  <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" />
+  <!-- Stylesheets are split by area. This order is the cascade order and
+       matches the original single stylesheet, so keep new files in the place
+       their rules used to sit. base.css defines the tokens the rest use. -->
+  <link rel="stylesheet" href="/css/base.css" />
+  <link rel="stylesheet" href="/css/toolbar.css" />
+  <link rel="stylesheet" href="/css/layout.css" />
+  <link rel="stylesheet" href="/css/sidebar.css" />
+  <link rel="stylesheet" href="/css/editor.css" />
+  <link rel="stylesheet" href="/css/console.css" />
+  <link rel="stylesheet" href="/css/home.css" />
+  <link rel="stylesheet" href="/css/settings.css" />
+  <link rel="stylesheet" href="/css/outline.css" />
+  <link rel="stylesheet" href="/css/problems.css" />
+  <link rel="stylesheet" href="/css/versions.css" />
+  <link rel="stylesheet" href="/css/support.css" />
+  <link rel="stylesheet" href="/css/updates.css" />
+  <link rel="stylesheet" href="/css/docs.css" />
+  <link rel="stylesheet" href="/css/loading.css" />
 </head>
 <body>
 
@@ -39,7 +57,7 @@
     <div class="modal" role="dialog" aria-labelledby="create-workspace-modal-title" aria-modal="true">
       <div class="modal-header">
         <h2 id="create-workspace-modal-title">New folder</h2>
-        <button type="button" class="modal-close" onclick="closeCreateWorkspaceModal()" aria-label="Close">
+        <button type="button" class="modal-close" data-action="close-create-workspace" aria-label="Close">
           <span class="material-icons">close</span>
         </button>
       </div>
@@ -48,7 +66,7 @@
         <p class="settings-hint">Creates a local folder only. No Git. Use Clone to get a Git repo.</p>
         <input id="new-workspace-name" type="text" placeholder="my-project" aria-label="Folder name" autocomplete="off">
         <div class="modal-actions">
-          <button type="button" class="btn-toolbar" onclick="closeCreateWorkspaceModal()">Cancel</button>
+          <button type="button" class="btn-toolbar" data-action="close-create-workspace">Cancel</button>
           <button type="button" class="btn-toolbar primary" id="create-workspace-submit">Create</button>
         </div>
       </div>
@@ -60,7 +78,7 @@
     <div class="modal" role="dialog" aria-labelledby="clone-modal-title" aria-modal="true">
       <div class="modal-header">
         <h2 id="clone-modal-title">Clone from URL</h2>
-        <button type="button" class="modal-close" onclick="closeCloneModal()" aria-label="Close">
+        <button type="button" class="modal-close" data-action="close-clone" aria-label="Close">
           <span class="material-icons">close</span>
         </button>
       </div>
@@ -68,18 +86,49 @@
         <label for="repoUrl">Repository URL</label>
         <div class="clone-row">
           <input id="repoUrl" type="text" placeholder="https://github.com/user/repo.git" aria-label="Repository URL">
-          <button type="button" class="btn-toolbar primary" id="clone-repo-btn" onclick="cloneRepoAndRefresh()"><span class="clone-btn-text">Clone</span></button>
+          <button type="button" class="btn-toolbar primary" id="clone-repo-btn" data-action="clone-repo"><span class="clone-btn-text">Clone</span></button>
         </div>
       </div>
     </div>
   </div>
 
     <section class="home-repos">
-      <h2>Your repositories</h2>
-      <div id="repo-list" class="repo-list"></div>
+      <div class="repo-toolbar">
+        <h2 class="repo-toolbar-title">Your repositories</h2>
+        <span class="repo-count" id="repo-count" role="status" aria-live="polite"></span>
+        <div class="repo-search">
+          <span class="material-icons repo-search-icon" aria-hidden="true">search</span>
+          <input type="text" id="repo-search" class="repo-search-input" placeholder="Search by name or owner"
+                 aria-label="Search repositories" autocomplete="off" spellcheck="false">
+          <button type="button" id="repo-search-clear" class="repo-search-clear hidden" aria-label="Clear search">
+            <span class="material-icons" aria-hidden="true">close</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="repo-table" role="table" aria-label="Repositories">
+        <div class="repo-thead" role="row">
+          <button type="button" class="repo-th repo-th-sortable" role="columnheader" data-sort="name" aria-sort="none">
+            <span>Name</span><span class="material-icons repo-sort-icon" aria-hidden="true">arrow_downward</span>
+          </button>
+          <span class="repo-th repo-th-type" role="columnheader">Type</span>
+          <span class="repo-th repo-th-owner" role="columnheader">Owner</span>
+          <button type="button" class="repo-th repo-th-sortable repo-th-modified" role="columnheader" data-sort="modified" aria-sort="descending">
+            <span>Last modified</span><span class="material-icons repo-sort-icon" aria-hidden="true">arrow_downward</span>
+          </button>
+          <span class="repo-th repo-th-actions" role="columnheader"><span class="visually-hidden">Actions</span></span>
+        </div>
+        <div id="repo-list" class="repo-list" role="rowgroup"></div>
+      </div>
+
       <div id="repo-list-empty" class="repo-list-empty hidden" role="status">
         <span class="material-icons repo-list-empty-icon" aria-hidden="true">folder_off</span>
         <p class="repo-list-empty-text">No repositories yet. Create or clone one above.</p>
+      </div>
+      <div id="repo-no-results" class="repo-list-empty hidden" role="status">
+        <span class="material-icons repo-list-empty-icon" aria-hidden="true">search_off</span>
+        <p class="repo-list-empty-text">No repositories match <strong id="repo-no-results-term"></strong>.</p>
+        <button type="button" class="btn-toolbar" id="repo-no-results-clear">Clear search</button>
       </div>
     </section>
   </main>
@@ -145,6 +194,18 @@
           <button type="button" id="settings-test-api" class="btn-toolbar">Test</button>
           <button type="button" id="settings-save" class="btn-toolbar primary">Save</button>
         </div>
+      </div>
+      <div class="settings-group settings-group-stack">
+        <label class="settings-label">Editor</label>
+        <label class="settings-toggle" for="settings-spellcheck">
+          <span class="settings-toggle-text">Check spelling as you type</span>
+          <input type="checkbox" id="settings-spellcheck" class="switch-input" checked>
+          <span class="switch" aria-hidden="true"></span>
+        </label>
+        <p class="settings-hint" id="settings-spellcheck-hint">
+          Underlines unknown words in .tex, .txt and .md files. Comments, math and
+          command arguments are skipped.
+        </p>
       </div>
       <div class="settings-group settings-group-stack settings-tech-info">
         <label class="settings-label">Technical info</label>
@@ -469,7 +530,7 @@ app.listen(8080, () => console.log("Compiler API on http://localhost:8080/compil
 <div id="editor-view" class="view hidden">
   <header id="topbar" role="toolbar">
     <div class="toolbar-left">
-      <button type="button" id="toggleSidebarBtn" class="icon-btn" onclick="toggleSidebar()" aria-label="Toggle file list" title="Toggle file list">
+      <button type="button" id="toggleSidebarBtn" class="icon-btn" data-action="toggle-sidebar" aria-label="Toggle file list" title="Toggle file list">
         <span class="material-icons" aria-hidden="true">menu</span>
       </button>
       <a href="#/" class="icon-btn home-link" aria-label="Back to repositories" title="Back to repositories">
@@ -486,12 +547,12 @@ app.listen(8080, () => console.log("Compiler API on http://localhost:8080/compil
         </button>
         <div class="mainfile-dropdown-menu" id="mainfile-dropdown-menu" role="menu" aria-hidden="true"></div>
       </div>
-      <button type="button" class="primary" id="btn-compile" onclick="compile()">
+      <button type="button" class="primary" id="btn-compile" data-action="compile">
           <span class="material-icons btn-compile-icon" aria-hidden="true">play_arrow</span>
           <span class="btn-compile-text">Compile</span>
         </button>
-      <button type="button" class="btn-errors" onclick="showCompileErrors()"><span class="material-icons" aria-hidden="true">error_outline</span><span>Errors</span></button>
-      <button type="button" class="btn-versions" id="btn-versions" onclick="toggleVersionsPanel()" aria-pressed="false" title="Version history"><span class="material-icons" aria-hidden="true">history</span><span>Versions</span></button>
+      <button type="button" class="btn-errors" data-action="show-errors"><span class="material-icons" aria-hidden="true">error_outline</span><span>Errors</span></button>
+      <button type="button" class="btn-versions" id="btn-versions" data-action="toggle-versions" aria-pressed="false" title="Version history"><span class="material-icons" aria-hidden="true">history</span><span>Versions</span></button>
       <div class="toolbar-git git-dropdown" id="toolbar-git">
         <button type="button" class="git-dropdown-btn" id="git-dropdown-btn" aria-haspopup="true" aria-expanded="false" aria-label="Git actions">
           <i class="fa-brands fa-git-alt" aria-hidden="true"></i>
@@ -499,10 +560,10 @@ app.listen(8080, () => console.log("Compiler API on http://localhost:8080/compil
           <span class="material-icons git-dropdown-arrow" aria-hidden="true">arrow_drop_down</span>
         </button>
         <div class="git-dropdown-menu" id="git-dropdown-menu" role="menu" aria-hidden="true">
-          <button type="button" role="menuitem" onclick="showStatus(); closeGitDropdown();"><span class="material-icons git-dropdown-menu-icon" aria-hidden="true">info</span><span>Status</span></button>
-          <button type="button" role="menuitem" onclick="showDiff(); closeGitDropdown();"><span class="material-icons git-dropdown-menu-icon" aria-hidden="true">code</span><span>Diff</span></button>
-          <button type="button" role="menuitem" id="git-push-btn" disabled onclick="pushChanges(); closeGitDropdown();"><span class="material-icons git-dropdown-menu-icon" aria-hidden="true">cloud_upload</span><span id="git-push-label">Push</span></button>
-          <button type="button" role="menuitem" id="git-pull-btn" disabled onclick="pullChanges(); closeGitDropdown();"><span class="material-icons git-dropdown-menu-icon" aria-hidden="true">cloud_download</span><span id="git-pull-label">Pull</span></button>
+          <button type="button" role="menuitem" data-action="git-status"><span class="material-icons git-dropdown-menu-icon" aria-hidden="true">info</span><span>Status</span></button>
+          <button type="button" role="menuitem" data-action="git-diff"><span class="material-icons git-dropdown-menu-icon" aria-hidden="true">code</span><span>Diff</span></button>
+          <button type="button" role="menuitem" id="git-push-btn" disabled data-action="git-push"><span class="material-icons git-dropdown-menu-icon" aria-hidden="true">cloud_upload</span><span id="git-push-label">Push</span></button>
+          <button type="button" role="menuitem" id="git-pull-btn" disabled data-action="git-pull"><span class="material-icons git-dropdown-menu-icon" aria-hidden="true">cloud_download</span><span id="git-pull-label">Pull</span></button>
         </div>
       </div>
     </div>
@@ -560,6 +621,7 @@ app.listen(8080, () => console.log("Compiler API on http://localhost:8080/compil
     </div>
     <div class="resizer resizer-v" id="resizer-pdf" title="Resize editor / PDF"></div>
     <iframe id="pdf"></iframe>
+    <div class="resizer resizer-v" id="resizer-versions" title="Resize versions panel"></div>
     <aside id="versions-panel" class="hidden" aria-hidden="true" aria-label="Version history">
       <div class="versions-header">
         <span class="material-icons" aria-hidden="true">history</span>
@@ -650,6 +712,6 @@ app.listen(8080, () => console.log("Compiler API on http://localhost:8080/compil
   </div>
 
 <script src="https://unpkg.com/monaco-editor@latest/min/vs/loader.js"></script>
-<script src="/app.js"></script>
+<script type="module" src="/app.js"></script>
 </body>
 </html>
