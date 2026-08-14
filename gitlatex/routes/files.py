@@ -2,13 +2,12 @@
 
 import base64
 import os
-import re
 import shutil
 
 from flask import Blueprint, jsonify, request, send_file
 
 from gitlatex import state
-from gitlatex.http import MIME_TYPES, REPO_FILE_MAX_SIZE, _json
+from gitlatex.http import MIME_TYPES, _json
 from gitlatex.services.paths import flatten_file_tree, read_dir_recursive, resolve_repo_path
 
 bp = Blueprint("files", __name__)
@@ -44,21 +43,26 @@ def repo_files_content():
     for rel in paths:
         full_path = os.path.join(state.current_repo_path, rel)
         try:
-            stat = os.stat(full_path)
-            if not os.path.isfile(full_path) or stat.st_size > REPO_FILE_MAX_SIZE:
+            if not os.path.isfile(full_path):
                 continue
-            ext = os.path.splitext(full_path)[1].lower()
-            is_binary = ext in MIME_TYPES or re.search(r"\.(pdf|zip|exe|dll)$", rel, re.I)
             rel_slash = rel.replace("\\", "/")
-            if is_binary:
-                with open(full_path, "rb") as f:
-                    content = base64.b64encode(f.read()).decode("ascii")
-                files.append({"path": rel_slash, "base64": content})
+            with open(full_path, "rb") as f:
+                raw = f.read()
+            # Sniff the bytes rather than trusting the extension: anything that
+            # is not valid UTF-8 (binary .eps, fonts, archives) must travel as
+            # base64, or lossy decoding silently corrupts it in transit.
+            if b"\0" in raw:
+                text = None
             else:
-                with open(full_path, "r", encoding="utf-8", errors="replace") as f:
-                    content = f.read()
-                files.append({"path": rel_slash, "content": content})
-        except (OSError, UnicodeDecodeError):
+                try:
+                    text = raw.decode("utf-8")
+                except UnicodeDecodeError:
+                    text = None
+            if text is None:
+                files.append({"path": rel_slash, "base64": base64.b64encode(raw).decode("ascii")})
+            else:
+                files.append({"path": rel_slash, "content": text})
+        except OSError:
             pass
     return jsonify(files=files)
 

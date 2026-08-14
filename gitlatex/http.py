@@ -16,7 +16,6 @@ MIME_TYPES = {
     ".js": "application/javascript; charset=utf-8",
 }
 
-REPO_FILE_MAX_SIZE = 5 * 1024 * 1024
 STATIC_EXTENSIONS = frozenset({".css", ".js", ".html", ".ico", ".png", ".jpg", ".svg", ".woff", ".woff2"})
 ASSET_EXTENSIONS = frozenset({".css", ".js", ".svg", ".ico", ".png", ".jpeg", ".jpg", ".json", ".woff", ".woff2"})
 
