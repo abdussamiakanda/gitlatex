@@ -19,14 +19,22 @@ def push():
         return jsonify(error="No repository selected"), 400
     if Repo is None:
         return jsonify(error="GitPython not installed"), 500
+    payload = request.get_json(silent=True)
+    if payload is None:
+        payload = {}
+    if not isinstance(payload, dict):
+        return jsonify(error="Expected a JSON object"), 400
+    message = payload.get("message", "")
+    if not isinstance(message, str):
+        return jsonify(error="Commit message must be a string"), 400
+    message = message.strip() or datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     try:
         repo = Repo(state.current_repo_path)
         try:
-            # Stage and commit everything with a timestamp message, then push.
+            # Stage and commit everything with the supplied message, then push.
             committed = False
             repo.git.add("-A")
             if repo.is_dirty(index=True, working_tree=True, untracked_files=True):
-                message = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 repo.index.commit(message)
                 committed = True
                 print("Commit:", message)

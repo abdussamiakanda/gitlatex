@@ -124,8 +124,11 @@ powers VS Code.
 
 ### Git and version history
 
-- **Status, diff, pull and push** from the toolbar. Push stages everything,
-  commits with a timestamp, and pushes in one action.
+- **Status, diff, pull and push** from the toolbar. Push asks for a commit message
+  (default: `Update LaTeX project`), then stages everything, commits and pushes.
+  Edit the message or accept the default; Cancel or Escape stops the
+  operation. Submitting an empty message also cancels. If the working tree is
+  clean, existing commits are pushed without creating an empty commit.
 - Pull and push **enable themselves only when there is something to do**, with
   ahead/behind counts read from the remote.
 - **Version history panel** listing your commits, with the files each one touched
