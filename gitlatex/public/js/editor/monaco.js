@@ -10,6 +10,9 @@ import { registerCompletions } from "./completions.js";
 import { registerLanguages } from "./languages.js";
 import { highlightOutlineFor, scheduleOutlineRefresh } from "./outline.js";
 import { saveCurrentFile } from "./session.js";
+import { registerSnippets } from "./snippets.js";
+import { registerSynctex } from "./synctex.js";
+import { applyVimMode } from "./vim.js";
 import { addWordToDictionary, loadSpellStatus, registerSpellCodeActions, scheduleSpellCheck, wordAtCursor } from "./spell.js";
 import { getMonacoTheme } from "../ui/theme.js";
 
@@ -31,6 +34,9 @@ export function ensureMonacoReady(callback) {
       value: "",
       language: "latex",
       theme: getMonacoTheme(),
+      // Long lines wrap at the pane edge instead of scrolling sideways.
+      wordWrap: "on",
+      wrappingIndent: "same",
       quickSuggestions: { other: true, comments: true, strings: true },
       suggestOnTriggerCharacters: true,
       acceptSuggestionOnEnter: "on",
@@ -64,6 +70,10 @@ export function ensureMonacoReady(callback) {
       }
     });
     loadSpellStatus();
+
+    registerSynctex(state.editor);
+    registerSnippets(monaco, state.editor);
+    applyVimMode();
 
     let autosaveTimeout = null;
     const AUTOSAVE_DELAY_MS = 800;
