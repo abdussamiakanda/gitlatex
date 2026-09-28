@@ -50,7 +50,7 @@ function inScope(snippet, languageId) {
 
 /** The text a prefix could have been typed as: back to whitespace or a bracket. */
 function tokenBefore(textBefore) {
-  return /[^\s{}()[\],;]*$/.exec(textBefore)[0];
+  return /[^\s{}()[\],]*$/.exec(textBefore)[0];
 }
 
 /** Longest snippet whose prefix ends exactly at the cursor. */
