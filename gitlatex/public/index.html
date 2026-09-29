@@ -396,7 +396,9 @@
         <p>JSON, always. On success:</p>
         <div class="docs-code">
           <button type="button" class="docs-copy">Copy</button>
-          <pre><code>{ "success": true, "pdf": "data:application/pdf;base64,JVBERi0xLjUK..." }</code></pre>
+          <pre><code>{ "success": true,
+  "pdf": "data:application/pdf;base64,JVBERi0xLjUK...",
+  "synctex": "H4sIAAAAAAAAA..." }</code></pre>
         </div>
         <p>On failure:</p>
         <div class="docs-code">
@@ -406,6 +408,7 @@
         <ul class="docs-list">
           <li>Both <code>success</code> and <code>pdf</code> are required for a compile to count. <code>success: true</code> with no <code>pdf</code> is treated as a failure.</li>
           <li><strong>A base64 data URL is the recommended form.</strong> GitLaTeX strips the prefix and saves the bytes into your repository, so the PDF is a real file you can commit and push.</li>
+          <li><code>synctex</code> is optional but recommended: the base64 of the <code>.synctex.gz</code> file that <code>pdflatex -synctex=1</code> writes next to the PDF. Without it, jumping between the editor and the PDF does not work for API builds. Send it as-is; GitLaTeX rewrites the paths inside it from your temp folder to the user's repo.</li>
           <li>A plain <code>https://…</code> URL in <code>pdf</code> also works — but it is only loaded into the preview iframe, never saved into the repo.</li>
           <li>Put the <code>pdflatex</code> log in <code>error</code>. It lands verbatim in the console pane, which is all your users get to debug with.</li>
           <li>The status code is ignored on compile (only the body is read), so it is fine to return errors as <code>200</code>. The <strong>Test</strong> button, however, does check for a 2xx status.</li>
@@ -480,7 +483,8 @@ def compile_tex():
         # land where GitLaTeX expects them.
         main_dir = os.path.dirname(os.path.join(work, *main.split("/"))) or work
         main_name = os.path.basename(main)
-        cmd = ["pdflatex", "-interaction=nonstopmode", "-halt-on-error", main_name]
+        cmd = ["pdflatex", "-interaction=nonstopmode", "-halt-on-error",
+               "-synctex=1", main_name]
 
         log = ""
         try:
@@ -500,7 +504,15 @@ def compile_tex():
         with open(pdf_path, "rb") as fh:
             pdf_b64 = base64.b64encode(fh.read()).decode("ascii")
 
-    return jsonify(success=True, pdf="data:application/pdf;base64," + pdf_b64)
+        # Lets GitLaTeX jump between source lines and the PDF.
+        synctex_b64 = None
+        synctex_path = os.path.splitext(pdf_path)[0] + ".synctex.gz"
+        if os.path.isfile(synctex_path):
+            with open(synctex_path, "rb") as fh:
+                synctex_b64 = base64.b64encode(fh.read()).decode("ascii")
+
+    return jsonify(success=True, pdf="data:application/pdf;base64," + pdf_b64,
+                   synctex=synctex_b64)
 
 
 if __name__ == "__main__":
@@ -549,7 +561,7 @@ app.post("/compile", (req, res) => {
   const mainDir = path.dirname(path.join(work, ...mainParts));
   const mainName = mainParts[mainParts.length - 1];
 
-  execFile("pdflatex", ["-interaction=nonstopmode", "-halt-on-error", mainName],
+  execFile("pdflatex", ["-interaction=nonstopmode", "-halt-on-error", "-synctex=1", mainName],
     { cwd: mainDir, timeout: 120000 }, (err, stdout, stderr) => {
       const pdf = path.join(mainDir, mainName.replace(/\.tex$/i, ".pdf"));
       if (!fs.existsSync(pdf)) {
@@ -557,9 +569,12 @@ app.post("/compile", (req, res) => {
         const log = stdout || stderr || (err && err.message) || "pdflatex produced no PDF";
         return res.json({ error: log.slice(-4000) });
       }
+      // Lets GitLaTeX jump between source lines and the PDF.
+      const synctex = pdf.replace(/\.pdf$/i, ".synctex.gz");
       res.json({
         success: true,
-        pdf: "data:application/pdf;base64," + fs.readFileSync(pdf).toString("base64")
+        pdf: "data:application/pdf;base64," + fs.readFileSync(pdf).toString("base64"),
+        synctex: fs.existsSync(synctex) ? fs.readFileSync(synctex).toString("base64") : null
       });
     });
 });

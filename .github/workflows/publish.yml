@@ -1,0 +1,94 @@
+name: Publish to PyPI
+
+# Releases happen two ways; ordinary pushes to master never publish:
+#   1. Actions tab -> "Publish to PyPI" -> Run workflow, pick patch/minor/major.
+#      The next version is computed from the latest v* tag, tagged, and published.
+#   2. Pushing a tag by hand, e.g. `git tag v2.0.0 && git push origin v2.0.0`.
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Which part of the version to bump
+        type: choice
+        options: [patch, minor, major]
+        default: patch
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # to push the new tag on manual runs
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # setuptools-scm needs the tags and history
+
+      - name: Compute and push the next tag
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          LATEST=$(git tag --list 'v*.*.*' --sort=-v:refname | head -n1)
+          if [ -z "$LATEST" ]; then
+            echo "::error::No v*.*.* tag exists yet. Push the current release tag first (e.g. v1.7.0)."
+            exit 1
+          fi
+          IFS=. read -r MAJOR MINOR PATCH <<< "${LATEST#v}"
+          case "${{ inputs.bump }}" in
+            major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
+            minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
+            patch) PATCH=$((PATCH + 1)) ;;
+          esac
+          NEXT="v$MAJOR.$MINOR.$PATCH"
+          echo "Bumping $LATEST -> $NEXT"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$NEXT" -m "Release $NEXT"
+          # Tags pushed with GITHUB_TOKEN don't re-trigger workflows, so no double publish.
+          git push origin "$NEXT"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build sdist and wheel
+        run: |
+          python -m pip install --upgrade build twine
+          python -m build
+          python -m twine check dist/*
+
+      - name: Make sure the build got a clean release version
+        id: version
+        run: |
+          WHEEL=$(ls dist/*.whl)
+          VERSION=$(basename "$WHEEL" | cut -d- -f2)
+          echo "Built version: $VERSION"
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Built version '$VERSION' is not a clean release; is HEAD exactly on a v*.*.* tag?"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/gitlatex/${{ needs.build.outputs.version }}/
+    permissions:
+      id-token: write  # required for PyPI Trusted Publishing (OIDC)
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - uses: pypa/gh-action-pypi-publish@release/v1

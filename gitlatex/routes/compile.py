@@ -10,6 +10,7 @@ from gitlatex import state
 from gitlatex.http import _json
 from gitlatex.services.latex import LATEX_ENGINES, run_latex_build
 from gitlatex.services.paths import resolve_repo_path
+from gitlatex.services.synctex import save_remote_synctex
 
 bp = Blueprint("compile", __name__)
 
@@ -87,9 +88,26 @@ def handle_save_pdf():
         with open(full_path, "wb") as f:
             f.write(buf)
         print("Saved PDF", relative_path)
-        return jsonify(success=True, path=relative_path)
     except Exception as e:
         return jsonify(error=str(e)), 500
+    # SyncTeX is a bonus: a bad or missing file only costs jump-to-source,
+    # never the PDF that was just saved.
+    synctex = data.get("synctex")
+    main_rel = (data.get("main") or "").strip().replace("\\", "/").lstrip("/")
+    if not main_rel:
+        main_rel = os.path.splitext(relative_path)[0] + ".tex"
+    blob = None
+    if isinstance(synctex, str) and synctex.strip():
+        try:
+            blob = base64.b64decode(synctex.split(",", 1)[-1])
+        except ValueError as e:
+            print("Ignoring invalid SyncTeX from the Compiler API:", e)
+    try:
+        has_synctex = save_remote_synctex(state.current_repo_path, full_path, main_rel, blob)
+    except Exception as e:
+        print("Could not save SyncTeX for", relative_path + ":", e)
+        has_synctex = False
+    return jsonify(success=True, path=relative_path, synctex=has_synctex)
 
 
 @bp.route("/save-pdf", methods=["POST"])

@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+requires = ["setuptools>=64", "setuptools-scm>=8", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "gitlatex"
-version = "1.7.0"
+dynamic = ["version"]
 description = "A simple UI for LaTeX projects with Git support. Clone repos, edit, compile, and push."
 readme = "README.md"
 license = "ISC"
@@ -52,3 +52,8 @@ gitlatex = [
     "public/js/*/*.js",
     "public/css/*.css",
 ]
+
+[tool.setuptools_scm]
+# The version comes from the latest git tag (v1.7.0 -> 1.7.0); untagged commits
+# build as dev versions like 1.7.1.dev3+g1a2b3c4.
+version_file = "gitlatex/_version.py"

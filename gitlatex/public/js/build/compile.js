@@ -60,7 +60,7 @@ export async function compile() {
             showPdf(data.pdf);
             setConsole("Compiled " + mainFile + " via API.");
           } else {
-            const savePayload = { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path: pdfPath, content: base64 }) };
+            const savePayload = { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path: pdfPath, content: base64, main: mainFile, synctex: data.synctex || null }) };
             const trySave = async (path) => {
               const saveRes = await fetchApi(path, savePayload);
               let saveData = {};
