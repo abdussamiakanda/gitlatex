@@ -207,7 +207,6 @@ function applyDecorations() {
         className: cls,
         linesDecorationsClassName: "review-line-marker",
         stickiness: 1, // NeverGrowsWhenTypingAtEdges
-        hoverMessage: { value: "Comment — see the review panel" },
       } : { stickiness: 1 },
     });
   }
@@ -240,6 +239,7 @@ export function resetReview() {
 export async function loadReviewForFile(path) {
   // Save moves made in the file being left, while its ranges are still known.
   if (syncTimer) syncAnchors();
+  hideTip();
   const token = ++loadToken;
   threads = [];
   loadedFile = null;
@@ -531,6 +531,100 @@ function activate(id, reveal) {
   scheduleLayout();
 }
 
+// Open the panel (if needed) with this thread's card active beside its line.
+function showThread(id) {
+  if (isReviewPanelOpen()) {
+    activate(id, false);
+    return;
+  }
+  activeId = id;
+  captureRanges();
+  applyDecorations();
+  openReviewPanel();
+}
+
+function threadAt(pos) {
+  return threads.find(t => isVisible(t) && toMonaco(t.range).containsPosition(pos)) || null;
+}
+
+function threadOnLine(line) {
+  return threads.find(t => isVisible(t) && line >= t.range.startLine && line <= t.range.endLine) || null;
+}
+
+// ----- Hover tooltip -----
+// Our own content widget rather than a Monaco hoverMessage, so it can be
+// clicked (Monaco's hover only offers text selection and a copy button).
+
+let tip = null;          // { node, widget, id }
+let tipHideTimer = null;
+
+function ensureTip() {
+  if (tip) return tip;
+  const node = el("div", "review-tip");
+  node.setAttribute("role", "button");
+  node.tabIndex = -1;
+  node.addEventListener("mouseenter", () => clearTimeout(tipHideTimer));
+  node.addEventListener("mouseleave", scheduleHideTip);
+  node.addEventListener("mousedown", e => e.preventDefault()); // keep editor focus/selection
+  node.addEventListener("click", function () {
+    const id = tip && tip.id;
+    hideTip();
+    if (id && threadById(id)) showThread(id);
+  });
+  tip = { node, id: null, position: null };
+  tip.widget = {
+    allowEditorOverflow: true,
+    getId: () => "gitlatex.review.tip",
+    getDomNode: () => node,
+    getPosition: () => tip.position && {
+      position: tip.position,
+      preference: [
+        state.monacoApi.editor.ContentWidgetPositionPreference.ABOVE,
+        state.monacoApi.editor.ContentWidgetPositionPreference.BELOW,
+      ],
+    },
+  };
+  return tip;
+}
+
+function showTip(t, pos) {
+  clearTimeout(tipHideTimer);
+  const editor = state.editor;
+  if (!editor) return;
+  const tp = ensureTip();
+  if (tp.id === t.id) return; // already showing; don't chase the mouse
+  const first = (t.messages || [])[0] || {};
+  const replies = (t.messages || []).length - 1;
+  tp.node.textContent = "";
+  const head = el("div", "review-tip-head");
+  head.appendChild(el("span", "review-author", first.author || "Anonymous"));
+  if (replies > 0) head.appendChild(el("span", "review-date", replies + (replies === 1 ? " reply" : " replies")));
+  if (t.resolved) head.appendChild(el("span", "review-date", "resolved"));
+  const text = (first.text || "").replace(/\s+/g, " ");
+  tp.node.append(
+    head,
+    el("div", "review-tip-text", text.length > 120 ? text.slice(0, 120) + "…" : text),
+    el("div", "review-tip-hint", "Click to open in review panel"),
+  );
+  const wasShown = tp.id !== null;
+  tp.id = t.id;
+  tp.position = { lineNumber: pos.lineNumber, column: pos.column };
+  if (wasShown) editor.layoutContentWidget(tp.widget);
+  else editor.addContentWidget(tp.widget);
+}
+
+function scheduleHideTip() {
+  clearTimeout(tipHideTimer);
+  if (tip && tip.id) tipHideTimer = setTimeout(hideTip, 300);
+}
+
+function hideTip() {
+  clearTimeout(tipHideTimer);
+  if (!tip || !tip.id || !state.editor) return;
+  state.editor.removeContentWidget(tip.widget);
+  tip.id = null;
+}
+
 // Take the server's copy of a thread but keep the range tracked locally,
 // which may be newer than what has been saved.
 function replaceThread(updated) {
@@ -694,12 +788,26 @@ export function registerReview(monaco, editor) {
   editor.onDidLayoutChange(scheduleLayout);
   editor.onDidChangeCursorSelection(function (e) {
     if (hasFile() && !draft && isReviewPanelOpen()) {
-      const pos = e.selection.getPosition();
-      const hit = threads.find(t => isVisible(t) && toMonaco(t.range).containsPosition(pos));
+      const hit = threadAt(e.selection.getPosition());
       if (hit) activate(hit.id, false);
     }
     scheduleLayout();
   });
+  // Hovering commented text (or its margin marker) shows a small tooltip;
+  // clicking the tooltip opens the thread in the review panel.
+  editor.onMouseMove(function (e) {
+    const pos = e.target && e.target.position;
+    const T = monaco.editor.MouseTargetType;
+    let hit = null;
+    if (pos && hasFile() && !draft) {
+      if (e.target.type === T.CONTENT_TEXT) hit = threadAt(pos);
+      else if (e.target.type === T.GUTTER_LINE_DECORATIONS) hit = threadOnLine(pos.lineNumber);
+    }
+    if (hit) showTip(hit, pos);
+    else scheduleHideTip();
+  });
+  editor.onMouseLeave(scheduleHideTip);
+  editor.onKeyDown(hideTip);
 
   const cards = document.getElementById("review-cards");
   if (cards) {
