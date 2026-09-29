@@ -105,7 +105,9 @@ def read_dir_recursive(dir_path):
     result = []
     for file in entries:
         full = os.path.join(dir_path, file)
-        if file == ".git":
+        # .gitlatex holds review comments - managed by the review panel, not
+        # something to open in the editor.
+        if file in (".git", ".gitlatex"):
             continue
         if os.path.isdir(full):
             result.append({"name": file, "type": "folder", "children": read_dir_recursive(full)})

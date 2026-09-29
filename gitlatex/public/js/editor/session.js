@@ -11,6 +11,7 @@ import { findFirstTexFile, getSidebarTreeEl, renderFileTree } from "./filetree.j
 import { refreshMainFileDropdown } from "./mainfile.js";
 import { ensureMonacoReady } from "./monaco.js";
 import { renderOutline } from "./outline.js";
+import { loadReviewForFile, resetReview } from "./review.js";
 import { refreshProjectIndex } from "./projectindex.js";
 import { clearSpellMarkers, scheduleSpellCheck } from "./spell.js";
 import { clearSkeleton, setPaneLoading, showSkeleton } from "../ui/loading.js";
@@ -46,6 +47,7 @@ export async function openEditorPage(repoName) {
     return;
   }
   state.currentRepo = decoded;
+  resetReview();
   hideDiffView();
   invalidateVersions();
   clearProblems();
@@ -72,6 +74,7 @@ export async function loadFiles() {
     if (!files || !files.length) {
       treeEl.innerHTML = '<div class="sidebar-placeholder">Repository is empty.</div>';
       state.currentFile = null;
+      loadReviewForFile(null);
       showEditorPane();
       if (state.editor) {
         state.editor.setValue("");
@@ -114,10 +117,12 @@ export async function loadFile(path) {
       });
     }
     if (isViewableFile(path)) {
+      loadReviewForFile(null);
       showFileViewer(path);
       return;
     }
     if (!isEditableFile(path)) {
+      loadReviewForFile(null);
       showPreviewNotAvailable();
       return;
     }
@@ -138,6 +143,7 @@ export async function loadFile(path) {
         }
       }
     }
+    loadReviewForFile(path);
     renderOutline();
     refreshEditorMarkers();
     refreshEnvDecorations();

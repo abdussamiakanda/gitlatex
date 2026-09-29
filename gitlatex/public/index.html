@@ -20,6 +20,7 @@
   <link rel="stylesheet" href="/css/outline.css" />
   <link rel="stylesheet" href="/css/problems.css" />
   <link rel="stylesheet" href="/css/versions.css" />
+  <link rel="stylesheet" href="/css/review.css" />
   <link rel="stylesheet" href="/css/support.css" />
   <link rel="stylesheet" href="/css/updates.css" />
   <link rel="stylesheet" href="/css/docs.css" />
@@ -628,6 +629,7 @@ app.listen(8080, () => console.log("Compiler API on http://localhost:8080/compil
         </button>
       <button type="button" class="btn-errors" data-action="show-errors"><span class="material-icons" aria-hidden="true">error_outline</span><span>Errors</span></button>
       <button type="button" class="btn-versions" id="btn-versions" data-action="toggle-versions" aria-pressed="false" title="Version history"><span class="material-icons" aria-hidden="true">history</span><span>Versions</span></button>
+      <button type="button" class="btn-review" id="btn-review" data-action="toggle-review" aria-pressed="false" title="Review comments"><span class="material-icons" aria-hidden="true">rate_review</span><span>Review</span><span class="review-badge hidden" id="review-badge" aria-label="open comments">0</span></button>
       <div class="toolbar-git git-dropdown" id="toolbar-git">
         <button type="button" class="git-dropdown-btn" id="git-dropdown-btn" aria-haspopup="true" aria-expanded="false" aria-label="Git actions">
           <i class="fa-brands fa-git-alt" aria-hidden="true"></i>
@@ -675,6 +677,23 @@ app.listen(8080, () => console.log("Compiler API on http://localhost:8080/compil
     <div id="editor-pane">
       <div id="editor"></div>
       <div id="vim-statusbar" class="vim-statusbar" aria-live="polite"></div>
+      <aside id="review-panel" class="hidden" aria-hidden="true" aria-label="Review comments">
+        <div class="review-header">
+          <span class="material-icons" aria-hidden="true">rate_review</span>
+          <span class="review-title">Review</span>
+          <label class="review-toggle" title="Show resolved threads">
+            <input type="checkbox" id="review-show-resolved"> Resolved
+          </label>
+          <button type="button" class="icon-btn" data-action="close-review" title="Close review panel" aria-label="Close review panel">
+            <span class="material-icons">close</span>
+          </button>
+        </div>
+        <div id="review-cards">
+          <button type="button" id="review-add" class="review-add hidden"><span class="material-icons" aria-hidden="true">add_comment</span>Add comment</button>
+          <div id="review-empty" class="review-empty hidden"></div>
+        </div>
+        <div id="review-identity" class="review-identity"></div>
+      </aside>
       <div id="file-viewer" class="hidden" aria-hidden="true">
         <img id="file-viewer-img" alt="" class="file-viewer-content">
         <iframe id="file-viewer-pdf" class="file-viewer-content hidden" title="PDF viewer"></iframe>
