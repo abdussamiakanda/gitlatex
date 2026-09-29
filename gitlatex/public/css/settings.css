@@ -393,3 +393,125 @@
 #settings-test-api.hidden {
   display: none;
 }
+
+/* --- Settings: Vim help and snippets --- */
+.vimtex-help summary {
+  font-size: 12px;
+  color: var(--accent);
+  cursor: pointer;
+  margin-top: 2px;
+}
+.vimtex-table {
+  width: 100%;
+  margin-top: 8px;
+  border-collapse: collapse;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.vimtex-table th,
+.vimtex-table td {
+  padding: 4px 0;
+  text-align: left;
+  vertical-align: top;
+  border-top: 1px solid var(--border-subtle);
+}
+.vimtex-table th {
+  font-weight: 400;
+  white-space: nowrap;
+  padding-right: 12px;
+  width: 1%;
+}
+.vimtex-table code,
+.snippet-prefix {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 1px 4px;
+  background: var(--bg-hover);
+  border-radius: 3px;
+}
+
+.snippets-list {
+  display: flex;
+  flex-direction: column;
+}
+.snippet-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+  border-top: 1px solid var(--border-subtle);
+  font-size: 12px;
+}
+.snippet-row:first-child {
+  border-top: none;
+}
+.snippet-prefix {
+  flex-shrink: 0;
+  color: var(--text-primary);
+}
+.snippet-desc {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.snippet-scope {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+.snippet-row .snippet-action {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+}
+.snippet-row .snippet-action .material-icons {
+  font-size: 16px;
+}
+.snippets-empty.hidden,
+.snippet-form.hidden {
+  display: none;
+}
+
+.snippet-form {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+  padding: 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+}
+.snippet-form .settings-label {
+  margin-top: 6px;
+}
+.snippet-form-row {
+  display: flex;
+  gap: 12px;
+}
+.snippet-field {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.snippet-field .settings-label {
+  margin-top: 0;
+}
+.snippet-field-scope {
+  flex: 0 0 100px;
+}
+.snippet-body {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  resize: vertical;
+  white-space: pre;
+  tab-size: 2;
+}
+.settings-actions .btn-toolbar {
+  white-space: nowrap;
+}

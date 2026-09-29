@@ -75,14 +75,130 @@
   height: 100% !important;
 }
 
-/* --- PDF pane --- */
+/* --- PDF pane (drawn by js/ui/pdfviewer.js) --- */
 #pdf {
   width: var(--pdf-width);
   min-width: 200px;
   flex: 0 0 auto;
   height: 100%;
-  border: none;
+  display: flex;
+  flex-direction: column;
+  position: relative;
   background: var(--bg-app);
+}
+
+.pdf-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 8px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.pdf-toolbar .icon-btn {
+  width: 28px;
+  height: 28px;
+}
+
+.pdf-zoom-label {
+  min-width: 3.2em;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.pdf-toolbar-hint {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+#pdf-pages {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: auto;
+  position: relative;
+}
+
+#pdf-pages.hidden,
+#pdf-fallback.hidden,
+.pdf-empty.hidden {
+  display: none;
+}
+
+/* Padding here is PAGE_PADDING in pdfviewer.js. max-content + margin auto
+   centres pages that fit and lets zoomed ones scroll sideways. */
+.pdf-pages-inner {
+  padding: 12px;
+  width: max-content;
+  min-width: 100%;
+  box-sizing: border-box;
+}
+
+.pdf-pages-inner.staging {
+  position: absolute;
+  top: 0;
+  left: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.pdf-page {
+  position: relative;
+  margin: 0 auto 12px;
+  background: #fff;
+  box-shadow: var(--shadow-md);
+  user-select: none;
+}
+
+.pdf-page canvas {
+  display: block;
+}
+
+.pdf-sync-mark {
+  position: absolute;
+  background: rgba(241, 80, 47, 0.28);
+  outline: 1px solid rgba(241, 80, 47, 0.7);
+  border-radius: 2px;
+  pointer-events: none;
+  animation: pdf-sync-fade 1.8s ease-out forwards;
+}
+
+@keyframes pdf-sync-fade {
+  0%, 60% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+#pdf-fallback {
+  flex: 1 1 0;
+  min-height: 0;
+  width: 100%;
+  border: none;
+}
+
+.pdf-empty {
+  position: absolute;
+  inset: 34px 0 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  pointer-events: none;
+}
+
+/* Editor line flashed after a jump from the PDF */
+.monaco-editor .synctex-line-flash {
+  background: rgba(241, 80, 47, 0.22);
+  animation: pdf-sync-fade 1.5s ease-out forwards;
 }
 
 /* Sidebar hidden: collapse with animation */
@@ -94,4 +210,46 @@
 
 .sidebar-hidden #editor-pane {
   flex: 1;
+}
+
+/* --- Vim mode status bar (js/editor/vim.js) --- */
+.vim-statusbar {
+  display: none;
+}
+
+#editor-pane.vim-on #editor {
+  bottom: 24px;
+}
+
+#editor-pane.vim-on .vim-statusbar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 10px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: var(--bg-elevated);
+  border-top: 1px solid var(--border-subtle);
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+#editor-pane.viewer-active .vim-statusbar {
+  visibility: hidden;
+}
+
+.vim-statusbar input {
+  flex: 1 1 auto;
+  min-width: 0;
+  font: inherit;
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+  outline: none;
 }

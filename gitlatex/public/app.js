@@ -15,7 +15,9 @@ import { setCompilerApi, setCompilerApiKey, setLatexEngine, setUseCompilerApi } 
 import { addNewFileSidebar, addNewFolderSidebar, handleSidebarFileInputChange, uploadFilesSidebar } from "./js/editor/filetree.js";
 import { populateMainFileDropdown } from "./js/editor/mainfile.js";
 import { toggleOutlineSection } from "./js/editor/outline.js";
+import { closeSnippetForm, exportSnippets, importSnippetsFile, openSnippetForm, submitSnippetForm } from "./js/editor/snippets.js";
 import { setSpellCheckEnabled } from "./js/editor/spell.js";
+import { setVimEnabled } from "./js/editor/vim.js";
 import { hideDiffView } from "./js/git/diffview.js";
 import { closeGitDropdown, toggleGitDropdown } from "./js/git/menu.js";
 import { pullChanges, pushChanges, showDiff, showStatus } from "./js/git/actions.js";
@@ -23,6 +25,8 @@ import { clearCompareSelection, closeVersionsPanel, loadCommits, loadComparison,
 import { cloneRepoAndRefresh, closeCloneModal, closeCreateWorkspaceModal, createWorkspaceAndOpen, initRepoListControls, openCloneModal, openCreateWorkspaceModal } from "./js/home/repolist.js";
 import { showConsoleTab } from "./js/ui/consolepane.js";
 import { setupResizers, toggleSidebar } from "./js/ui/layout.js";
+import { initPdfViewer, setPdfDoubleClickHandler } from "./js/ui/pdfviewer.js";
+import { syncFromPdf } from "./js/editor/synctex.js";
 import { checkForUpdate, syncCompilerApiFields } from "./js/ui/settings.js";
 import { getStoredTheme, setTheme } from "./js/ui/theme.js";
 
@@ -55,6 +59,8 @@ document.addEventListener("click", function (e) {
 document.documentElement.setAttribute("data-theme", getStoredTheme());
 populateMainFileDropdown();
 initRepoListControls();
+initPdfViewer();
+setPdfDoubleClickHandler(syncFromPdf);
 document.getElementById("versions-close")?.addEventListener("click", closeVersionsPanel);
 document.getElementById("versions-refresh")?.addEventListener("click", loadCommits);
 document.getElementById("diff-view-close")?.addEventListener("click", hideDiffView);
@@ -73,6 +79,20 @@ document.getElementById("settings-use-api")?.addEventListener("change", function
 });
 document.getElementById("settings-spellcheck")?.addEventListener("change", function () {
   setSpellCheckEnabled(this.checked);
+});
+document.getElementById("settings-vim")?.addEventListener("change", function () {
+  setVimEnabled(this.checked);
+});
+document.getElementById("snippets-new")?.addEventListener("click", () => openSnippetForm(-1));
+document.getElementById("snippet-cancel")?.addEventListener("click", closeSnippetForm);
+document.getElementById("snippet-save")?.addEventListener("click", submitSnippetForm);
+document.getElementById("snippets-export")?.addEventListener("click", exportSnippets);
+document.getElementById("snippets-import")?.addEventListener("click", function () {
+  document.getElementById("snippets-import-input")?.click();
+});
+document.getElementById("snippets-import-input")?.addEventListener("change", function () {
+  if (this.files && this.files[0]) importSnippetsFile(this.files[0]);
+  this.value = "";
 });
 document.getElementById("compare-swap")?.addEventListener("click", function () {
   state.compareOrderSwapped = !state.compareOrderSwapped;

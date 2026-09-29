@@ -206,6 +206,81 @@
           Underlines unknown words in .tex, .txt and .md files. Comments, math and
           command arguments are skipped.
         </p>
+        <label class="settings-toggle" for="settings-vim">
+          <span class="settings-toggle-text">Vim keybindings</span>
+          <input type="checkbox" id="settings-vim" class="switch-input">
+          <span class="switch" aria-hidden="true"></span>
+        </label>
+        <p class="settings-hint">
+          Normal, insert and visual modes with <code>:w</code>, plus VimTeX-style
+          mappings in .tex files.
+        </p>
+        <details class="vimtex-help">
+          <summary>VimTeX mappings</summary>
+          <table class="vimtex-table">
+            <tbody>
+              <tr><th><code>ie</code> <code>ae</code></th><td>Inner / around environment</td></tr>
+              <tr><th><code>i$</code> <code>a$</code></th><td>Inner / around math</td></tr>
+              <tr><th><code>ic</code> <code>ac</code></th><td>Inner / around command</td></tr>
+              <tr><th><code>id</code> <code>ad</code></th><td>Inner / around delimiters</td></tr>
+              <tr><th><code>iP</code> <code>aP</code></th><td>Inner / around section</td></tr>
+              <tr><th><code>]]</code> <code>[[</code></th><td>Next / previous section</td></tr>
+              <tr><th><code>]m</code> <code>[m</code> <code>]M</code> <code>[M</code></th><td>Next / previous <code>\begin</code>, <code>\end</code></td></tr>
+              <tr><th><code>]n</code> <code>[n</code></th><td>Next / previous math</td></tr>
+              <tr><th><code>%</code></th><td>Jump between <code>\begin</code> and <code>\end</code>, or brackets</td></tr>
+              <tr><th><code>dse</code> <code>cse</code> <code>tse</code></th><td>Delete / change / toggle-star environment</td></tr>
+              <tr><th><code>dsc</code> <code>csc</code> <code>tsc</code></th><td>Delete / change / toggle-star command</td></tr>
+              <tr><th><code>ds$</code> <code>cs$</code> <code>ts$</code></th><td>Delete / change math, toggle inline ↔ display</td></tr>
+              <tr><th><code>dsd</code> <code>tsd</code></th><td>Delete delimiters, toggle <code>\left</code>/<code>\right</code></td></tr>
+              <tr><th><code>tsf</code></th><td>Toggle <code>\frac{a}{b}</code> ↔ <code>a/b</code></td></tr>
+              <tr><th><code>]]</code> (insert)</th><td>Close the current environment</td></tr>
+              <tr><th><code>\ll</code> <code>\lv</code></th><td>Compile, show cursor in PDF</td></tr>
+              <tr><th><code>\lt</code> <code>\le</code></th><td>Toggle outline, show errors</td></tr>
+            </tbody>
+          </table>
+        </details>
+      </div>
+      <div class="settings-group settings-group-stack">
+        <label class="settings-label">Snippets</label>
+        <p class="settings-hint">
+          Type a snippet's prefix and press <code>Tab</code>, or pick it from the suggestions.
+          Bodies use <code>$1</code>, <code>${1:default}</code> and <code>$0</code> for tab stops.
+          Tip: select text in the editor and right-click → <em>Save Selection as Snippet</em>.
+        </p>
+        <div id="snippets-list" class="snippets-list"></div>
+        <p id="snippets-empty" class="settings-hint snippets-empty hidden">No snippets yet.</p>
+        <div id="snippet-form" class="snippet-form hidden">
+          <div class="snippet-form-row">
+            <div class="snippet-field">
+              <label class="settings-label" for="snippet-prefix">Prefix</label>
+              <input type="text" id="snippet-prefix" class="settings-input" placeholder="fig" autocomplete="off" spellcheck="false">
+            </div>
+            <div class="snippet-field snippet-field-scope">
+              <label class="settings-label" for="snippet-scope">Files</label>
+              <select id="snippet-scope" class="settings-input">
+                <option value="latex">.tex</option>
+                <option value="bib">.bib</option>
+                <option value="all">All</option>
+              </select>
+            </div>
+          </div>
+          <label class="settings-label" for="snippet-description">Description</label>
+          <input type="text" id="snippet-description" class="settings-input" placeholder="Figure with caption and label" autocomplete="off">
+          <label class="settings-label" for="snippet-body">Body</label>
+          <textarea id="snippet-body" class="settings-input snippet-body" rows="7" spellcheck="false"
+                    placeholder="\begin{figure}[${1:htbp}]&#10;  \centering&#10;  \includegraphics[width=\linewidth]{$2}&#10;  \caption{$3}&#10;  \label{fig:$4}&#10;\end{figure}$0"></textarea>
+          <div class="settings-actions">
+            <button type="button" class="btn-toolbar" id="snippet-cancel">Cancel</button>
+            <button type="button" class="btn-toolbar primary" id="snippet-save">Save snippet</button>
+          </div>
+        </div>
+        <div class="settings-actions">
+          <span id="snippets-status" class="settings-save-status"></span>
+          <button type="button" class="btn-toolbar" id="snippets-import" title="Import a GitLaTeX or VS Code snippets .json file">Import</button>
+          <button type="button" class="btn-toolbar" id="snippets-export">Export</button>
+          <button type="button" class="btn-toolbar primary" id="snippets-new">New snippet</button>
+          <input type="file" id="snippets-import-input" accept=".json,.code-snippets,application/json" hidden>
+        </div>
       </div>
       <div class="settings-group settings-group-stack settings-tech-info">
         <label class="settings-label">Technical info</label>
@@ -599,6 +674,7 @@ app.listen(8080, () => console.log("Compiler API on http://localhost:8080/compil
     <div class="resizer resizer-v" id="resizer-sidebar" title="Resize sidebar"></div>
     <div id="editor-pane">
       <div id="editor"></div>
+      <div id="vim-statusbar" class="vim-statusbar" aria-live="polite"></div>
       <div id="file-viewer" class="hidden" aria-hidden="true">
         <img id="file-viewer-img" alt="" class="file-viewer-content">
         <iframe id="file-viewer-pdf" class="file-viewer-content hidden" title="PDF viewer"></iframe>
@@ -620,7 +696,24 @@ app.listen(8080, () => console.log("Compiler API on http://localhost:8080/compil
       </div>
     </div>
     <div class="resizer resizer-v" id="resizer-pdf" title="Resize editor / PDF"></div>
-    <iframe id="pdf"></iframe>
+    <div id="pdf">
+      <div class="pdf-toolbar">
+        <button type="button" class="icon-btn" id="pdf-zoom-out" title="Zoom out" aria-label="Zoom out">
+          <span class="material-icons" aria-hidden="true">remove</span>
+        </button>
+        <span id="pdf-zoom-label" class="pdf-zoom-label">100%</span>
+        <button type="button" class="icon-btn" id="pdf-zoom-in" title="Zoom in" aria-label="Zoom in">
+          <span class="material-icons" aria-hidden="true">add</span>
+        </button>
+        <button type="button" class="icon-btn" id="pdf-fit-width" title="Fit width" aria-label="Fit width">
+          <span class="material-icons" aria-hidden="true">fit_screen</span>
+        </button>
+        <span class="pdf-toolbar-hint" title="Cmd/Ctrl+click a line in the editor to find it in the PDF">Double-click the PDF to jump to its source</span>
+      </div>
+      <div id="pdf-pages"></div>
+      <iframe id="pdf-fallback" class="hidden" title="PDF preview"></iframe>
+      <div id="pdf-empty" class="pdf-empty">Compile to see the PDF here.</div>
+    </div>
     <div class="resizer resizer-v" id="resizer-versions" title="Resize versions panel"></div>
     <aside id="versions-panel" class="hidden" aria-hidden="true" aria-label="Version history">
       <div class="versions-header">

@@ -8,9 +8,11 @@ blueprint below - nothing else in the app needs to know about it.
     repos         listing, selecting, cloning and deleting projects
     files         reading and writing files inside a project
     compile       building the document and serving the PDF
+    synctex       jumping between editor lines and PDF positions
     projectindex  labels and citation keys for autocomplete
     spell         spell checking
-    git           push, pull, status, history and diffs
+    snippets      the user's own editor snippets
+    git          push, pull, status, history and diffs
 
 `pages` is registered last: its catch-all route serves index.html for unknown
 paths, so every real endpoint must be matched before it.
@@ -23,7 +25,9 @@ from gitlatex.routes import (
     pages,
     projectindex,
     repos,
+    snippets,
     spell,
+    synctex,
     system,
 )
 
@@ -32,8 +36,10 @@ BLUEPRINTS = (
     repos.bp,
     files.bp,
     compile_routes.bp,
+    synctex.bp,
     projectindex.bp,
     spell.bp,
+    snippets.bp,
     git.bp,
     pages.bp,
 )
