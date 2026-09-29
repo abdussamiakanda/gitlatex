@@ -2,7 +2,8 @@
  * SyncTeX: editor line -> PDF spot (Cmd/Ctrl+click, or "Show in PDF" in the
  * context menu) and PDF spot -> editor line (double-click the PDF).
  *
- * Positions come from the last local compile, so after editing a file the
+ * Positions come from the last compile (local, or a Compiler API that returns
+ * SyncTeX data), so after editing a file the
  * mapping can be a few lines off until the next build.
  */
 
