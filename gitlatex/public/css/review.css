@@ -318,6 +318,39 @@
   background: transparent;
   border-bottom-style: dashed;
 }
+.review-tip {
+  max-width: 280px;
+  padding: 6px 10px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--review-marker);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  cursor: pointer;
+  z-index: 50;
+}
+.review-tip:hover {
+  border-color: var(--review-marker);
+}
+.review-tip-head {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+}
+.review-tip-text {
+  margin-top: 2px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.review-tip-hint {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--accent);
+}
 .monaco-editor .review-line-marker {
   background: var(--review-marker);
   width: 3px !important;
