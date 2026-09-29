@@ -89,19 +89,6 @@ def resolve_repo_path(relative_path):
 
 def read_dir_recursive(dir_path):
     entries = os.listdir(dir_path)
-    base = os.path.basename(dir_path)
-
-    def has_tex_with_same_stem(base_name):
-        lower = base_name.lower()
-        for e in entries:
-            full = os.path.join(dir_path, e)
-            if not os.path.isfile(full):
-                continue
-            stem, ext = os.path.splitext(e)
-            if stem.lower() == lower and ext.lower() == ".tex":
-                return True
-        return False
-
     result = []
     for file in entries:
         full = os.path.join(dir_path, file)
@@ -112,10 +99,10 @@ def read_dir_recursive(dir_path):
         if os.path.isdir(full):
             result.append({"name": file, "type": "folder", "children": read_dir_recursive(full)})
         else:
-            if file.lower().endswith(".pdf"):
-                stem = os.path.splitext(file)[0]
-                if has_tex_with_same_stem(stem):
-                    continue
+            # SyncTeX data is for PDF <-> source jumps, not something to open.
+            if file.lower().endswith((".synctex.gz", ".synctex")):
+                continue
+            # Compiled PDFs are listed too; clicking one opens it in the PDF viewer.
             result.append({"name": file, "type": "file"})
     return result
 

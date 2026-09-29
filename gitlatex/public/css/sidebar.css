@@ -170,7 +170,7 @@
   outline-offset: -2px;
   border-radius: var(--radius-sm);
 }
-#sidebar .sidebar-delete-btn {
+#sidebar .sidebar-more-btn {
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
@@ -188,17 +188,59 @@
 }
 /* focus-within so keyboard users can reach a button that is otherwise
    only revealed on hover. */
-#sidebar li:hover > .sidebar-item-row > .sidebar-delete-btn,
-#sidebar li:focus-within > .sidebar-item-row > .sidebar-delete-btn,
-#sidebar li:hover .sidebar-delete-btn:focus-visible {
+#sidebar li:hover > .sidebar-item-row > .sidebar-more-btn,
+#sidebar li:focus-within > .sidebar-item-row > .sidebar-more-btn,
+#sidebar li:hover .sidebar-more-btn:focus-visible,
+#sidebar .sidebar-more-btn.open {
   opacity: 1;
 }
-#sidebar .sidebar-delete-btn:hover {
+#sidebar .sidebar-more-btn:hover,
+#sidebar .sidebar-more-btn.open {
+  background: var(--bg-active);
+  color: var(--text-primary);
+}
+#sidebar .sidebar-more-btn .material-icons {
+  font-size: 16px;
+}
+
+/* The row's ⋮ menu; looks like the Git dropdown (.git-dropdown-menu). */
+.sidebar-item-menu {
+  position: fixed;
+  display: none;
+  z-index: 1001;
+  min-width: 96px;
+  padding: 3px 0;
+}
+/* Compact, to sit with the file tree rather than the toolbar. The doubled
+   class outranks .git-dropdown-menu, whose settings.css loads after this. */
+.git-dropdown-menu.sidebar-item-menu button {
+  gap: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+}
+/* Hover: whiter than --bg-hover on dark, a touch darker on light, where the
+   menu itself is white. */
+.git-dropdown-menu.sidebar-item-menu button:not(.danger):hover {
+  background: color-mix(in srgb, var(--bg-hover) 80%, #fff);
+}
+[data-theme="light"] .git-dropdown-menu.sidebar-item-menu button:not(.danger):hover {
+  background: var(--bg-active);
+}
+.git-dropdown-menu.sidebar-item-menu .git-dropdown-menu-icon {
+  font-size: 14px;
+  width: 14px;
+  height: 14px;
+}
+.sidebar-item-menu button.danger,
+.sidebar-item-menu button.danger .git-dropdown-menu-icon {
+  color: var(--danger);
+}
+.sidebar-item-menu button.danger:hover {
   background: var(--danger);
   color: #fff;
 }
-#sidebar .sidebar-delete-btn .material-icons {
-  font-size: 16px;
+.sidebar-item-menu button.danger:hover .git-dropdown-menu-icon {
+  color: #fff;
 }
 
 /* The pill is the row, not the <li> - a folder <li> wraps its whole

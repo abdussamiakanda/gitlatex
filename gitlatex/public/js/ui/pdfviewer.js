@@ -122,6 +122,62 @@ export async function showPdf(url, path = null) {
   return true;
 }
 
+// Project PDFs the empty viewer offers, and what picking one does.
+let choices = { paths: [], onPick: null };
+
+/** Sets the PDFs listed while nothing is shown (none: "Compile to see..."). */
+export function setPdfChoices(paths, onPick) {
+  choices = { paths: paths || [], onPick };
+  renderEmpty();
+}
+
+function renderEmpty() {
+  const { empty } = els();
+  if (!empty) return;
+  empty.textContent = "";
+  const message = document.createElement("div");
+  empty.appendChild(message);
+  if (!choices.paths.length) {
+    message.textContent = "Compile to see the PDF here.";
+    return;
+  }
+  message.textContent = "Compile, or pick a PDF from this project:";
+  const list = document.createElement("div");
+  list.className = "pdf-empty-list";
+  choices.paths.forEach((path) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "pdf-empty-item";
+    const icon = document.createElement("i");
+    icon.className = "fa-solid fa-file-pdf";
+    const name = document.createElement("span");
+    name.textContent = path;
+    btn.append(icon, name);
+    btn.addEventListener("click", () => { if (choices.onPick) choices.onPick(path); });
+    list.appendChild(btn);
+  });
+  empty.appendChild(list);
+}
+
+/** Empties the viewer, e.g. when another project is opened. */
+export function clearPdf() {
+  choices = { paths: [], onPick: null };
+  renderEmpty();
+  view.loadId++;   // a load still in flight lands nowhere
+  if (view.observer) view.observer.disconnect();
+  view.observer = null;
+  view.entries.forEach(cancelEntry);
+  if (view.doc) view.doc.destroy();
+  view.url = view.path = view.doc = null;
+  view.pages = [];
+  view.entries = [];
+  view.usingFallback = false;
+  hideFallback();
+  const { scroller, empty } = els();
+  if (scroller) scroller.querySelectorAll(".pdf-pages-inner").forEach(el => el.remove());
+  if (empty) empty.classList.remove("hidden");
+}
+
 function showFallback(url, path) {
   const { scroller, fallback } = els();
   view.usingFallback = true;

@@ -3,8 +3,9 @@
  */
 
 import { state } from "../core/state.js";
-import { fetchJson } from "../core/api.js";
-import { loadFile, loadFiles } from "./session.js";
+import { fetchJson, getApiBase } from "../core/api.js";
+import { loadFile, loadFiles, openPdf } from "./session.js";
+import { clearPdf, getPdfPath } from "../ui/pdfviewer.js";
 import { setConsole } from "../ui/consolepane.js";
 import { showConfirmModal, showInputModal } from "../ui/modals.js";
 import { showEditorPane } from "../ui/viewer.js";
@@ -74,7 +75,95 @@ export function makeFileIcon(name) {
   return icon;
 }
 
+// --- The ⋮ menu on each row: Download and Delete --------------------------
+
+let itemMenu = null;     // one shared menu, moved to whichever row opened it
+let itemMenuOwner = null;
+
+function makeMoreButton(fullPath, isFolder) {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "sidebar-more-btn";
+  btn.setAttribute("aria-label", "More actions");
+  btn.setAttribute("aria-haspopup", "menu");
+  btn.title = "More actions";
+  btn.innerHTML = "<span class=\"material-icons\">more_vert</span>";
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (itemMenuOwner === btn) closeItemMenu();
+    else openItemMenu(btn, fullPath, isFolder);
+  });
+  return btn;
+}
+
+function menuItem(icon, label, onClick, danger = false) {
+  const item = document.createElement("button");
+  item.type = "button";
+  item.setAttribute("role", "menuitem");
+  if (danger) item.className = "danger";
+  item.innerHTML = "<span class=\"material-icons git-dropdown-menu-icon\"></span><span></span>";
+  item.firstChild.textContent = icon;
+  item.lastChild.textContent = label;
+  item.addEventListener("click", (e) => {
+    e.stopPropagation();
+    closeItemMenu();
+    onClick();
+  });
+  return item;
+}
+
+function openItemMenu(btn, fullPath, isFolder) {
+  closeItemMenu();
+  if (!itemMenu) {
+    itemMenu = document.createElement("div");
+    itemMenu.className = "git-dropdown-menu sidebar-item-menu";
+    itemMenu.setAttribute("role", "menu");
+    document.body.appendChild(itemMenu);
+    document.addEventListener("click", (e) => {
+      if (itemMenuOwner && !itemMenu.contains(e.target)) closeItemMenu();
+    });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeItemMenu(); });
+    // A fixed menu would drift away from its row.
+    window.addEventListener("resize", closeItemMenu);
+    document.addEventListener("scroll", closeItemMenu, true);
+  }
+  itemMenu.replaceChildren(
+    menuItem("download", isFolder ? "Download as .zip" : "Download", () => downloadSidebarItem(fullPath)),
+    menuItem("delete", "Delete", () => deleteSidebarItem(fullPath, isFolder), true)
+  );
+  itemMenuOwner = btn;
+  btn.classList.add("open");
+  btn.setAttribute("aria-expanded", "true");
+  itemMenu.style.display = "block";
+  // Below the button, right-aligned to it; flipped up when it would overflow.
+  const rect = btn.getBoundingClientRect();
+  const menuRect = itemMenu.getBoundingClientRect();
+  const top = rect.bottom + 4 + menuRect.height > window.innerHeight
+    ? rect.top - 4 - menuRect.height
+    : rect.bottom + 4;
+  itemMenu.style.top = Math.max(4, top) + "px";
+  itemMenu.style.left = Math.max(4, rect.right - menuRect.width) + "px";
+}
+
+function closeItemMenu() {
+  if (!itemMenuOwner) return;
+  itemMenuOwner.classList.remove("open");
+  itemMenuOwner.setAttribute("aria-expanded", "false");
+  itemMenuOwner = null;
+  if (itemMenu) itemMenu.style.display = "none";
+}
+
+export function downloadSidebarItem(path) {
+  const a = document.createElement("a");
+  a.href = (getApiBase() || "") + "/download?path=" + encodeURIComponent(path);
+  a.download = "";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
 export function renderFileTree(files, container, basePath = "", activePath = null, selectedFolderPath = null) {
+  closeItemMenu();   // its row is about to be replaced
   container.innerHTML = "";
   const ul = document.createElement("ul");
   const activeFilePath = activePath;
@@ -85,18 +174,8 @@ export function renderFileTree(files, container, basePath = "", activePath = nul
     const nameSpan = document.createElement("span");
     nameSpan.className = "sidebar-item-name";
     nameSpan.textContent = name;
-    const delBtn = document.createElement("button");
-    delBtn.type = "button";
-    delBtn.className = "sidebar-delete-btn";
-    delBtn.setAttribute("aria-label", isFolder ? "Delete folder" : "Delete file");
-    delBtn.title = isFolder ? "Delete folder" : "Delete file";
-    delBtn.innerHTML = "<span class=\"material-icons\">delete</span>";
-    delBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      deleteSidebarItem(fullPath, isFolder);
-    });
     row.appendChild(nameSpan);
-    row.appendChild(delBtn);
+    row.appendChild(makeMoreButton(fullPath, isFolder));
     return row;
   }
   function makeFolderRow(name, fullPath, isCollapsed) {
@@ -114,20 +193,10 @@ export function renderFileTree(files, container, basePath = "", activePath = nul
     const nameSpan = document.createElement("span");
     nameSpan.className = "sidebar-item-name";
     nameSpan.textContent = name;
-    const delBtn = document.createElement("button");
-    delBtn.type = "button";
-    delBtn.className = "sidebar-delete-btn";
-    delBtn.setAttribute("aria-label", "Delete folder");
-    delBtn.title = "Delete folder";
-    delBtn.innerHTML = "<span class=\"material-icons\">delete</span>";
-    delBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      deleteSidebarItem(fullPath, true);
-    });
     row.appendChild(chevron);
     row.appendChild(folderIcon);
     row.appendChild(nameSpan);
-    row.appendChild(delBtn);
+    row.appendChild(makeMoreButton(fullPath, true));
     return { row, chevron };
   }
   const DRAG_TYPE = "application/x-gitlatex-path";
@@ -192,7 +261,7 @@ export function renderFileTree(files, container, basePath = "", activePath = nul
         setupDropTarget(li, (from) => fullPath + "/" + from.split("/").pop(), fullPath);
         row.addEventListener("click", (e) => {
           e.stopPropagation();
-          if (e.target.closest(".sidebar-delete-btn")) return;
+          if (e.target.closest(".sidebar-more-btn")) return;
           const wasCollapsed = collapsedFolderPaths.has(fullPath);
           if (wasCollapsed) {
             collapsedFolderPaths.delete(fullPath);
@@ -266,6 +335,11 @@ export async function moveSidebarItem(fromPath, toPath) {
       state.currentFile = newPath;
       loadFile(newPath);
     }
+    // The PDF on screen moved (itself, or with its folder): follow it.
+    const shownPdf = getPdfPath();
+    if (shownPdf && (shownPdf === fromPath || shownPdf.startsWith(fromPath + "/"))) {
+      openPdf(newPath + shownPdf.slice(fromPath.length));
+    }
     if (state.currentFolderPath === fromPath || (state.currentFolderPath && fromPath.startsWith(state.currentFolderPath + "/"))) {
       state.currentFolderPath = newPath.startsWith(state.currentFolderPath + "/") ? state.currentFolderPath : null;
     }
@@ -306,6 +380,8 @@ export async function deleteSidebarItem(path, isFolder) {
     if (state.currentFolderPath === path || (state.currentFolderPath && path.startsWith(state.currentFolderPath + "/"))) {
       state.currentFolderPath = null;
     }
+    const shownPdf = getPdfPath();
+    if (shownPdf && (shownPdf === path || shownPdf.startsWith(path + "/"))) clearPdf();
     await loadFiles();
     setConsole("Deleted " + path);
   } catch (e) {
