@@ -148,6 +148,80 @@ powers VS Code.
 
 ---
 
+## Advanced editing
+
+### PDF ↔ source sync (SyncTeX)
+
+- **Source → PDF:** `Cmd`+click (macOS) or `Ctrl`+click a line in the editor, or
+  right-click → **Show in PDF**, and the PDF viewer scrolls to that spot and
+  highlights it.
+- **PDF → source:** double-click anywhere in the PDF to open the matching `.tex`
+  file and jump to the line, which flashes briefly so you can find it.
+- Works with any file in a multi-file project, not only the main file.
+- Uses the `synctex` tool that ships with TeX Live and MiKTeX, reading the data
+  written by the last **local** compile. After editing, positions can be a few
+  lines off until you compile again. PDFs from a remote Compiler API do not
+  include SyncTeX data.
+
+### Snippets
+
+- Create your own **prefix → LaTeX** expansions in **Settings → Snippets**, or
+  select text in the editor and right-click → **Save Selection as Snippet**.
+- Type a prefix and press `Tab`, or pick it from the suggestion list.
+- Bodies use tab stops and placeholders — `$1`, `${1:default}`, `${1|a,b|}`,
+  `$0` — so one `fig` can expand into a full figure environment with the cursor
+  hopping between caption and label.
+- Limit a snippet to `.tex`, `.bib` or all files.
+- Snippets are saved in `~/.gitlatex/snippets.json`, so every project and
+  browser shares them. **Export** and **Import** move them between machines, and
+  Import also accepts VS Code snippet files.
+
+### Vim mode with VimTeX-style mappings
+
+Turn on **Settings → Editor → Vim keybindings** for normal, insert and visual
+modes, with `:w` to save. On top of that, the parts of
+[VimTeX](https://github.com/lervag/vimtex) people use every day:
+
+| | Keys |
+| --- | --- |
+| Text objects | `ie`/`ae` environment · `i$`/`a$` math · `ic`/`ac` command · `id`/`ad` delimiters · `iP`/`aP` section |
+| Motions | `]]` `[[` sections · `]m` `[m` `\begin` · `]M` `[M` `\end` · `]n` `[n` math · `%` jumps between `\begin` and `\end` |
+| Delete / change / toggle | `dse` `cse` `tse` environment · `dsc` `csc` `tsc` command · `ds$` `cs$` `ts$` math · `dsd` `tsd` `\left…\right` · `tsf` `\frac{a}{b}` ↔ `a/b` |
+| Leader commands | `\ll` compile · `\lv` show in PDF · `\lt` outline · `\le` errors |
+| Insert mode | `]]` closes the current environment |
+| Ex commands | `:VimtexCompile` · `:VimtexView` · `:VimtexToc` · `:VimtexErrors` |
+
+Comments are ignored when matching environments, so a commented-out `\begin`
+never pairs with a real `\end`. The full table is also in Settings.
+
+### Review comments
+
+An Overleaf-style review panel for leaving comments on your text.
+
+- **Add a comment:** select some text (or put the cursor on a line) and click
+  **Add comment** in the panel, press `Cmd`+`Option`+`M` / `Ctrl`+`Alt`+`M`, or
+  right-click → **Add Comment**.
+- **Open the panel** with the **Review** button in the toolbar. Its badge shows how
+  many comments are open in the current file.
+- Comment cards line up with the text they are about and scroll with the editor.
+  Commented text is highlighted, with a marker in the margin.
+- **Hover** over commented text to see a preview of the comment. Click the
+  preview to open that thread in the review panel.
+- **Reply** (`Enter` sends, `Shift`+`Enter` adds a new line), **resolve** or
+  **reopen**, and **delete** threads or your own replies. Tick **Resolved** in the
+  panel to show resolved threads.
+- Comments are **signed with your git identity** (`user.name` and `user.email`),
+  the same one your commits use.
+- **Shared through Git.** Each thread is a small JSON file in
+  `.gitlatex/comments/` inside the project, so comments are pushed and pulled
+  with your files. Each thread has its own file, so two people starting threads
+  at the same time won't get merge conflicts.
+- Comments **stay attached to their text** as you edit, find it again after a
+  pull, and follow a file when you rename it. Deleting a file removes its
+  comments.
+
+---
+
 ## Workflow
 
 1. Run `gitlatex`.
@@ -168,6 +242,8 @@ Projects live in `./repos` unless you pass `--repos`.
 | Compile fails immediately | Install a LaTeX distribution and make sure `pdflatex` is on your `PATH`. |
 | Citations show as `??` | Install `biber` (for `biblatex`) or `bibtex` with your TeX distribution. |
 | Port already in use | Run on another port: `gitlatex --port 3000`. |
+| Show in PDF / double-click does nothing | Compile locally first, and make sure `synctex` (part of TeX Live / MiKTeX) is on your `PATH`. |
+| Comments are signed "Anonymous" | Set your git identity: `git config --global user.name "Your Name"`. |
 | Spell check unavailable | `pip install symspellpy` — it ships as a dependency, but a partial install can miss it. |
 | Windows: "The process cannot access the file… gitlatex.exe" | Another instance is running. Close it and try again. |
 | Windows: a project will not delete | A file in it is open elsewhere. Close any Explorer window or terminal sitting in that folder. |
