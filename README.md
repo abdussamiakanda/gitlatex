@@ -181,20 +181,19 @@ powers VS Code.
 ### Vim mode with VimTeX-style mappings
 
 Turn on **Settings → Editor → Vim keybindings** for normal, insert and visual
-modes, with `:w` to save. On top of that, the parts of
+modes, with `:w` to save. In `.tex` files you also get the parts of
 [VimTeX](https://github.com/lervag/vimtex) people use every day:
 
 | | Keys |
 | --- | --- |
-| Text objects | `ie`/`ae` environment · `i$`/`a$` math · `ic`/`ac` command · `id`/`ad` delimiters · `iP`/`aP` section |
-| Motions | `]]` `[[` sections · `]m` `[m` `\begin` · `]M` `[M` `\end` · `]n` `[n` math · `%` jumps between `\begin` and `\end` |
-| Delete / change / toggle | `dse` `cse` `tse` environment · `dsc` `csc` `tsc` command · `ds$` `cs$` `ts$` math · `dsd` `tsd` `\left…\right` · `tsf` `\frac{a}{b}` ↔ `a/b` |
+| Text objects | `ie`/`ae` environment · `i$`/`a$` math · `ic`/`ac` command · `id`/`ad` delimiters · `iP`/`aP` section · `im`/`am` item |
+| Motions | `]]` `[[` `][` `[]` sections · `]m` `[m` `]M` `[M` environments · `]n` `[n` `]N` `[N` math · `]r` `[r` `]R` `[R` frames · `]*` `[*` comments · `%` |
+| Delete / change / toggle | `dse` `cse` `tse` `tss` environment · `dsc` `csc` `tsc` command · `ds$` `cs$` `ts$` math · `dsd` `csd` `tsd` delimiters · `tsf` fractions · `tsb` `\\` |
 | Leader commands | `\ll` compile · `\lv` show in PDF · `\lt` outline · `\le` errors |
 | Insert mode | `]]` closes the current environment |
 | Ex commands | `:VimtexCompile` · `:VimtexView` · `:VimtexToc` · `:VimtexErrors` |
 
-Comments are ignored when matching environments, so a commented-out `\begin`
-never pairs with a real `\end`. The full table is also in Settings.
+See [docs/vim-mode.md](docs/vim-mode.md) for what each key does, with examples.
 
 ### Review comments
 
