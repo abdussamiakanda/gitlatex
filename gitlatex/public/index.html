@@ -225,15 +225,20 @@
               <tr><th><code>ic</code> <code>ac</code></th><td>Inner / around command</td></tr>
               <tr><th><code>id</code> <code>ad</code></th><td>Inner / around delimiters</td></tr>
               <tr><th><code>iP</code> <code>aP</code></th><td>Inner / around section</td></tr>
-              <tr><th><code>]]</code> <code>[[</code></th><td>Next / previous section</td></tr>
+              <tr><th><code>im</code> <code>am</code></th><td>Inner / around <code>\item</code></td></tr>
+              <tr><th><code>]]</code> <code>[[</code> <code>][</code> <code>[]</code></th><td>Next / previous section start, end</td></tr>
               <tr><th><code>]m</code> <code>[m</code> <code>]M</code> <code>[M</code></th><td>Next / previous <code>\begin</code>, <code>\end</code></td></tr>
-              <tr><th><code>]n</code> <code>[n</code></th><td>Next / previous math</td></tr>
-              <tr><th><code>%</code></th><td>Jump between <code>\begin</code> and <code>\end</code>, or brackets</td></tr>
-              <tr><th><code>dse</code> <code>cse</code> <code>tse</code></th><td>Delete / change / toggle-star environment</td></tr>
+              <tr><th><code>]n</code> <code>[n</code> <code>]N</code> <code>[N</code></th><td>Next / previous math start, end</td></tr>
+              <tr><th><code>]r</code> <code>[r</code> <code>]R</code> <code>[R</code></th><td>Next / previous frame begin, end</td></tr>
+              <tr><th><code>]*</code> <code>[*</code></th><td>Next comment end / previous comment start</td></tr>
+              <tr><th><code>%</code></th><td>Jump between <code>\begin</code>/<code>\end</code>, <code>$</code>, <code>\(</code>, <code>\[</code>, or brackets</td></tr>
+              <tr><th><code>dse</code> <code>cse</code></th><td>Delete / change environment</td></tr>
+              <tr><th><code>tse</code> <code>tss</code></th><td>Toggle environment (itemize ↔ enumerate, …) / its star</td></tr>
               <tr><th><code>dsc</code> <code>csc</code> <code>tsc</code></th><td>Delete / change / toggle-star command</td></tr>
               <tr><th><code>ds$</code> <code>cs$</code> <code>ts$</code></th><td>Delete / change math, toggle inline ↔ display</td></tr>
-              <tr><th><code>dsd</code> <code>tsd</code></th><td>Delete delimiters, toggle <code>\left</code>/<code>\right</code></td></tr>
+              <tr><th><code>dsd</code> <code>csd</code> <code>tsd</code></th><td>Delete / change delimiters, toggle <code>\left</code>/<code>\right</code></td></tr>
               <tr><th><code>tsf</code></th><td>Toggle <code>\frac{a}{b}</code> ↔ <code>a/b</code></td></tr>
+              <tr><th><code>tsb</code></th><td>Toggle a trailing <code>\\</code></td></tr>
               <tr><th><code>]]</code> (insert)</th><td>Close the current environment</td></tr>
               <tr><th><code>\ll</code> <code>\lv</code></th><td>Compile, show cursor in PDF</td></tr>
               <tr><th><code>\lt</code> <code>\le</code></th><td>Toggle outline, show errors</td></tr>
