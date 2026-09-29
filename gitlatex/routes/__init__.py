@@ -12,6 +12,7 @@ blueprint below - nothing else in the app needs to know about it.
     projectindex  labels and citation keys for autocomplete
     spell         spell checking
     snippets      the user's own editor snippets
+    review        comment threads on lines of project files
     git          push, pull, status, history and diffs
 
 `pages` is registered last: its catch-all route serves index.html for unknown
@@ -25,6 +26,7 @@ from gitlatex.routes import (
     pages,
     projectindex,
     repos,
+    review,
     snippets,
     spell,
     synctex,
@@ -40,6 +42,7 @@ BLUEPRINTS = (
     projectindex.bp,
     spell.bp,
     snippets.bp,
+    review.bp,
     git.bp,
     pages.bp,
 )

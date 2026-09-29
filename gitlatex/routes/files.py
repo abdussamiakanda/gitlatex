@@ -8,6 +8,7 @@ from flask import Blueprint, jsonify, request, send_file
 
 from gitlatex import state
 from gitlatex.http import MIME_TYPES, _json
+from gitlatex.services import comments
 from gitlatex.services.paths import flatten_file_tree, read_dir_recursive, resolve_repo_path
 
 bp = Blueprint("files", __name__)
@@ -186,6 +187,7 @@ def move_path():
             return jsonify(error="Destination already exists"), 400
         shutil.move(from_full, to_full)
         new_rel = os.path.relpath(to_full, state.current_repo_path).replace("\\", "/")
+        comments.move_file(state.current_repo_path, from_rel, new_rel)
         return jsonify(success=True, path=new_rel)
     except Exception as e:
         return jsonify(error=str(e)), 500
@@ -209,6 +211,7 @@ def delete_path():
             shutil.rmtree(full_path)
         else:
             os.unlink(full_path)
+        comments.drop_file(state.current_repo_path, relative_path)
         print("Deleted", relative_path)
         return jsonify(success=True)
     except Exception as e:

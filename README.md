@@ -209,6 +209,7 @@ front of it.
 | `services/projectindex.py` | Parsing `\label{}` and BibTeX entries for autocomplete |
 | `services/paths.py` | Path safety and project tree walking |
 | `services/updates.py` | The cached PyPI version check |
+| `services/comments.py` | Review comment threads, stored in `.gitlatex/comments/` |
 | `services/gitrepo.py`, `services/git_backend.py` | Shared GitPython plumbing |
 | `routes/` | One blueprint per area — see `routes/__init__.py` |
 
@@ -223,7 +224,7 @@ serves `index.html` for unknown paths.
 | `app.js` | Entry point — event wiring only, no logic |
 | `js/core/` | `api`, `state`, `storage`, `router`, `filetypes` |
 | `js/ui/` | `theme`, `modals`, `settings`, `consolepane`, `layout`, `viewer`, `loading` |
-| `js/editor/` | `monaco`, `languages`, `completions`, `filetree`, `session`, `outline`, `spell`, `mainfile`, `envcolors`, `projectindex` |
+| `js/editor/` | `monaco`, `languages`, `completions`, `filetree`, `session`, `outline`, `spell`, `mainfile`, `envcolors`, `projectindex`, `review` |
 | `js/build/` | `compile`, `problems` |
 | `js/git/` | `actions`, `menu`, `versions`, `diffview` |
 | `css/` | One stylesheet per area — the `<link>` order in `index.html` **is** the cascade order |

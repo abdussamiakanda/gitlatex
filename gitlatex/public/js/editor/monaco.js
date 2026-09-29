@@ -10,6 +10,7 @@ import { registerCompletions } from "./completions.js";
 import { registerLanguages } from "./languages.js";
 import { highlightOutlineFor, scheduleOutlineRefresh } from "./outline.js";
 import { saveCurrentFile } from "./session.js";
+import { registerReview } from "./review.js";
 import { registerSnippets } from "./snippets.js";
 import { registerSynctex } from "./synctex.js";
 import { applyVimMode } from "./vim.js";
@@ -75,6 +76,7 @@ export function ensureMonacoReady(callback) {
 
     registerSynctex(state.editor);
     registerSnippets(monaco, state.editor);
+    registerReview(monaco, state.editor);
     applyVimMode();
 
     let autosaveTimeout = null;

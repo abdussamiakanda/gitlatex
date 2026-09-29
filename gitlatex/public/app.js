@@ -16,6 +16,7 @@ import { addNewFileSidebar, addNewFolderSidebar, handleSidebarFileInputChange, u
 import { populateMainFileDropdown } from "./js/editor/mainfile.js";
 import { toggleOutlineSection } from "./js/editor/outline.js";
 import { closeSnippetForm, exportSnippets, importSnippetsFile, openSnippetForm, submitSnippetForm } from "./js/editor/snippets.js";
+import { closeReviewPanel, setReviewShowResolved, toggleReviewPanel } from "./js/editor/review.js";
 import { setSpellCheckEnabled } from "./js/editor/spell.js";
 import { setVimEnabled } from "./js/editor/vim.js";
 import { hideDiffView } from "./js/git/diffview.js";
@@ -42,6 +43,8 @@ const ACTIONS = {
   "compile": compile,
   "show-errors": showCompileErrors,
   "toggle-versions": toggleVersionsPanel,
+  "toggle-review": toggleReviewPanel,
+  "close-review": closeReviewPanel,
   "git-status": () => { showStatus(); closeGitDropdown(); },
   "git-diff": () => { showDiff(); closeGitDropdown(); },
   "git-push": () => { pushChanges(); closeGitDropdown(); },
@@ -70,6 +73,9 @@ document.querySelectorAll(".console-tab-btn").forEach(function (btn) {
   btn.addEventListener("click", function () { showConsoleTab(btn.dataset.panel); });
 });
 document.getElementById("console-clear")?.addEventListener("click", clearProblems);
+document.getElementById("review-show-resolved")?.addEventListener("change", function () {
+  setReviewShowResolved(this.checked);
+});
 document.getElementById("settings-engine")?.addEventListener("change", function () {
   setLatexEngine(this.value);
 });
