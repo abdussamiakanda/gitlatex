@@ -8,13 +8,26 @@ import { loadFile, loadFiles, saveCurrentFile } from "../editor/session.js";
 import { invalidateVersions } from "./diffview.js";
 import { loadCommits, openVersionsPanel } from "./versions.js";
 import { ensureConsoleVisible, setConsole } from "../ui/consolepane.js";
+import { showInputModal } from "../ui/modals.js";
 
 export async function pushChanges() {
+  const message = await showInputModal({
+    title: "Commit and push",
+    label: "Commit message",
+    defaultValue: "Update LaTeX project",
+    submitLabel: "Commit and push"
+  });
+  if (message === null) return;
+
   ensureConsoleVisible();
   setConsole("Committing and pushing...");
   try {
     if (state.currentFile) await saveCurrentFile();
-    const res = await fetchApi("/push", { method: "POST" });
+    const res = await fetchApi("/push", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message })
+    });
     const data = await res.json();
     if (data.error) {
       setConsole("Push error: " + data.error);

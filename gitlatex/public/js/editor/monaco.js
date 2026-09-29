@@ -18,16 +18,18 @@ import { getMonacoTheme } from "../ui/theme.js";
 
 // ----- Editor page: init Monaco when needed -----
 export function ensureMonacoReady(callback) {
-  if (state.monacoReady && state.editor) {
-    callback();
-    return;
-  }
-  state.monacoReadyCallbacks.push(callback);
-  if (state.monacoReadyCallbacks.length > 1) return;
-  require.config({ paths: { vs: "https://unpkg.com/monaco-editor@latest/min/vs" } });
-  require(["vs/editor/editor.main"], function () {
-    state.monacoApi = monaco;
-    registerLanguages(monaco);
+	if (state.monacoReady && state.editor) {
+		callback();
+		return;
+	}
+	state.monacoReadyCallbacks.push(callback);
+	if (state.monacoReadyCallbacks.length > 1) return;
+	require.config({
+		paths: { vs: "https://unpkg.com/monaco-editor@latest/min/vs" },
+	});
+	require(["vs/editor/editor.main"], function () {
+		state.monacoApi = monaco;
+		registerLanguages(monaco);
 
     const editorEl = document.getElementById("editor");
     state.editor = monaco.editor.create(editorEl, {
@@ -54,22 +56,22 @@ export function ensureMonacoReady(callback) {
       }
     });
 
-    registerCompletions(monaco);
+		registerCompletions(monaco);
 
-    // Spelling: squiggles, quick fixes and the "add to dictionary" command.
-    registerSpellCodeActions(monaco);
-    // Right-click entry, for adding the word under the cursor without going
-    // through the lightbulb.
-    state.editor.addAction({
-      id: "gitlatex.addToDictionary.context",
-      label: "Add Word to Dictionary",
-      contextMenuGroupId: "1_modification",
-      contextMenuOrder: 3,
-      run: function (ed) {
-        addWordToDictionary(wordAtCursor(ed));
-      }
-    });
-    loadSpellStatus();
+		// Spelling: squiggles, quick fixes and the "add to dictionary" command.
+		registerSpellCodeActions(monaco);
+		// Right-click entry, for adding the word under the cursor without going
+		// through the lightbulb.
+		state.editor.addAction({
+			id: "gitlatex.addToDictionary.context",
+			label: "Add Word to Dictionary",
+			contextMenuGroupId: "1_modification",
+			contextMenuOrder: 3,
+			run: function (ed) {
+				addWordToDictionary(wordAtCursor(ed));
+			},
+		});
+		loadSpellStatus();
 
     registerSynctex(state.editor);
     registerSnippets(monaco, state.editor);
