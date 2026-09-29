@@ -5,7 +5,9 @@
 import { state } from "../core/state.js";
 import { fetchApi } from "../core/api.js";
 import { getLatexEngine, getStoredCompilerApi, getStoredCompilerApiKey, getUseCompilerApi } from "../core/storage.js";
+import { populateSnippetSettings } from "../editor/snippets.js";
 import { loadSpellStatus, updateSpellSettingsUi } from "../editor/spell.js";
+import { getVimEnabled } from "../editor/vim.js";
 
 export function syncCompilerApiFields() {
   const on = !!document.getElementById("settings-use-api")?.checked;
@@ -33,6 +35,9 @@ export function populateSettings() {
   syncCompilerApiFields();
   updateSpellSettingsUi();
   loadSpellStatus();  // refreshes the personal-dictionary count
+  const vim = document.getElementById("settings-vim");
+  if (vim) vim.checked = getVimEnabled();
+  populateSnippetSettings();
   populateSettingsTechInfo();
 }
 

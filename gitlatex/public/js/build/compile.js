@@ -10,6 +10,7 @@ import { getMainFile } from "../editor/mainfile.js";
 import { refreshProjectIndex } from "../editor/projectindex.js";
 import { saveCurrentFile } from "../editor/session.js";
 import { setConsole } from "../ui/consolepane.js";
+import { pdfUrlFor, showPdf } from "../ui/pdfviewer.js";
 
 export function setCompileLoading(loading) {
   const btn = document.getElementById("btn-compile");
@@ -56,7 +57,7 @@ export async function compile() {
         if (isDataUrl) {
           const base64 = pdfStr.includes(",") ? pdfStr.slice(pdfStr.indexOf(",") + 1).trim() : pdfStr;
           if (!base64) {
-            document.getElementById("pdf").src = data.pdf;
+            showPdf(data.pdf);
             setConsole("Compiled " + mainFile + " via API.");
           } else {
             const savePayload = { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path: pdfPath, content: base64 }) };
@@ -82,21 +83,19 @@ export async function compile() {
             }
             try {
               if (saveRes.ok && saveData.success) {
-                const base = getApiBase() || "";
-                const pdfUrl = base + (pdfPath.includes("/") ? "/pdf?path=" + encodeURIComponent(pdfPath) : "/pdf/" + pdfPath);
-                document.getElementById("pdf").src = pdfUrl;
+                showPdf(pdfUrlFor(pdfPath) + (pdfPath.includes("/") ? "&" : "?") + "t=" + Date.now(), pdfPath);
                 setConsole("Compiled " + mainFile + " via API. PDF saved to " + pdfPath);
               } else {
-                document.getElementById("pdf").src = data.pdf;
+                showPdf(data.pdf);
                 setConsole("Compiled " + mainFile + " via API. Save to repo failed: " + (saveData.error || saveRes.status || "unknown"));
               }
             } catch (e) {
-              document.getElementById("pdf").src = data.pdf;
+              showPdf(data.pdf);
               setConsole("Compiled " + mainFile + " via API. Save to repo failed: " + (e.message || "network error"));
             }
           }
         } else {
-          document.getElementById("pdf").src = data.pdf;
+          showPdf(data.pdf);
           setConsole("Compiled " + mainFile + " via API.");
         }
       } else if (data.error) {
@@ -121,7 +120,7 @@ export async function compile() {
       applyProblems(data.problems || []);
       if (data.success && data.pdf) {
         // Cache-bust so the viewer shows the freshly built PDF.
-        document.getElementById("pdf").src = (getApiBase() || "") + data.pdf + "?t=" + Date.now();
+        showPdf((getApiBase() || "") + data.pdf + "?t=" + Date.now(), mainFile.replace(/\.tex$/i, ".pdf"));
         renderProblems(data.problems || [], describeBuild(mainFile, data), data.log);
       } else if (data.error) {
         renderProblems(data.problems || [], "Compile error: " + data.error, data.log);

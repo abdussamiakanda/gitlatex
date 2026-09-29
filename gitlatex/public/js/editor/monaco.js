@@ -10,13 +10,10 @@ import { registerCompletions } from "./completions.js";
 import { registerLanguages } from "./languages.js";
 import { highlightOutlineFor, scheduleOutlineRefresh } from "./outline.js";
 import { saveCurrentFile } from "./session.js";
-import {
-	addWordToDictionary,
-	loadSpellStatus,
-	registerSpellCodeActions,
-	scheduleSpellCheck,
-	wordAtCursor,
-} from "./spell.js";
+import { registerSnippets } from "./snippets.js";
+import { registerSynctex } from "./synctex.js";
+import { applyVimMode } from "./vim.js";
+import { addWordToDictionary, loadSpellStatus, registerSpellCodeActions, scheduleSpellCheck, wordAtCursor } from "./spell.js";
 import { getMonacoTheme } from "../ui/theme.js";
 
 // ----- Editor page: init Monaco when needed -----
@@ -34,28 +31,30 @@ export function ensureMonacoReady(callback) {
 		state.monacoApi = monaco;
 		registerLanguages(monaco);
 
-		const editorEl = document.getElementById("editor");
-		state.editor = monaco.editor.create(editorEl, {
-			value: "",
-			language: "latex",
-			theme: getMonacoTheme(),
-			wordWrap: "on",
-			quickSuggestions: { other: true, comments: true, strings: true },
-			suggestOnTriggerCharacters: true,
-			acceptSuggestionOnEnter: "on",
-			suggest: {
-				showWords: false,
-				showSnippets: true,
-				showKeywords: true,
-				showFunctions: true,
-				showClasses: true,
-				showModules: true,
-				showVariables: true,
-				showReferences: true,
-				showFiles: true,
-				matchOnWordStartOnly: false,
-			},
-		});
+    const editorEl = document.getElementById("editor");
+    state.editor = monaco.editor.create(editorEl, {
+      value: "",
+      language: "latex",
+      theme: getMonacoTheme(),
+      // Long lines wrap at the pane edge instead of scrolling sideways.
+      wordWrap: "on",
+      wrappingIndent: "same",
+      quickSuggestions: { other: true, comments: true, strings: true },
+      suggestOnTriggerCharacters: true,
+      acceptSuggestionOnEnter: "on",
+      suggest: {
+        showWords: false,
+        showSnippets: true,
+        showKeywords: true,
+        showFunctions: true,
+        showClasses: true,
+        showModules: true,
+        showVariables: true,
+        showReferences: true,
+        showFiles: true,
+        matchOnWordStartOnly: false
+      }
+    });
 
 		registerCompletions(monaco);
 
@@ -74,34 +73,38 @@ export function ensureMonacoReady(callback) {
 		});
 		loadSpellStatus();
 
-		let autosaveTimeout = null;
-		const AUTOSAVE_DELAY_MS = 800;
-		state.editor.onDidChangeModelContent(() => {
-			clearTimeout(autosaveTimeout);
-			autosaveTimeout = setTimeout(() => {
-				if (state.currentFile) saveCurrentFile();
-			}, AUTOSAVE_DELAY_MS);
-			scheduleOutlineRefresh();
-			scheduleSpellCheck();
-		});
-		state.editor.onDidChangeCursorPosition((e) => {
-			highlightOutlineFor(e.position.lineNumber);
-		});
-		function layoutEditor() {
-			if (state.editor && editorEl) {
-				const w = Math.max(editorEl.offsetWidth || 0, 200);
-				const h = Math.max(editorEl.offsetHeight || 0, 320);
-				state.editor.layout({ width: w, height: h });
-			}
-		}
-		layoutEditor();
-		setTimeout(layoutEditor, 0);
-		window.addEventListener("resize", layoutEditor);
-		if (typeof ResizeObserver !== "undefined") {
-			new ResizeObserver(layoutEditor).observe(editorEl);
-		}
-		state.monacoReady = true;
-		state.monacoReadyCallbacks.forEach((cb) => cb());
-		state.monacoReadyCallbacks = [];
-	});
+    registerSynctex(state.editor);
+    registerSnippets(monaco, state.editor);
+    applyVimMode();
+
+    let autosaveTimeout = null;
+    const AUTOSAVE_DELAY_MS = 800;
+    state.editor.onDidChangeModelContent(() => {
+      clearTimeout(autosaveTimeout);
+      autosaveTimeout = setTimeout(() => {
+        if (state.currentFile) saveCurrentFile();
+      }, AUTOSAVE_DELAY_MS);
+      scheduleOutlineRefresh();
+      scheduleSpellCheck();
+    });
+    state.editor.onDidChangeCursorPosition((e) => {
+      highlightOutlineFor(e.position.lineNumber);
+    });
+    function layoutEditor() {
+      if (state.editor && editorEl) {
+        const w = Math.max(editorEl.offsetWidth || 0, 200);
+        const h = Math.max(editorEl.offsetHeight || 0, 320);
+        state.editor.layout({ width: w, height: h });
+      }
+    }
+    layoutEditor();
+    setTimeout(layoutEditor, 0);
+    window.addEventListener("resize", layoutEditor);
+    if (typeof ResizeObserver !== "undefined") {
+      new ResizeObserver(layoutEditor).observe(editorEl);
+    }
+    state.monacoReady = true;
+    state.monacoReadyCallbacks.forEach(cb => cb());
+    state.monacoReadyCallbacks = [];
+  });
 }

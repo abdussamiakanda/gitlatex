@@ -4,7 +4,7 @@
 
 import { state } from "../core/state.js";
 import { clearProblems, refreshEditorMarkers } from "../build/problems.js";
-import { fetchApi, getApiBase } from "../core/api.js";
+import { fetchApi } from "../core/api.js";
 import { isEditableFile, isViewableFile } from "../core/filetypes.js";
 import { refreshEnvDecorations } from "./envcolors.js";
 import { findFirstTexFile, getSidebarTreeEl, renderFileTree } from "./filetree.js";
@@ -18,6 +18,7 @@ import { hideDiffView, invalidateVersions } from "../git/diffview.js";
 import { closeVersionsPanel } from "../git/versions.js";
 import { setConsole } from "../ui/consolepane.js";
 import { showConfirmModal } from "../ui/modals.js";
+import { getPdfPath, pdfUrlFor, showPdf } from "../ui/pdfviewer.js";
 import { showEditorPane, showFileViewer, showPreviewNotAvailable } from "../ui/viewer.js";
 
 export async function openEditorPage(repoName) {
@@ -144,12 +145,11 @@ export async function loadFile(path) {
     scheduleSpellCheck(0);
     if (path.toLowerCase().endsWith(".tex")) {
       const pdfPath = path.replace(/\.tex$/i, ".pdf");
-      const base = getApiBase() || "";
-      const pdfUrl = base + (pdfPath.includes("/") ? "/pdf?path=" + encodeURIComponent(pdfPath) : "/pdf/" + pdfPath);
-      const pdfEl = document.getElementById("pdf");
-      if (pdfEl) {
+      // Already showing it (e.g. a jump from the PDF back into this file).
+      if (getPdfPath() !== pdfPath) {
+        const pdfUrl = pdfUrlFor(pdfPath);
         fetch(pdfUrl, { method: "HEAD" })
-          .then((r) => { if (r.ok) pdfEl.src = pdfUrl; })
+          .then((r) => { if (r.ok) showPdf(pdfUrl, pdfPath); })
           .catch(() => {});
       }
     }
