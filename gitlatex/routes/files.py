@@ -1,8 +1,10 @@
 """Reading and writing files inside the selected project."""
 
 import base64
+import io
 import os
 import shutil
+import zipfile
 
 from flask import Blueprint, jsonify, request, send_file
 
@@ -110,6 +112,29 @@ def file_raw():
     ext = os.path.splitext(full_path)[1].lower()
     mime = MIME_TYPES.get(ext)
     return send_file(full_path, mimetype=mime or "application/octet-stream")
+
+
+@bp.route("/download")
+def download():
+    """A file as an attachment, or a folder as a .zip of everything inside it."""
+    if not state.current_repo_path:
+        return "No repository selected", 400
+    rel = (request.args.get("path") or "").strip().replace("\\", "/").strip("/")
+    full_path = resolve_repo_path(rel) if rel else None
+    if not full_path or not os.path.exists(full_path):
+        return "File not found", 404
+    name = os.path.basename(full_path)
+    if os.path.isfile(full_path):
+        return send_file(full_path, as_attachment=True, download_name=name)
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for root, dirs, files in os.walk(full_path):
+            dirs[:] = [d for d in dirs if d != ".git"]
+            for f in files:
+                path = os.path.join(root, f)
+                zf.write(path, os.path.join(name, os.path.relpath(path, full_path)))
+    buf.seek(0)
+    return send_file(buf, mimetype="application/zip", as_attachment=True, download_name=name + ".zip")
 
 
 @bp.route("/create-file", methods=["POST"])

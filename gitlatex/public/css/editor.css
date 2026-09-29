@@ -190,9 +190,53 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
   color: var(--text-muted);
   font-size: 0.9rem;
+  text-align: center;
   pointer-events: none;
+  overflow: auto;
+}
+
+/* The project's PDFs, offered while nothing is shown. */
+.pdf-empty-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 100%;
+  pointer-events: auto;
+}
+
+.pdf-empty-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  padding: 6px 12px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pdf-empty-item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pdf-empty-item:hover {
+  border-color: var(--accent);
+  background: var(--bg-hover);
+}
+
+.pdf-empty-item .fa-file-pdf {
+  color: var(--danger);
 }
 
 /* Editor line flashed after a jump from the PDF */

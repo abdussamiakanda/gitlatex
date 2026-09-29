@@ -143,7 +143,8 @@ powers VS Code.
 - **Remote Compiler API** — point GitLaTeX at a web service that compiles LaTeX
   and it will build there instead of locally, so you do not need a TeX
   distribution installed at all. The app ships with full documentation for
-  building one at **Settings → Compiler API**.
+  building one at **Settings → Compiler API**. If the API also returns the
+  SyncTeX file, PDF ↔ source sync works for those builds too.
 - Tells you when a newer GitLaTeX is on PyPI.
 
 ---
@@ -158,10 +159,11 @@ powers VS Code.
 - **PDF → source:** double-click anywhere in the PDF to open the matching `.tex`
   file and jump to the line, which flashes briefly so you can find it.
 - Works with any file in a multi-file project, not only the main file.
-- Uses the `synctex` tool that ships with TeX Live and MiKTeX, reading the data
-  written by the last **local** compile. After editing, positions can be a few
-  lines off until you compile again. PDFs from a remote Compiler API do not
-  include SyncTeX data.
+- Reads the `.synctex.gz` file written by the last compile with a built-in
+  reader, so **no TeX installation is needed** for the jump itself. Local builds
+  always write it; with a remote Compiler API it works when the API returns the
+  file too (see **Settings → Compiler API**).
+- After editing, positions can be a few lines off until you compile again.
 
 ### Snippets
 
@@ -242,7 +244,7 @@ Projects live in `./repos` unless you pass `--repos`.
 | Compile fails immediately | Install a LaTeX distribution and make sure `pdflatex` is on your `PATH`. |
 | Citations show as `??` | Install `biber` (for `biblatex`) or `bibtex` with your TeX distribution. |
 | Port already in use | Run on another port: `gitlatex --port 3000`. |
-| Show in PDF / double-click does nothing | Compile locally first, and make sure `synctex` (part of TeX Live / MiKTeX) is on your `PATH`. |
+| Show in PDF / double-click says "No SyncTeX data" | Compile first. With a Compiler API, the API must return `synctex` alongside the PDF — see **Settings → Compiler API**. |
 | Comments are signed "Anonymous" | Set your git identity: `git config --global user.name "Your Name"`. |
 | Spell check unavailable | `pip install symspellpy` — it ships as a dependency, but a partial install can miss it. |
 | Windows: "The process cannot access the file… gitlatex.exe" | Another instance is running. Close it and try again. |
@@ -282,6 +284,8 @@ front of it.
 | `http.py` | Request helpers and MIME/extension tables |
 | `services/spell.py` | LaTeX-aware spell checking on top of symspellpy |
 | `services/latex.py` | Running the engine + bibtex/biber, and parsing the log |
+| `services/synctex.py`, `services/synctex_reader.py` | PDF ↔ source lookups; the reader is a Python port of the `synctex` tool's logic, so no TeX install is needed |
+| `services/snippets.py` | User snippets, stored in `~/.gitlatex/snippets.json` |
 | `services/projectindex.py` | Parsing `\label{}` and BibTeX entries for autocomplete |
 | `services/paths.py` | Path safety and project tree walking |
 | `services/updates.py` | The cached PyPI version check |
@@ -299,8 +303,9 @@ serves `index.html` for unknown paths.
 | --- | --- |
 | `app.js` | Entry point — event wiring only, no logic |
 | `js/core/` | `api`, `state`, `storage`, `router`, `filetypes` |
-| `js/ui/` | `theme`, `modals`, `settings`, `consolepane`, `layout`, `viewer`, `loading` |
-| `js/editor/` | `monaco`, `languages`, `completions`, `filetree`, `session`, `outline`, `spell`, `mainfile`, `envcolors`, `projectindex`, `review` |
+| `js/home/` | `repolist` — the project list on the start page |
+| `js/ui/` | `theme`, `modals`, `settings`, `consolepane`, `layout`, `viewer`, `pdfviewer`, `loading` |
+| `js/editor/` | `monaco`, `languages`, `completions`, `filetree`, `session`, `outline`, `spell`, `mainfile`, `envcolors`, `projectindex`, `review`, `snippets`, `synctex`, `vim`, `vimtex` |
 | `js/build/` | `compile`, `problems` |
 | `js/git/` | `actions`, `menu`, `versions`, `diffview` |
 | `css/` | One stylesheet per area — the `<link>` order in `index.html` **is** the cascade order |
@@ -315,6 +320,15 @@ Three conventions worth knowing:
 - **Loading states** come from `js/ui/loading.js` — `showSkeleton` for lists,
   `setPaneLoading` for panes, `setButtonLoading` for actions. Use these rather
   than inventing a fourth pattern.
+
+### Releasing
+
+The version comes from the latest `v*` git tag (via `setuptools-scm`), so there
+is no version number to edit in the code. To publish to PyPI, go to **Actions →
+Publish to PyPI → Run workflow** and pick `patch`, `minor` or `major`. The
+workflow tags the next version, builds it and uploads it. Pushing a tag by hand
+(`git tag v2.0.0 && git push origin v2.0.0`) works too. Ordinary pushes never
+publish.
 
 ---
 

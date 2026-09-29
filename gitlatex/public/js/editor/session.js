@@ -8,7 +8,7 @@ import { fetchApi } from "../core/api.js";
 import { isEditableFile, isViewableFile } from "../core/filetypes.js";
 import { refreshEnvDecorations } from "./envcolors.js";
 import { findFirstTexFile, getSidebarTreeEl, renderFileTree } from "./filetree.js";
-import { refreshMainFileDropdown } from "./mainfile.js";
+import { collectTexFiles, getMainFile, refreshMainFileDropdown } from "./mainfile.js";
 import { ensureMonacoReady } from "./monaco.js";
 import { renderOutline } from "./outline.js";
 import { loadReviewForFile, resetReview } from "./review.js";
@@ -19,7 +19,7 @@ import { hideDiffView, invalidateVersions } from "../git/diffview.js";
 import { closeVersionsPanel } from "../git/versions.js";
 import { setConsole } from "../ui/consolepane.js";
 import { showConfirmModal } from "../ui/modals.js";
-import { getPdfPath, pdfUrlFor, showPdf } from "../ui/pdfviewer.js";
+import { clearPdf, getPdfPath, pdfUrlFor, setPdfChoices, showPdf } from "../ui/pdfviewer.js";
 import { showEditorPane, showFileViewer, showPreviewNotAvailable } from "../ui/viewer.js";
 
 export async function openEditorPage(repoName) {
@@ -47,6 +47,12 @@ export async function openEditorPage(repoName) {
     return;
   }
   state.currentRepo = decoded;
+  // Nothing from the previous project may carry over: its open file would
+  // stop loadFiles() opening this one's, and its PDF would linger or pass as
+  // "already shown" when both projects have a main.pdf.
+  state.currentFile = null;
+  state.currentFolderPath = null;
+  clearPdf();
   resetReview();
   hideDiffView();
   invalidateVersions();
@@ -87,8 +93,21 @@ export async function loadFiles() {
       return;
     }
     renderFileTree(files, treeEl, "", state.currentFile, state.currentFolderPath);
-    const firstTex = findFirstTexFile(files);
-    if (firstTex && !state.currentFolderPath) loadFile(firstTex);
+    const allFiles = collectFiles(files, "");
+    const pdfs = allFiles.filter((p) => p.toLowerCase().endsWith(".pdf"));
+    // What the empty PDF viewer offers when the main file has no PDF yet.
+    setPdfChoices(pdfs, openPdf);
+    // A refresh after a create, move or delete keeps the open file. Otherwise
+    // start on the main file (set by refreshMainFileDropdown above), so its PDF
+    // is what the viewer opens with.
+    const hasOpenFile = state.currentFile && allFiles.includes(state.currentFile);
+    if (!hasOpenFile && !state.currentFolderPath) {
+      const mainFile = getMainFile();
+      const startFile = collectTexFiles(files, "").includes(mainFile) ? mainFile : findFirstTexFile(files);
+      if (startFile) loadFile(startFile);
+      // No .tex to build from: a lone PDF is the obvious thing to show.
+      else if (pdfs.length === 1 && !getPdfPath()) openPdf(pdfs[0]);
+    }
   } catch (e) {
     clearSkeleton(treeEl);
     refreshMainFileDropdown([]);
@@ -101,7 +120,28 @@ export async function loadFiles() {
   }
 }
 
+/** Repo-relative paths of every file in a /files tree. */
+function collectFiles(nodes, basePath) {
+  const out = [];
+  for (const node of nodes || []) {
+    const fullPath = basePath ? basePath + "/" + node.name : node.name;
+    if (node.type === "file") out.push(fullPath);
+    else if (node.type === "folder") out.push(...collectFiles(node.children, fullPath));
+  }
+  return out;
+}
+
+/** Shows a project PDF in the PDF viewer; PDFs never open in the editor. */
+export function openPdf(path) {
+  if (getPdfPath() === path) return;
+  showPdf(pdfUrlFor(path) + (path.includes("/") ? "&" : "?") + "t=" + Date.now(), path);
+}
+
 export async function loadFile(path) {
+  if (path.toLowerCase().endsWith(".pdf")) {
+    openPdf(path);
+    return;
+  }
   const pane = document.getElementById("editor-pane");
   // Big .tex files take long enough that the old content sitting there looks
   // like the click did nothing.
@@ -149,21 +189,35 @@ export async function loadFile(path) {
     refreshEnvDecorations();
     clearSpellMarkers();
     scheduleSpellCheck(0);
-    if (path.toLowerCase().endsWith(".tex")) {
-      const pdfPath = path.replace(/\.tex$/i, ".pdf");
-      // Already showing it (e.g. a jump from the PDF back into this file).
-      if (getPdfPath() !== pdfPath) {
-        const pdfUrl = pdfUrlFor(pdfPath);
-        fetch(pdfUrl, { method: "HEAD" })
-          .then((r) => { if (r.ok) showPdf(pdfUrl, pdfPath); })
-          .catch(() => {});
-      }
-    }
+    if (path.toLowerCase().endsWith(".tex")) showMatchingPdf(path);
   } catch (e) {
     setConsole("Error loading file: " + (e.message || path));
   } finally {
     // Several paths above return early - clear the overlay from one place.
     setPaneLoading(pane, false);
+  }
+}
+
+/**
+ * Shows the PDF built from texPath, or failing that the main file's PDF, so a
+ * chapter opens next to the document it belongs to. Leaves the viewer alone
+ * when neither exists.
+ */
+async function showMatchingPdf(texPath) {
+  const candidates = [texPath, getMainFile()]
+    .filter(Boolean)
+    .map((p) => p.replace(/\.tex$/i, ".pdf"));
+  for (const pdfPath of candidates) {
+    // Already showing it (e.g. a jump from the PDF back into this file).
+    if (getPdfPath() === pdfPath) return;
+    const pdfUrl = pdfUrlFor(pdfPath);
+    try {
+      const r = await fetch(pdfUrl, { method: "HEAD" });
+      if (r.ok) {
+        showPdf(pdfUrl, pdfPath);
+        return;
+      }
+    } catch (_) {}
   }
 }
 
