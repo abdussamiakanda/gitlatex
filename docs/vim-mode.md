@@ -12,8 +12,9 @@ gitlatex's editor has an optional Vim mode, built on
 - **Comments are ignored:** a `\begin`, `\end`, `$` or bracket inside a `%`
   comment never pairs with a real one.
 
-The code lives in `gitlatex/public/js/editor/vimtex.js` (the VimTeX layer) and
-`gitlatex/public/js/editor/vim.js` (loading monaco-vim, ex commands). A shorter
+The code lives in `web/src/editor/vimtex.ts` (the VimTeX layer) and
+`web/src/editor/vim.ts` (loading monaco-vim, ex commands). The classic editor
+at `/classic` has the same keys, in `gitlatex/public/js/editor/`. A shorter
 table is also in Settings.
 
 ## Text objects
