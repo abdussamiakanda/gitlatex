@@ -1,12 +1,11 @@
 /**
- * The projects home: every folder in the server's repos directory, plus ways
- * to start a new one (template, Git clone, .zip or folder import).
+ * The projects home: every folder in the server's repos directory. New project
+ * opens the dialog that also offers a Git clone, a .zip or a folder import.
  */
 import { useMemo, useState } from 'react';
-import { FolderGit2, Folder, Plus, GitBranch, FileArchive, FolderInput, Search, MoreHorizontal, Pencil, Copy, Trash2, Moon, Sun, Settings } from 'lucide-react';
+import { FolderGit2, Folder, Plus, Search, MoreHorizontal, Pencil, Copy, Trash2, Moon, Sun, Settings } from 'lucide-react';
 import { useStore, openDialog } from '../state/store';
-import { confirmDeleteProject, duplicateProject, importFolderAsProject, importZipAsProject, newProjectDialog, openProject, promptClone, promptRenameProject, setTheme } from '../state/actions';
-import { pickFiles } from '../storage/local-disk';
+import { confirmDeleteProject, duplicateProject, newProjectDialog, openProject, promptRenameProject, setTheme } from '../state/actions';
 import { TEMPLATES } from '../templates';
 import { timeAgo } from '../utils/misc';
 import { Button, IconButton, TextInput, useMenu } from './ui';
@@ -16,6 +15,7 @@ import { MaterialIcon } from './MaterialIcon';
 export function ProjectsHome() {
   const projects = useStore((s) => s.projects);
   const theme = useStore((s) => s.settings.theme);
+  const update = useStore((s) => s.update);
   const [query, setQuery] = useState('');
   const menu = useMenu();
   const shown = useMemo(() => projects.filter((p) => p.name.toLowerCase().includes(query.trim().toLowerCase())), [projects, query]);
@@ -31,8 +31,9 @@ export function ProjectsHome() {
         <IconButton label="Toggle light/dark theme" onClick={() => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark')}>
           {theme === 'light' ? <Moon className="size-4" /> : <Sun className="size-4" />}
         </IconButton>
-        <IconButton label="Settings" onClick={() => openDialog({ type: 'settings' })}>
+        <IconButton label={update?.updateAvailable ? `Settings: GitLaTeX ${update.latest} is available` : 'Settings'} onClick={() => openDialog({ type: 'settings' })} className="relative">
           <Settings className="size-4" />
+          {update?.updateAvailable && <span className="absolute right-1 top-1 size-2 rounded-full bg-accent-2 ring-2 ring-panel" aria-hidden />}
         </IconButton>
       </header>
 
@@ -43,27 +44,6 @@ export function ProjectsHome() {
             <p className="mt-1 text-[13px] text-muted">Folders on this machine. Git projects can be committed, pushed and pulled from the editor.</p>
           </div>
           <Button variant="primary" icon={<Plus className="size-3.5" />} onClick={() => newProjectDialog()}>New project</Button>
-          <Button icon={<GitBranch className="size-3.5" />} onClick={promptClone}>Clone</Button>
-          <Button
-            variant="ghost"
-            icon={<FileArchive className="size-3.5" />}
-            onClick={async () => {
-              const [f] = await pickFiles({ accept: '.zip', multiple: false });
-              if (f) void importZipAsProject(f);
-            }}
-          >
-            Import .zip
-          </Button>
-          <Button
-            variant="ghost"
-            icon={<FolderInput className="size-3.5" />}
-            onClick={async () => {
-              const files = await pickFiles({ directory: true });
-              if (files.length) void importFolderAsProject(files);
-            }}
-          >
-            Upload folder
-          </Button>
         </div>
 
         {projects.length > 6 && (

@@ -103,6 +103,8 @@ export async function readRaw(path: string): Promise<Uint8Array | null> {
 
 export interface ServerInfo {
   version: string;
+  repository?: string;
+  pypi?: string;
   latex: Record<'pdflatex' | 'xelatex' | 'lualatex', boolean>;
 }
 

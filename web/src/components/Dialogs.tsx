@@ -17,6 +17,7 @@ import { modKey } from '../utils/misc';
 import { languageFor } from '../utils/paths';
 import { WizardDialog } from './Wizards';
 import { EditorFeatureSettings } from './EditorSettings';
+import { AboutSettings } from './AboutSettings';
 import { Button, Kbd, Modal, TextInput, Toggle, clsx } from './ui';
 import { FileIcon } from './FileIcon';
 
@@ -33,7 +34,7 @@ function DialogSwitch({ dialog }: { dialog: Dialog }) {
     case 'confirm':
       return <ConfirmDialog d={dialog} />;
     case 'settings':
-      return <SettingsDialog />;
+      return <SettingsDialog section={dialog.section} />;
     case 'new-project':
       return <NewProjectDialog initial={dialog.initialTemplate} />;
     case 'command-palette':
@@ -133,8 +134,11 @@ function ConfirmDialog({ d }: { d: Extract<Dialog, { type: 'confirm' }> }) {
 
 // ---------------------------------------------------------------------------
 
-function SettingsDialog() {
+function SettingsDialog({ section: jumpTo }: { section?: 'about' }) {
   const s = useStore((st) => st.settings);
+  useEffect(() => {
+    if (jumpTo) requestAnimationFrame(() => document.getElementById(`settings-${jumpTo}`)?.scrollIntoView({ block: 'start' }));
+  }, [jumpTo]);
   const [latex, setLatex] = useState<Record<string, boolean> | null>(null);
   useEffect(() => {
     void serverInfo().then((info) => setLatex(info?.latex ?? null));
@@ -277,6 +281,8 @@ function SettingsDialog() {
         Package shelf URL
         <TextInput className="mt-1" placeholder="shelf/index.json (default, cached by the gitlatex server)" value={s.shelfUrl} onChange={(e) => updateSettings({ shelfUrl: e.target.value })} onBlur={reconfigureEngine} />
       </label>
+
+      <AboutSettings section={section} />
     </Modal>
   );
 }

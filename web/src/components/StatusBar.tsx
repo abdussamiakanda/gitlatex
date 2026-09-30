@@ -1,6 +1,6 @@
-import { AlertCircle, AlertTriangle, Cpu, WifiOff, Cloud, GitBranch, Monitor } from 'lucide-react';
+import { AlertCircle, AlertTriangle, ArrowUpCircle, Cpu, WifiOff, Cloud, GitBranch, Monitor } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { useStore, setState } from '../state/store';
+import { useStore, setState, openDialog } from '../state/store';
 import { ENGINE_LABELS } from '../engine/protocol';
 import { useCompiler } from '../state/actions';
 import { clsx } from './ui';
@@ -11,6 +11,7 @@ export function StatusBar() {
   const cursor = useStore((s) => s.cursor);
   const activePath = useStore((s) => s.activePath);
   const diags = useStore((s) => s.compile.diagnostics);
+  const update = useStore((s) => s.update);
   const lastBackend = useStore((s) => s.compile.backend);
   const { active } = useCompiler();
   // What the last build used, or before any build, what the next one will use.
@@ -80,6 +81,15 @@ export function StatusBar() {
         </span>
       )}
       <span className="hidden sm:inline">UTF-8</span>
+      {update && (
+        <button
+          onClick={() => openDialog({ type: 'settings', section: 'about' })}
+          className={clsx('flex items-center gap-1 hover:text-fg', update.updateAvailable && 'text-accent-2')}
+          title={update.updateAvailable ? `GitLaTeX ${update.latest} is available (you have ${update.current})` : 'About GitLaTeX'}
+        >
+          {update.updateAvailable && <ArrowUpCircle className="size-3" />}v{update.current}
+        </button>
+      )}
     </div>
   );
 }

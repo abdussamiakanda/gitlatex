@@ -21,6 +21,8 @@ const VIEWS: { id: SidebarView; label: string; icon: React.ReactNode }[] = [
 export function ActivityBar() {
   const sidebar = useStore((s) => s.sidebar);
   const reviewCount = useStore((s) => s.reviewCount);
+  const update = useStore((s) => s.update);
+  const hasUpdate = !!update?.updateAvailable;
   const btn = (active: boolean, label: string, icon: React.ReactNode, onClick: () => void, badge = 0) => (
     <button
       key={label}
@@ -34,6 +36,7 @@ export function ActivityBar() {
       )}
     >
       {icon}
+      {badge < 0 && <span className="absolute right-2 top-2 size-2 rounded-full bg-accent-2 ring-2 ring-panel" aria-hidden />}
       {badge > 0 && (
         <span className="absolute right-1 top-1 min-w-4 rounded-full bg-accent-2 px-1 text-[9.5px] font-semibold leading-4 text-white">{badge}</span>
       )}
@@ -47,7 +50,7 @@ export function ActivityBar() {
       <div className="flex-1" />
       {btn(false, 'Help & templates', <CircleHelp className="size-[18px]" />, () => newProjectDialog())}
       {btn(false, 'Keyboard shortcuts', <Keyboard className="size-[18px]" />, () => openDialog({ type: 'shortcuts' }))}
-      {btn(false, 'Settings', <Settings className="size-[18px]" />, () => openDialog({ type: 'settings' }))}
+      {btn(false, hasUpdate ? `Settings: GitLaTeX ${update?.latest} is available` : 'Settings', <Settings className="size-[18px]" />, () => openDialog({ type: 'settings' }), hasUpdate ? -1 : 0)}
     </nav>
   );
 }

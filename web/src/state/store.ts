@@ -9,6 +9,7 @@ import type { EngineSnapshot } from '../engine/EngineClient';
 import type { SyncRect, SyncTex } from '../latex/synctex';
 import type { Wizard } from '../editor/slash-commands';
 import { DEFAULT_SETTINGS, type Diagnostic, type ProjectMeta, type Settings } from '../types';
+import type { UpdateInfo } from './updates';
 
 export type CompileStatus = 'idle' | 'running' | 'success' | 'warnings' | 'errors' | 'failed' | 'cancelled' | 'crashed';
 
@@ -17,7 +18,7 @@ export type BottomView = 'problems' | 'log' | 'console';
 
 export type Dialog =
   | { type: 'new-project'; initialTemplate?: string }
-  | { type: 'settings' }
+  | { type: 'settings'; section?: 'about' }
   | { type: 'command-palette' }
   | { type: 'shortcuts' }
   | { type: 'wizard'; wizard: Wizard }
@@ -77,6 +78,8 @@ export interface AppState {
   gitVersion: number;
   /** Open comment threads in the file being edited. */
   reviewCount: number;
+  /** The running version and whether PyPI has a newer one (null until checked). */
+  update: UpdateInfo | null;
 }
 
 const SETTINGS_KEY = 'gitlatex.settings';
@@ -171,6 +174,7 @@ export const useStore = create<AppState>(() => ({
   booting: true,
   gitVersion: 0,
   reviewCount: 0,
+  update: null,
 }));
 
 export const getState = useStore.getState;

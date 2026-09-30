@@ -9,6 +9,7 @@ import { Workspace, detectEngine, guessMainFile } from './workspace';
 import { useEffect, useState } from 'react';
 import { getState, setState, useStore, patchCompile, toast, openDialog, initialCompile, updateSettings, closeDialog, getCompilerApi, normalizeCompilerApiUrl } from './store';
 import * as server from '../storage/server';
+import { checkForUpdate } from './updates';
 import { base64ToBytes, bytesToBase64 } from '../utils/misc';
 import { downloadBytes, downloadProjectZip, downloadText, readFileList, unzipProject, type ImportedFile } from '../storage/local-disk';
 import { bindWorkspace, getModel, syncModel, disposeModel, openModels } from '../editor/models';
@@ -82,6 +83,7 @@ async function doBoot() {
   } finally {
     setState({ booting: false });
   }
+  void checkForUpdate();
   window.addEventListener('beforeunload', (e) => {
     if (ws?.hasPendingWrites) {
       void ws.flush();
