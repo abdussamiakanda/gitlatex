@@ -96,6 +96,14 @@
   opacity: 0.65;
   border-left-color: var(--c-faint);
 }
+.review-card.review-conflict {
+  border-left-color: var(--c-warn);
+}
+.review-conflict-title {
+  margin-bottom: 4px;
+  font-weight: 600;
+  color: var(--c-warn);
+}
 .review-quote {
   margin-bottom: 6px;
   padding-left: 6px;

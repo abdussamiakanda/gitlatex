@@ -233,7 +233,11 @@ An Overleaf-style review panel for leaving comments on your text.
 - **Shared through Git.** Each thread is a small JSON file in
   `.gitlatex/comments/` inside the project, so comments are pushed and pulled
   with your files. Each thread has its own file, so two people starting threads
-  at the same time won't get merge conflicts.
+  at the same time won't get merge conflicts, and replies made on both sides of
+  a pull are combined automatically (the app registers a git merge driver for
+  these files, so this also works for `git pull` in a terminal).
+  See [docs/sync-and-conflicts.md](docs/sync-and-conflicts.md) for how push,
+  pull and conflicts are handled.
 - Comments **stay attached to their text** as you edit, find it again after a
   pull, and follow a file when you rename it. Deleting a file removes its
   comments.

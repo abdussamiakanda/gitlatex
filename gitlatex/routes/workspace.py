@@ -115,6 +115,8 @@ def open_project():
     state.current_repo_path = full
     files, folders = _read_project(full)
     has_git = os.path.isdir(os.path.join(full, ".git"))
+    if has_git:
+        comments.install_merge_driver(full)
     print("Opened project:", os.path.basename(full))
     return jsonify(name=os.path.basename(full), hasGit=has_git, files=files, folders=folders)
 

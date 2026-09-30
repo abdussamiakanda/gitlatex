@@ -929,8 +929,12 @@ export async function gitCommit(message: string) {
 /** Commit everything (if anything changed) and push to origin. */
 export async function gitPush(message: string) {
   const res = await gitStep('Push failed', () => server.push(message));
-  if (res) toast({ kind: 'success', title: 'Pushed', message: res.committed ? message : 'No new changes; pushed existing commits.' });
-  return !!res;
+  if (!res) return false;
+  // Someone pushed first; the server pulled their commits in, so the files changed.
+  if (res.pulled) await reloadProject();
+  const pushed = res.committed ? message : 'No new changes; pushed existing commits.';
+  toast({ kind: 'success', title: 'Pushed', message: res.pulled ? `${pushed} Your coauthors' newer changes were pulled in first.` : pushed });
+  return true;
 }
 
 /** Pull from origin, then reload the project so the editor shows what is on disk. */

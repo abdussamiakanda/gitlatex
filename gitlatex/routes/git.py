@@ -8,6 +8,7 @@ from flask import Blueprint, jsonify, request
 
 from gitlatex import state
 from gitlatex.http import with_project_lock
+from gitlatex.services import comments
 from gitlatex.services.git_backend import NULL_TREE, GitCommandError, Repo
 from gitlatex.services.gitrepo import _blob_text, _close_repo, _numstat, _open_repo
 from gitlatex.services.paths import resolve_repo_path
@@ -41,9 +42,24 @@ def push():
                 repo.index.commit(message)
                 committed = True
                 print("Commit:", message)
-            repo.remotes.origin.push()
+            pulled = False
+            if not _push(repo):
+                # Someone pushed first. Put our commits on top of theirs and
+                # try once more, so the common case needs no second click.
+                print("Push rejected; pulling first")
+                try:
+                    _pull_rebase(repo)
+                except _Conflict as c:
+                    return _conflict_response(c, committed,
+                                              "Could not push: someone else pushed changes to the same lines first.")
+                pulled = True
+                if not _push(repo):
+                    return jsonify(
+                        error="Could not push: the remote changed again while pushing. Try again.",
+                        committed=committed, pulled=True,
+                    ), 409
             print("Pushed to origin")
-            return jsonify(success=True, committed=committed)
+            return jsonify(success=True, committed=committed, pulled=pulled)
         finally:
             if getattr(repo, "close", None):
                 try:
@@ -156,6 +172,91 @@ def _clear_stale_build_outputs(repo):
     return cleared
 
 
+class _Conflict(Exception):
+    def __init__(self, files):
+        super().__init__(", ".join(files))
+        self.files = files
+
+
+def _push(repo):
+    """Push the current branch. False if the remote has commits we don't have yet.
+
+    GitPython reports a rejected push in the result rather than raising.
+    """
+    result = repo.remotes.origin.push()
+    if any(info.flags & info.REJECTED for info in result):
+        return False
+    failed = [info for info in result if info.flags & (info.REMOTE_REJECTED | info.ERROR)]
+    if failed:
+        raise RuntimeError("Push failed: " + (failed[0].summary or "").strip())
+    if result.error is not None and not len(result):
+        raise result.error
+    return True
+
+
+def _rebase_in_progress(repo):
+    return any(os.path.isdir(os.path.join(repo.git_dir, d)) for d in ("rebase-merge", "rebase-apply"))
+
+
+def _unmerged(repo):
+    return [f for f in repo.git.diff("--name-only", "--diff-filter=U").splitlines() if f]
+
+
+def _pull_rebase(repo):
+    """`git pull --rebase --autostash`, never leaving the project half-merged.
+
+    Rebase rather than merge: local commits go on top of the remote's, with no
+    "Merge branch" commit every time two people work at once. Comment threads
+    merge through their merge driver. Conflicts only in build output (main.pdf,
+    main.synctex.gz…) keep the local copy, since the next compile rewrites it
+    anyway. Any other conflict undoes the whole pull, restores the user's
+    uncommitted edits, and raises _Conflict with the files involved.
+    """
+    root = repo.working_tree_dir
+    comments.install_merge_driver(root)
+    before = repo.head.commit.hexsha if repo.head.is_valid() else None
+    try:
+        output = repo.git.pull("--rebase", "--autostash")
+    except GitCommandError:
+        if not _rebase_in_progress(repo):
+            raise
+    else:
+        # The pull itself worked, but putting back uncommitted edits that touch
+        # the same lines leaves conflict markers in the user's files (and git
+        # still exits 0). Go back to before the pull, edits and all.
+        files = _unmerged(repo)
+        if files and before and repo.git.stash("list", "-1", "--format=%gs") == "autostash":
+            repo.git.reset("--hard", before)
+            repo.git.stash("pop")
+            raise _Conflict(files)
+        return output
+    while _rebase_in_progress(repo):
+        files = _unmerged(repo)
+        if not files or not all(_is_build_output(root, f) for f in files):
+            repo.git.rebase("--abort")
+            raise _Conflict(files)
+        # During a rebase "theirs" is the local commit being replayed.
+        repo.git.checkout("--theirs", "--", *files)
+        repo.git.add("--", *files)
+        try:
+            repo.git.rebase("--continue", env={"GIT_EDITOR": "true"})
+        except GitCommandError:
+            pass  # the next commit stopped too; look again
+    return "Pulled with rebase."
+
+
+def _conflict_response(conflict, committed, headline):
+    """409 for a pull that was undone because of conflicting edits."""
+    files = conflict.files
+    listed = ", ".join(files) if files else "some files"
+    kept = "Your commit is saved here but not pushed yet." if committed else "Nothing was changed on your side."
+    return jsonify(
+        error="%s Changed on both sides: %s. %s Resolve it in a terminal with `git pull --rebase`, "
+              "or agree with your coauthor which version to keep." % (headline, listed, kept),
+        conflicts=files, committed=committed,
+    ), 409
+
+
 @bp.route("/pull", methods=["POST"])
 @with_project_lock
 def pull():
@@ -168,14 +269,10 @@ def pull():
         try:
             before = repo.head.commit.hexsha if repo.head.is_valid() else None
             cleared = _clear_stale_build_outputs(repo)
-            # --autostash sets the user's own uncommitted edits aside and puts
-            # them back after the merge; older gits don't support it for merges.
             try:
-                output = repo.git.pull("--autostash")
-            except GitCommandError as e:
-                if "--autostash" not in str(e) and "autostash" not in str(e).lower():
-                    raise
-                output = repo.git.pull()
+                output = _pull_rebase(repo)
+            except _Conflict as c:
+                return _conflict_response(c, False, "Could not pull: you and the remote changed the same lines.")
             after = repo.head.commit.hexsha if repo.head.is_valid() else None
             print("Pulled from origin" + (" (replaced local build output: %s)" % ", ".join(cleared) if cleared else ""))
             return jsonify(success=True, output=output, changed=before != after, cleared=cleared)
