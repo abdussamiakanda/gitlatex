@@ -132,14 +132,6 @@ label:has(> input[type='checkbox']) {
   background-color: var(--c-accent);
 }
 
-.brand-git {
-  color: var(--c-accent-2);
-}
-
-.brand-text {
-  color: var(--c-accent);
-}
-
 /* Focus ring used by all interactive elements */
 .focus-ring:focus-visible {
   outline: 2px solid var(--c-accent);

@@ -9,7 +9,7 @@ import { confirmDeleteProject, duplicateProject, newProjectDialog, openProject, 
 import { TEMPLATES } from '../templates';
 import { timeAgo } from '../utils/misc';
 import { Button, IconButton, TextInput, useMenu } from './ui';
-import { Logo } from './TopBar';
+import { Wordmark } from './TopBar';
 import { MaterialIcon } from './MaterialIcon';
 
 export function ProjectsHome() {
@@ -23,10 +23,7 @@ export function ProjectsHome() {
   return (
     <div className="flex h-full flex-col overflow-y-auto">
       <header className="flex h-11 shrink-0 items-center gap-2 border-b border-line bg-panel px-3">
-        <Logo />
-        <span className="text-[14px] font-semibold tracking-tight text-fg">
-          <span className="brand-git">Git</span><span className="brand-text">LaTeX</span> IDE
-        </span>
+        <Wordmark className="h-6" />
         <div className="flex-1" />
         <IconButton label="Toggle light/dark theme" onClick={() => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark')}>
           {theme === 'light' ? <Moon className="size-4" /> : <Sun className="size-4" />}
