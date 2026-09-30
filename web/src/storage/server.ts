@@ -195,5 +195,6 @@ export const commitFile = (hash: string, path: string, oldPath?: string | null) 
   get<FileDiff>('/commit-file' + qs({ hash, path, oldPath: oldPath ?? undefined }));
 export const commit = (message: string) => post<{ committed: boolean; hash?: string }>('/api/git/commit', { message });
 export const push = (message: string) => post<{ committed: boolean }>('/push', { message });
-export const pull = () => post<{ output: string; changed: boolean }>('/pull');
+/** `cleared`: local build output (main.pdf, main.synctex.gz…) replaced by the remote's copy. */
+export const pull = () => post<{ output: string; changed: boolean; cleared?: string[] }>('/pull');
 export const initRepo = () => post('/api/git/init');

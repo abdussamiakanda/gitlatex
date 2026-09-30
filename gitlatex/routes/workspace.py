@@ -22,7 +22,7 @@ import shutil
 from flask import Blueprint, jsonify
 
 from gitlatex import state
-from gitlatex.http import _json
+from gitlatex.http import _json, with_project_lock
 from gitlatex.services import comments
 from gitlatex.services.git_backend import Repo
 from gitlatex.services.paths import resolve_repo_path
@@ -167,6 +167,7 @@ def rename_project():
 
 
 @bp.route("/api/fs/write", methods=["POST"])
+@with_project_lock
 def write_file():
     if not state.current_repo_path:
         return _no_project()
@@ -185,6 +186,7 @@ def write_file():
 
 
 @bp.route("/api/fs/mkdir", methods=["POST"])
+@with_project_lock
 def make_dir():
     if not state.current_repo_path:
         return _no_project()
@@ -201,6 +203,7 @@ def make_dir():
 
 
 @bp.route("/api/fs/delete", methods=["POST"])
+@with_project_lock
 def delete_path():
     if not state.current_repo_path:
         return _no_project()
@@ -220,6 +223,7 @@ def delete_path():
 
 
 @bp.route("/api/fs/move", methods=["POST"])
+@with_project_lock
 def move_path():
     if not state.current_repo_path:
         return _no_project()

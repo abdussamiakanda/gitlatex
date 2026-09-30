@@ -527,7 +527,12 @@ async function warmUpEngine() {
 
 type Built = Omit<CompileResult, 'id'>;
 
-async function buildInBrowser(current: Workspace, clean: boolean): Promise<Built> {
+/**
+ * `persist`: write the PDF into the project folder. Not for the compile that runs
+ * when a project opens: its sources are unchanged, so it would only mark a
+ * committed main.pdf as modified (PDFs embed a timestamp) and block pulls.
+ */
+async function buildInBrowser(current: Workspace, clean: boolean, persist: boolean): Promise<Built> {
   const project = current.project;
   const settings = getState().settings;
   const result = await engine.compile({
@@ -542,7 +547,7 @@ async function buildInBrowser(current: Workspace, clean: boolean): Promise<Built
     clean,
     useShelf: settings.useShelf,
   });
-  if (result.pdf && settings.savePdf && ws === current) void storePdf(current, result.pdf, result.synctex);
+  if (result.pdf && persist && settings.savePdf && ws === current) void storePdf(current, result.pdf, result.synctex);
   return result;
 }
 
@@ -565,7 +570,7 @@ async function storePdf(current: Workspace, pdf: Uint8Array, synctex: Uint8Array
  * a URL to fetch. The format is documented in the classic editor
  * (Settings → Compiler API).
  */
-async function buildViaApi(current: Workspace): Promise<Built> {
+async function buildViaApi(current: Workspace, persist: boolean): Promise<Built> {
   const project = current.project;
   const started = performance.now();
   const program = LOCAL_PROGRAM[project.engine];
@@ -592,7 +597,7 @@ async function buildViaApi(current: Workspace): Promise<Built> {
   };
   const pdf = data.success ? await fromWire(data.pdf) : null;
   const synctex = pdf ? await fromWire(data.synctex).catch(() => null) : null;
-  if (pdf && getState().settings.savePdf && ws === current) void storePdf(current, pdf, synctex);
+  if (pdf && persist && getState().settings.savePdf && ws === current) void storePdf(current, pdf, synctex);
   const log = data.log ?? '';
   const error = data.error ?? (pdf ? null : `The Compiler API returned HTTP ${res.status} without a PDF`);
   return {
@@ -665,10 +670,16 @@ export async function compile(opts: { clean?: boolean; reason?: 'manual' | 'auto
   const current = ws;
   const mainDir = dirname(project.mainFile);
   patchCompile({ status: 'running', backend, error: null, console: '', dirtySinceCompile: false });
+  // On open, only write a PDF the project does not have yet (see buildInBrowser).
+  const persist = opts.reason !== 'open' || !current.get(stripExt(project.mainFile) + '.pdf');
   try {
     await current.flush();
     const result =
-      backend === 'local' ? await buildLocally(current) : backend === 'api' ? await buildViaApi(current) : await buildInBrowser(current, !!opts.clean);
+      backend === 'local'
+        ? await buildLocally(current)
+        : backend === 'api'
+          ? await buildViaApi(current, persist)
+          : await buildInBrowser(current, !!opts.clean, persist);
     if (ws !== current || generation !== compileGeneration) return; // project switched or stopped meanwhile
 
     const diagnostics: Diagnostic[] = [
@@ -926,10 +937,11 @@ export async function gitPush(message: string) {
 export async function gitPull() {
   const res = await gitStep('Pull failed', () => server.pull());
   if (!res) return false;
+  const replaced = res.cleared?.length ? ` Your local build output (${res.cleared.join(', ')}) was replaced by the remote's; the next compile rebuilds it.` : '';
   if (res.changed) {
     await reloadProject();
-    toast({ kind: 'success', title: 'Pulled', message: 'The project was updated from the remote.' });
-  } else toast({ kind: 'info', title: 'Already up to date' });
+    toast({ kind: 'success', title: 'Pulled', message: 'The project was updated from the remote.' + replaced });
+  } else toast({ kind: 'info', title: 'Already up to date', message: replaced || undefined });
   return true;
 }
 

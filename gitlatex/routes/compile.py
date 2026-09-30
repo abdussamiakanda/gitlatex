@@ -7,7 +7,7 @@ import subprocess
 from flask import Blueprint, jsonify, request, send_file
 
 from gitlatex import state
-from gitlatex.http import _json
+from gitlatex.http import _json, with_project_lock
 from gitlatex.services.latex import LATEX_ENGINES, run_latex_build
 from gitlatex.services.paths import resolve_repo_path
 from gitlatex.services.synctex import save_remote_synctex
@@ -16,6 +16,7 @@ bp = Blueprint("compile", __name__)
 
 
 @bp.route("/compile", methods=["GET", "POST"])
+@with_project_lock
 def compile_latex():
     if request.method == "GET":
         return jsonify(
@@ -111,11 +112,13 @@ def handle_save_pdf():
 
 
 @bp.route("/save-pdf", methods=["POST"])
+@with_project_lock
 def save_pdf():
     return handle_save_pdf()
 
 
 @bp.route("/api/save-pdf", methods=["POST"])
+@with_project_lock
 def api_save_pdf():
     return handle_save_pdf()
 
