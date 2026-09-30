@@ -10,7 +10,7 @@ import sys
 from flask import Blueprint, jsonify
 
 from gitlatex import state
-from gitlatex.services import paths
+from gitlatex.services import comments, paths
 from gitlatex.services.git_backend import Repo, git_rmtree
 from gitlatex.http import _json
 from gitlatex.services.paths import count_files_in_dir, parse_owner_from_remote_url
@@ -194,6 +194,8 @@ def select_repo():
     state.current_repo_path = repo_path
     git_dir = os.path.join(repo_path, ".git")
     has_git = os.path.isdir(git_dir)
+    if has_git:
+        comments.install_merge_driver(repo_path)
     print("Selected repo:", name)
     return jsonify(success=True, hasGit=has_git)
 
@@ -212,6 +214,7 @@ def clone_repo():
     try:
         Repo.clone_from(repo_url, repo_path)
         print("Cloned", repo_name)
+        comments.install_merge_driver(repo_path)
         state.current_repo_path = repo_path
         return jsonify(success=True)
     except Exception as e:

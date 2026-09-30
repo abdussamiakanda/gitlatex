@@ -50,6 +50,9 @@ interface Thread {
   resolvedBy?: string;
   resolvedAt?: string;
   messages: Message[];
+  /** The thread's file has merge conflict markers; `path` is that file. */
+  conflict?: boolean;
+  path?: string;
 }
 
 interface Me {
@@ -371,7 +374,17 @@ function renderMessage(t: Thread, m: Message, index: number) {
   return row;
 }
 
+function renderConflict(t: Thread) {
+  const card = el('div', 'review-card review-conflict');
+  card.dataset.id = t.id;
+  if (t.id === activeId) card.classList.add('active');
+  card.appendChild(el('div', 'review-conflict-title', 'This thread has a merge conflict'));
+  card.appendChild(el('div', 'review-msg-text', `Both versions of it are in ${t.path ?? 'its file'}. Keep the messages from both sides, remove the <<<<<<< ======= >>>>>>> lines, and commit.`));
+  return card;
+}
+
 function renderThread(t: Thread) {
+  if (t.conflict) return renderConflict(t);
   const card = el('div', 'review-card');
   card.dataset.id = t.id;
   if (t.id === activeId) card.classList.add('active');

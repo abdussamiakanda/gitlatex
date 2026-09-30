@@ -28,11 +28,17 @@ last saved (e.g. after a pull).
 import datetime
 import json
 import os
+import re
+import shlex
 import subprocess
+import sys
 import threading
 import uuid
 
 COMMENTS_DIR = os.path.join(".gitlatex", "comments")
+
+MERGE_DRIVER = "gitlatex-comments"
+MERGE_ATTRIBUTE = ".gitlatex/comments/*.json merge=" + MERGE_DRIVER
 
 # One server, one user, but the browser can fire an anchor sync and a reply at
 # the same moment.
@@ -87,6 +93,46 @@ def _git_config(repo_path, key):
     return out.stdout.strip() if out.returncode == 0 else ""
 
 
+def install_merge_driver(repo_path):
+    """Let git merge comment threads itself (see comments_merge.py).
+
+    Registered in the project's own .git (config and info/attributes), not in
+    a committed .gitattributes: a merge driver is a command on this machine,
+    so every copy of the project sets up its own. Safe to call repeatedly;
+    refreshes the command if the app has moved. Returns True if installed.
+    """
+    git_dir = os.path.join(repo_path, ".git")
+    if not os.path.isdir(git_dir):
+        return False
+    script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "comments_merge.py")
+    command = "%s %s %%O %%A %%B" % (shlex.quote(sys.executable), shlex.quote(script))
+    try:
+        for key, value in (
+            ("merge.%s.name" % MERGE_DRIVER, "gitlatex review comment threads"),
+            ("merge.%s.driver" % MERGE_DRIVER, command),
+        ):
+            if _git_config(repo_path, key) != value:
+                subprocess.run(["git", "config", key, value], cwd=repo_path,
+                               capture_output=True, timeout=5, check=True)
+        info = os.path.join(git_dir, "info")
+        attributes = os.path.join(info, "attributes")
+        try:
+            with open(attributes, "r", encoding="utf-8") as f:
+                existing = f.read()
+        except OSError:
+            existing = ""
+        if MERGE_ATTRIBUTE not in existing.splitlines():
+            os.makedirs(info, exist_ok=True)
+            with open(attributes, "a", encoding="utf-8") as f:
+                if existing and not existing.endswith("\n"):
+                    f.write("\n")
+                f.write(MERGE_ATTRIBUTE + "\n")
+    except (OSError, subprocess.SubprocessError) as e:
+        print("Could not set up the comment merge driver:", e)
+        return False
+    return True
+
+
 def current_user(repo_path):
     """The name comments are signed with: the same identity commits use."""
     name = _git_config(repo_path, "user.name")
@@ -123,6 +169,39 @@ def _message(repo_path, text):
     }
 
 
+def _conflict_stub(repo_path, path):
+    """A placeholder for a thread file left with merge conflict markers.
+
+    Shown in the panel as "this thread has a merge conflict" instead of the
+    thread silently disappearing. Only file and position are recovered, by
+    pattern, from whichever side comes first.
+    """
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            text = f.read()
+    except OSError:
+        return None
+    if "<<<<<<<" not in text:
+        return None
+    file = re.search(r'"file"\s*:\s*"((?:[^"\\]|\\.)*)"', text)
+    if not file:
+        return None
+    rng = {}
+    for key in ("startLine", "startColumn", "endLine", "endColumn"):
+        m = re.search(r'"%s"\s*:\s*(\d+)' % key, text)
+        rng[key] = int(m.group(1)) if m else 1
+    return {
+        "id": os.path.basename(path)[:-len(".json")],
+        "file": json.loads('"%s"' % file.group(1)),
+        "range": rng,
+        "quote": "",
+        "resolved": False,
+        "conflict": True,
+        "path": os.path.relpath(path, repo_path).replace("\\", "/"),
+        "messages": [],
+    }
+
+
 def list_threads(repo_path, file=None):
     folder = _dir(repo_path)
     if not os.path.isdir(folder):
@@ -131,7 +210,8 @@ def list_threads(repo_path, file=None):
     for name in os.listdir(folder):
         if not name.endswith(".json"):
             continue
-        thread = _read(os.path.join(folder, name))
+        path = os.path.join(folder, name)
+        thread = _read(path) or _conflict_stub(repo_path, path)
         if thread is None:
             continue
         if file is not None and thread.get("file") != file:
@@ -253,6 +333,8 @@ def move_file(repo_path, old, new):
     new = new.replace("\\", "/").rstrip("/")
     with _lock:
         for thread in list_threads(repo_path):
+            if thread.get("conflict"):
+                continue  # a placeholder; writing it would lose the real file
             f = thread.get("file", "")
             if f == old:
                 thread["file"] = new
