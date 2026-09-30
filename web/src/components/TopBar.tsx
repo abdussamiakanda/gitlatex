@@ -8,9 +8,19 @@ import { ENGINE_LABELS, type TexEngine } from '../engine/protocol';
 import { modKey, timeAgo } from '../utils/misc';
 import { Button, IconButton, Kbd, useMenu, clsx, type MenuItem } from './ui';
 
-/** The GitLaTeX mark (public/favicon.svg), as in the classic UI. */
+/** The square GitLaTeX mark (public/logo-sq.png, also the favicon). */
 export function Logo({ className }: { className?: string }) {
-  return <img src="./favicon.svg" alt="" width={28} height={28} className={clsx('size-7 shrink-0', className)} />;
+  return <img src="./logo-sq.png" alt="" width={28} height={28} className={clsx('size-7 shrink-0', className)} />;
+}
+
+/** The GitLaTeX wordmark, in the variant drawn for the current theme. Size it by height. */
+export function Wordmark({ className }: { className?: string }) {
+  return (
+    <span className={clsx('flex shrink-0', className)}>
+      <img src="./logo-light.png" alt="GitLaTeX" className="h-full w-auto dark:hidden" />
+      <img src="./logo-dark.png" alt="GitLaTeX" className="hidden h-full w-auto dark:block" />
+    </span>
+  );
 }
 
 export function TopBar({ compact, mobileView, onMobileView }: { compact: boolean; mobileView: 'editor' | 'pdf'; onMobileView: (v: 'editor' | 'pdf') => void }) {
@@ -62,12 +72,17 @@ export function TopBar({ compact, mobileView, onMobileView }: { compact: boolean
       <IconButton label="Toggle sidebar" onClick={() => setState({ sidebar: sidebar ? null : 'files' })} className="sm:hidden">
         <PanelLeft className="size-4" />
       </IconButton>
-      <div className="flex items-center gap-2 pl-1 pr-1">
-        <Logo />
-        <span className="hidden text-[14px] font-semibold tracking-tight text-fg md:inline">
-          <span className="brand-git">Git</span><span className="brand-text">LaTeX</span> IDE
-        </span>
-      </div>
+      <button
+        onClick={() => void closeProject()}
+        className="focus-ring flex items-center rounded-md px-1 py-1 hover:bg-hover"
+        title="All projects"
+        aria-label="All projects"
+      >
+        <Logo className="md:hidden" />
+        <div className="hidden md:block">
+          <Wordmark className="h-6" />
+        </div>
+      </button>
       <span className="hidden h-5 w-px bg-line md:block" />
       <button
         onClick={(e) => projectMenu.open(e, projectItems(), true)}

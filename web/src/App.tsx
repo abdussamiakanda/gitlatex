@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useStore, openDialog, getState, setState } from './state/store';
 import * as actions from './state/actions';
-import { TopBar, Logo } from './components/TopBar';
+import { TopBar, Wordmark } from './components/TopBar';
 import { ActivityBar, Sidebar } from './components/Sidebar';
 import { SplitPane } from './components/SplitPane';
 import { EditorPane } from './editor/EditorPane';
@@ -68,7 +68,7 @@ export default function App() {
   if (booting) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4">
-        <Logo className="size-12 text-xl" />
+        <Wordmark className="h-12" />
         <div className="flex items-center gap-2 text-sm text-muted">
           <Spinner /> Loading your projects…
         </div>
