@@ -18,6 +18,7 @@ import { useStore, getState, setState, openDialog, promptText, toast } from '../
 import { installSpellCheck, setSpellCheckEnabled } from './spell';
 import { installSnippets } from './snippets';
 import { installReview } from './review';
+import { installConflictTools } from './conflicts';
 import { setVimMode, type VimHooks } from './vim';
 import {
   applyMarkers, applyQuickFix, closeTab, compile, ensurePackage, forwardSearch, openFile, runSlashCommand, uploadFiles, workspace, downloadActive,
@@ -155,6 +156,7 @@ export function EditorPane() {
 
     const spell = installSpellCheck(editor, s.spellCheck);
     const review = installReview(editor);
+    const conflictTools = installConflictTools(editor, () => getState().scm?.sides);
     installSnippets(
       editor,
       () => promptText('New snippet', 'Prefix (type it, then press Tab)', '', 'Save'),
@@ -312,6 +314,7 @@ export function EditorPane() {
       syncClickSub.dispose();
       spell.dispose();
       review.dispose();
+      conflictTools.dispose();
       void setVimMode(editor, null, false, vimHooks);
       contentSub.dispose();
       scrollSub.dispose();

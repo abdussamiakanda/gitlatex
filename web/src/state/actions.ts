@@ -7,12 +7,12 @@ import { EngineClient, CompileCancelledError } from '../engine/EngineClient';
 import type { TexEngine } from '../engine/protocol';
 import { Workspace, detectEngine, guessMainFile } from './workspace';
 import { useEffect, useState } from 'react';
-import { getState, setState, useStore, patchCompile, toast, openDialog, initialCompile, updateSettings, closeDialog, getCompilerApi, normalizeCompilerApiUrl } from './store';
+import { getState, setState, useStore, patchCompile, toast, dismissToast, openDialog, initialCompile, updateSettings, closeDialog, getCompilerApi, normalizeCompilerApiUrl } from './store';
 import * as server from '../storage/server';
 import { checkForUpdate } from './updates';
 import { base64ToBytes, bytesToBase64 } from '../utils/misc';
 import { downloadBytes, downloadProjectZip, downloadText, readFileList, unzipProject, type ImportedFile } from '../storage/local-disk';
-import { bindWorkspace, getModel, syncModel, disposeModel, openModels } from '../editor/models';
+import { bindWorkspace, getModel, syncAllModels, syncModel, disposeModel, openModels } from '../editor/models';
 import { editorBridge } from '../editor/bridge';
 import { monaco } from '../editor/monaco';
 import { parseBibtexLog, parseTexLog } from '../latex/log-parser';
@@ -128,6 +128,7 @@ export async function openProject(id: string) {
     if (kind !== 'meta') {
       patchCompile({ dirtySinceCompile: true });
       scheduleAutoCompile();
+      scheduleScmRefresh();
     }
   });
   const files = new Set(next.paths());
@@ -150,6 +151,7 @@ export async function openProject(id: string) {
   } catch {
     /* ignore */
   }
+  void refreshScm();
   // Show the PDF from the last build straight away, as the classic UI did.
   void showExistingPdf(next);
   void warmUpEngine();
@@ -170,7 +172,7 @@ export async function closeProject() {
   } catch {
     /* ignore */
   }
-  setState({ project: null, openTabs: [], activePath: null, compile: { ...initialCompile }, reveal: null, pdfTarget: null });
+  setState({ project: null, openTabs: [], activePath: null, compile: { ...initialCompile }, reveal: null, pdfTarget: null, scm: null });
   await refreshProjects().catch(() => undefined);
 }
 
@@ -902,59 +904,246 @@ export function includePathFor(target: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Git
+// Source control (gitlatex/routes/scm.py), modelled on VS Code
 // ---------------------------------------------------------------------------
 
 const bumpGit = () => setState((s) => ({ gitVersion: s.gitVersion + 1 }));
 
-async function gitStep<T>(title: string, fn: () => Promise<T>): Promise<T | undefined> {
+let scmTimer: ReturnType<typeof setTimeout> | undefined;
+
+/** Read the repository's state for the panel, the icon badge and the status bar. */
+export async function refreshScm() {
+  clearTimeout(scmTimer);
+  const current = ws;
+  if (!current?.project.hasGit) {
+    setState({ scm: null });
+    return;
+  }
+  try {
+    const st = await server.scm.status();
+    if (ws === current) setScm(st);
+  } catch {
+    if (ws === current) setState({ scm: null });
+  }
+}
+
+/** Refresh shortly after edits have been written to disk. */
+export function scheduleScmRefresh(delay = 1500) {
+  clearTimeout(scmTimer);
+  scmTimer = setTimeout(() => void refreshScm(), delay);
+}
+
+/** Bring the editor in line with the folder after Git changed files (pull, discard, switch branch…). */
+export async function syncFromDisk() {
+  const current = ws;
+  if (!current) return;
+  const changed = await current.refresh();
+  if (ws !== current) return;
+  syncAllModels();
+  const files = new Set(current.paths());
+  setState((s) => {
+    const openTabs = s.openTabs.filter((p) => files.has(p));
+    return { openTabs, activePath: s.activePath && files.has(s.activePath) ? s.activePath : (openTabs[0] ?? null) };
+  });
+  if (changed.length) {
+    patchCompile({ dirtySinceCompile: true });
+    scheduleAutoCompile();
+  }
+}
+
+/**
+ * Run one source control step: save pending edits, call the server, take the
+ * status it returns, and re-sync the editor when files on disk changed.
+ */
+function setScm(st: server.ScmStatus | null) {
+  setState({ scm: st });
+  if (conflictToast !== null && !st?.conflicts.length) {
+    dismissToast(conflictToast);
+    conflictToast = null;
+  }
+}
+
+async function scmStep(title: string, fn: () => Promise<server.ScmResult>, touchesFiles = false): Promise<server.ScmResult | undefined> {
   try {
     await ws?.flush();
-    return await fn();
+    const res = await fn();
+    setScm(res.status);
+    if (touchesFiles) await syncFromDisk();
+    return res;
   } catch (err) {
     toast({ kind: 'error', title, message: err instanceof Error ? err.message : String(err), timeout: 0 });
+    void refreshScm();
     return undefined;
   } finally {
     bumpGit();
   }
 }
 
-/** Stage everything and commit. */
-export async function gitCommit(message: string) {
-  const res = await gitStep('Commit failed', () => server.commit(message));
-  if (res) toast(res.committed ? { kind: 'success', title: 'Committed', message } : { kind: 'info', title: 'Nothing to commit' });
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+export const scmStage = (paths?: string[]) => scmStep('Could not stage', () => server.scm.stage(paths));
+export const scmUnstage = (paths?: string[]) => scmStep('Could not unstage', () => server.scm.unstage(paths));
+
+/** Throw away working-tree changes (asks first: this cannot be undone). */
+export function scmDiscard(files: server.ScmFile[]) {
+  if (!files.length) return;
+  const untracked = files.filter((f) => f.status === '?');
+  const what = files.length === 1 ? `“${files[0].path}”` : plural(files.length, 'file');
+  openDialog({
+    type: 'confirm',
+    title: files.length === 1 ? 'Discard changes?' : `Discard changes in ${what}?`,
+    message:
+      `Your changes to ${what} will be lost for good.` +
+      (untracked.length ? ` ${untracked.length === files.length ? (files.length === 1 ? 'It is' : 'They are') : plural(untracked.length, 'untracked file') + ' are'} not in Git yet, so ${untracked.length === 1 ? 'it' : 'they'} will be deleted.` : ''),
+    confirm: 'Discard',
+    danger: true,
+    onConfirm: async () => {
+      await scmStep('Could not discard', () => server.scm.discard(files.map((f) => f.path)), true);
+    },
+  });
+}
+
+/** Commit what is staged, or everything when nothing is (VS Code's smart commit). */
+export async function scmCommit(message: string) {
+  const op = getState().scm?.inProgress;
+  // Continuing a rebase rewrites files (the next commits are replayed).
+  const res = await scmStep('Commit failed', () => server.scm.commit(message), op === 'rebase');
+  if (!res) return false;
+  if (res.conflicts?.length) reportConflicts(res.conflicts, 'The rebase stopped at another conflict');
+  else if (op === 'rebase') toast({ kind: 'success', title: 'Rebase finished', message: 'Your commits now sit on top of the remote’s. Sync to push them.' });
+  else toast({ kind: 'success', title: op === 'merge' ? 'Merge committed' : 'Committed', message: `${res.commit ?? ''} ${message}`.trim() });
+  return true;
+}
+
+/** The conflict warning on screen: replaced by the next one, and gone once nothing is left to resolve. */
+let conflictToast: number | null = null;
+
+function reportConflicts(files: string[], title?: string) {
+  setState({ sidebar: 'git' });
+  if (conflictToast !== null) dismissToast(conflictToast);
+  conflictToast = toast({
+    kind: 'warning',
+    title: title ?? `Conflicts in ${plural(files.length, 'file')}`,
+    message: `${files.slice(0, 4).join(', ')}${files.length > 4 ? '…' : ''}. Open each file under Merge Changes and pick a version for every conflict, or take a whole file. Abort puts everything back as it was.`,
+    timeout: 0,
+  });
+}
+
+function reportPull(res: server.ScmResult, title: string) {
+  const replaced = res.cleared?.length ? ` Your local build output (${res.cleared.join(', ')}) was replaced by the remote's; the next compile rebuilds it.` : '';
+  if (res.conflicts?.length) reportConflicts(res.conflicts, `You and the remote changed the same lines in ${plural(res.conflicts.length, 'file')}`);
+  else toast({ kind: 'success', title, message: (res.output?.includes('Already up to date') ? 'Already up to date.' : 'The project was updated.') + replaced });
+}
+
+export async function scmPull() {
+  const res = await scmStep('Pull failed', () => server.scm.pull(), true);
+  if (res) reportPull(res, 'Pulled');
   return !!res;
 }
 
-/** Commit everything (if anything changed) and push to origin. */
-export async function gitPush(message: string) {
-  const res = await gitStep('Push failed', () => server.push(message));
+export async function scmSync() {
+  const res = await scmStep('Sync failed', () => server.scm.sync(), true);
+  if (res) reportPull(res, 'Synced');
+  return !!res;
+}
+
+export async function scmPush() {
+  const res = await scmStep('Push failed', () => server.scm.push());
   if (!res) return false;
-  // Someone pushed first; the server pulled their commits in, so the files changed.
-  if (res.pulled) await reloadProject();
-  const pushed = res.committed ? message : 'No new changes; pushed existing commits.';
-  toast({ kind: 'success', title: 'Pushed', message: res.pulled ? `${pushed} Your coauthors' newer changes were pulled in first.` : pushed });
+  // A coauthor pushed first, so their commits were pulled in: files changed.
+  if (res.pulled) await syncFromDisk();
+  if (res.conflicts?.length) reportConflicts(res.conflicts, 'Not pushed: a coauthor changed the same lines first');
+  else toast({ kind: 'success', title: 'Pushed', message: res.pulled ? 'Your coauthors’ newer commits were pulled in first.' : res.status.upstream ? `to ${res.status.upstream}` : undefined });
   return true;
 }
 
-/** Pull from origin, then reload the project so the editor shows what is on disk. */
-export async function gitPull() {
-  const res = await gitStep('Pull failed', () => server.pull());
-  if (!res) return false;
-  const replaced = res.cleared?.length ? ` Your local build output (${res.cleared.join(', ')}) was replaced by the remote's; the next compile rebuilds it.` : '';
-  if (res.changed) {
-    await reloadProject();
-    toast({ kind: 'success', title: 'Pulled', message: 'The project was updated from the remote.' + replaced });
-  } else toast({ kind: 'info', title: 'Already up to date', message: replaced || undefined });
-  return true;
+export const scmFetch = () => scmStep('Fetch failed', () => server.scm.fetch());
+
+export async function scmCheckout(name: string, create = false) {
+  const res = await scmStep(create ? 'Could not create the branch' : 'Could not switch branch', () => server.scm.checkout(name, create), true);
+  if (res) toast({ kind: 'success', title: create ? `Created branch ${res.status.branch}` : `Switched to ${res.status.branch}` });
+}
+
+export function promptCreateBranch() {
+  openDialog({
+    type: 'prompt',
+    title: 'Create branch',
+    label: 'Branch name',
+    value: '',
+    placeholder: 'revision-2',
+    confirm: 'Create',
+    onSubmit: async (name) => {
+      const n = name.trim().replace(/\s+/g, '-');
+      if (!n) throw new Error('Enter a branch name');
+      await scmCheckout(n, true);
+    },
+  });
+}
+
+export function scmAbort() {
+  const op = getState().scm?.inProgress ?? 'merge';
+  const what = op === 'autostash' ? 'pull' : op;
+  openDialog({
+    type: 'confirm',
+    title: `Abort the ${what}?`,
+    message:
+      op === 'autostash'
+        ? 'Your files go back to how they were before the pull, with your unsaved edits as you left them. Pull again once you are ready.'
+        : `Files go back to how they were before the ${what} started. Conflict resolutions you made are lost.`,
+    confirm: `Abort ${what}`,
+    danger: true,
+    onConfirm: async () => {
+      const res = await scmStep(`Could not abort the ${what}`, () => server.scm.abort(), true);
+      if (res) toast({ kind: 'info', title: `${what[0].toUpperCase()}${what.slice(1)} aborted` });
+    },
+  });
+}
+
+/** Resolve a whole file with one side: 'current' (yours) or 'incoming' (theirs). */
+export const scmResolve = (path: string, side: 'current' | 'incoming') => scmStep('Could not resolve', () => server.scm.resolve(path, side), true);
+
+const CONFLICT_MARKER = /^(<{7}|={7}|>{7})( |$)/m;
+
+/** Stage a conflicted file as resolved; warns when it still contains conflict markers. */
+export async function scmMarkResolved(path: string) {
+  await ws?.flush();
+  const text = ws?.getText(path);
+  const run = () => scmStep('Could not mark resolved', () => server.scm.markResolved(path));
+  if (text !== undefined && CONFLICT_MARKER.test(text)) {
+    openDialog({
+      type: 'confirm',
+      title: 'Conflict markers remain',
+      message: `“${path}” still contains <<<<<<< / ======= / >>>>>>> lines. Mark it resolved anyway?`,
+      confirm: 'Mark resolved',
+      onConfirm: async () => void (await run()),
+    });
+    return;
+  }
+  await run();
+}
+
+export const openPublishDialog = () => openDialog({ type: 'publish' });
+
+export async function scmPublish(opts: { url?: string; name?: string; private?: boolean }) {
+  await ws?.flush();
+  const res = await server.scm.publish(opts); // errors are shown in the dialog
+  setScm(res.status);
+  bumpGit();
+  toast({ kind: 'success', title: 'Published', message: res.status.upstream ? `Pushed ${res.status.branch} to ${res.status.upstream}` : undefined });
 }
 
 export async function gitInit() {
-  const res = await gitStep('Could not create a repository', () => server.initRepo());
-  if (res && ws) {
-    ws.updateMeta({ hasGit: true });
-    toast({ kind: 'success', title: 'Git repository created' });
+  try {
+    await server.initRepo();
+  } catch (err) {
+    toast({ kind: 'error', title: 'Could not create a repository', message: err instanceof Error ? err.message : String(err) });
+    return;
   }
+  if (!ws) return;
+  ws.updateMeta({ hasGit: true });
+  await refreshScm();
+  bumpGit();
+  toast({ kind: 'success', title: 'Git repository created' });
 }
 
 /** Replace a file's content with an older version (from a diff), keeping editor undo. */

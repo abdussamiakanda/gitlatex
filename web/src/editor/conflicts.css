@@ -1,0 +1,19 @@
+/* Merge conflict blocks (editor/conflicts.ts), in VS Code's colours. */
+.monaco-editor .conflict-current-header {
+  background: rgba(64, 200, 174, 0.5);
+}
+.monaco-editor .conflict-current {
+  background: rgba(64, 200, 174, 0.2);
+}
+.monaco-editor .conflict-base {
+  background: rgba(128, 128, 128, 0.15);
+}
+.monaco-editor .conflict-separator {
+  background: rgba(128, 128, 128, 0.3);
+}
+.monaco-editor .conflict-incoming {
+  background: rgba(64, 166, 255, 0.2);
+}
+.monaco-editor .conflict-incoming-header {
+  background: rgba(64, 166, 255, 0.5);
+}

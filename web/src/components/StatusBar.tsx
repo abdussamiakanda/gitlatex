@@ -1,4 +1,4 @@
-import { AlertCircle, AlertTriangle, ArrowUpCircle, Cpu, WifiOff, Cloud, GitBranch, Monitor } from 'lucide-react';
+import { AlertCircle, AlertTriangle, ArrowUpCircle, Cpu, WifiOff, Cloud, CloudUpload, GitBranch, GitMerge, Monitor } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useStore, setState, openDialog } from '../state/store';
 import { ENGINE_LABELS } from '../engine/protocol';
@@ -12,6 +12,7 @@ export function StatusBar() {
   const activePath = useStore((s) => s.activePath);
   const diags = useStore((s) => s.compile.diagnostics);
   const update = useStore((s) => s.update);
+  const scm = useStore((s) => s.scm);
   const lastBackend = useStore((s) => s.compile.backend);
   const { active } = useCompiler();
   // What the last build used, or before any build, what the next one will use.
@@ -69,9 +70,21 @@ export function StatusBar() {
         </span>
       )}
       <div className="flex-1" />
-      {project?.hasGit && (
-        <button onClick={() => setState({ sidebar: 'git' })} className="flex items-center gap-1 hover:text-fg" title="Source control">
-          <GitBranch className="size-3" /> Git
+      {project?.hasGit && scm && (
+        <button
+          onClick={() => setState({ sidebar: 'git' })}
+          className={clsx('flex items-center gap-1 hover:text-fg', scm.conflicts.length > 0 && 'text-warn')}
+          title={scm.inProgress ? `${scm.inProgress} in progress` : scm.upstream ? `Tracking ${scm.upstream}` : scm.remotes.length ? 'Branch not published' : 'No remote'}
+        >
+          {scm.inProgress ? <GitMerge className="size-3" /> : <GitBranch className="size-3" />}
+          {scm.detached ? 'detached' : scm.branch}
+          {scm.conflicts.length > 0 && <span>· {scm.conflicts.length} conflict{scm.conflicts.length === 1 ? '' : 's'}</span>}
+          {scm.upstream && (scm.ahead > 0 || scm.behind > 0) && (
+            <span className="tabular-nums">
+              {scm.behind}↓ {scm.ahead}↑
+            </span>
+          )}
+          {!scm.upstream && scm.hasCommits && <CloudUpload className="size-3" />}
         </button>
       )}
       {project && <span>{ENGINE_LABELS[project.engine]}</span>}

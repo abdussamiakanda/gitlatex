@@ -21,6 +21,7 @@ const VIEWS: { id: SidebarView; label: string; icon: React.ReactNode }[] = [
 export function ActivityBar() {
   const sidebar = useStore((s) => s.sidebar);
   const reviewCount = useStore((s) => s.reviewCount);
+  const scmCount = useStore((s) => (s.scm ? s.scm.staged.length + s.scm.changes.length + s.scm.conflicts.length : 0));
   const update = useStore((s) => s.update);
   const hasUpdate = !!update?.updateAvailable;
   const btn = (active: boolean, label: string, icon: React.ReactNode, onClick: () => void, badge = 0) => (
@@ -46,7 +47,7 @@ export function ActivityBar() {
     <nav className="hidden w-12 shrink-0 flex-col items-center gap-1 border-r border-line bg-panel py-2 sm:flex" aria-label="Sidebar views">
       {btn(false, 'All projects', <Home className="size-[18px]" />, () => void closeProject())}
       <div className="my-1 h-px w-6 bg-line" />
-      {VIEWS.map((v) => btn(sidebar === v.id, v.label, v.icon, () => setState({ sidebar: sidebar === v.id ? null : v.id }), v.id === 'review' ? reviewCount : 0))}
+      {VIEWS.map((v) => btn(sidebar === v.id, v.label, v.icon, () => setState({ sidebar: sidebar === v.id ? null : v.id }), v.id === 'review' ? reviewCount : v.id === 'git' ? scmCount : 0))}
       <div className="flex-1" />
       {btn(false, 'Help & templates', <CircleHelp className="size-[18px]" />, () => newProjectDialog())}
       {btn(false, 'Keyboard shortcuts', <Keyboard className="size-[18px]" />, () => openDialog({ type: 'shortcuts' }))}

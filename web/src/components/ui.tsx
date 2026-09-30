@@ -232,8 +232,10 @@ export function useMenu() {
       setMenu({ x: r.left, y: r.bottom + 4, items });
     } else setMenu({ x: e.clientX, y: e.clientY, items });
   };
+  /** Open at a screen position (for menus whose items load asynchronously). */
+  const openAt = (x: number, y: number, items: (MenuItem | 'separator')[]) => setMenu({ x, y, items });
   const node = menu ? <Menu {...menu} onClose={() => setMenu(null)} /> : null;
-  return { open, node };
+  return { open, openAt, node };
 }
 
 export function ProgressBar({ value, total, className }: { value?: number; total?: number; className?: string }) {

@@ -14,6 +14,7 @@ blueprint below - nothing else in the app needs to know about it.
     snippets      the user's own editor snippets
     review        comment threads on lines of project files
     git          push, pull, status, history and diffs
+    scm           the Source control panel: staging, conflicts, branches, publish
     workspace     the file API behind the editor UI in web/
     engine        the in-browser TeX engine and its package shelf
 
@@ -30,6 +31,7 @@ from gitlatex.routes import (
     projectindex,
     repos,
     review,
+    scm,
     snippets,
     spell,
     synctex,
@@ -48,6 +50,7 @@ BLUEPRINTS = (
     snippets.bp,
     review.bp,
     git.bp,
+    scm.bp,
     workspace.bp,
     engine.bp,
     pages.bp,

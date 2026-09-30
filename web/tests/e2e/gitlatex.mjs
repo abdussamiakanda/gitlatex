@@ -103,8 +103,8 @@ try {
 
   // Commit through the Source control panel.
   await page.getByRole('button', { name: 'Source control', exact: true }).click();
-  await page.getByPlaceholder('Commit message').fill('First draft');
-  await page.getByRole('button', { name: 'Commit', exact: true }).click();
+  await page.locator('aside').getByPlaceholder(/^Message/).fill('First draft');
+  await page.locator('aside button.brand-gradient').first().click(); // "Commit all": nothing staged
   await page.getByText('Committed').first().waitFor({ timeout: 15000 });
   const log = await (await fetch(base + '/commits')).json();
   check(log.commits?.[0]?.message === 'First draft', 'commit recorded in Git');

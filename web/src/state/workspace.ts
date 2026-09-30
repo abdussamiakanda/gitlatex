@@ -381,11 +381,59 @@ export class Workspace {
     return moves.filter(([a]) => basename(a) !== KEEP);
   }
 
+  /**
+   * Re-read the folder after something other than the editor changed it (a
+   * pull, a discard, a branch switch). Only what differs is updated, and
+   * nothing is written back. Call flush() first so no edit is lost. Returns
+   * the paths whose content changed or that appeared or disappeared.
+   */
+  async refresh(): Promise<string[]> {
+    const opened = await server.openProject(this.project.id);
+    const now = Date.now();
+    const next = new Map<string, MemFile>();
+    for (const f of opened.files) {
+      if (f.omitted) next.set(f.path, { path: f.path, kind: 'binary', omitted: true, updatedAt: now });
+      else if (f.text !== undefined) next.set(f.path, { path: f.path, kind: 'text', text: f.text, updatedAt: now });
+      else next.set(f.path, { path: f.path, kind: 'binary', data: base64ToBytes(f.base64 ?? ''), updatedAt: now });
+    }
+    for (const dir of opened.folders) {
+      if (![...next.keys()].some((p) => p.startsWith(dir + '/'))) next.set(`${dir}/${KEEP}`, { path: `${dir}/${KEEP}`, kind: 'text', text: '', updatedAt: now });
+    }
+    const changed: string[] = [];
+    let treeChanged = false;
+    for (const p of [...this.files.keys()]) {
+      if (!next.has(p)) {
+        this.files.delete(p);
+        this.dirty.delete(p);
+        treeChanged = true;
+        if (basename(p) !== KEEP) changed.push(p);
+      }
+    }
+    for (const [p, f] of next) {
+      const old = this.files.get(p);
+      if (!old) treeChanged = true;
+      else if (old.kind === f.kind && old.text === f.text && sameBytes(old.data, f.data) && !!old.omitted === !!f.omitted) continue;
+      this.files.set(p, f);
+      this.dirty.delete(p);
+      if (basename(p) !== KEEP) changed.push(p);
+    }
+    if (treeChanged) this.emit('tree');
+    else if (changed.length) this.emit('content');
+    return changed;
+  }
+
   updateMeta(patch: Partial<ProjectMeta>) {
     Object.assign(this.project, patch, { updatedAt: Date.now() });
     writeLocalMeta(this.project);
     this.emit('meta');
   }
+}
+
+function sameBytes(a?: Uint8Array, b?: Uint8Array) {
+  if (a === b) return true;
+  if (!a || !b || a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
 }
 
 /** Binary sniffing: NUL bytes in the first 8 KB mean "not text". */

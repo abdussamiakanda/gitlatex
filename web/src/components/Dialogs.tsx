@@ -2,11 +2,11 @@
  * All modal dialogs, rendered from the store's `dialog` field.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Settings, FolderPlus, Search, Keyboard, GitCompare, FileArchive, FolderInput, Play, RotateCcw, FilePlus2, FolderPlus as FolderPlusIcon, Upload, Download, Moon, Crosshair, Zap, Files, ListTree, History, Cpu, FileText, Sparkles, GitBranch, GitCommitHorizontal, ArrowDownToLine, Home, ExternalLink } from 'lucide-react';
+import { Settings, FolderPlus, Search, Keyboard, GitCompare, FileArchive, FolderInput, Play, RotateCcw, FilePlus2, FolderPlus as FolderPlusIcon, Upload, Download, Moon, Crosshair, Zap, Files, ListTree, History, Cpu, FileText, Sparkles, GitBranch, GitCommitHorizontal, ArrowDownToLine, ArrowUpFromLine, RefreshCw, CloudUpload, Home, ExternalLink } from 'lucide-react';
 import { useStore, closeDialog, openDialog, setState, updateSettings, toast, getCompilerApi, setCompilerApi, type Dialog } from '../state/store';
 import { MaterialIcon } from './MaterialIcon';
 import {
-  applyTheme, closeProject, compile, createProject, downloadPdf, downloadZip, forwardSearch, gitPull, importFolderAsProject, importZipAsProject, openFile, openProject, promptClone, promptNewFile, promptNewFolder, reconfigureEngine, runSlashCommand, serverInfo, setCompiler, setTheme, uploadFiles, workspace,
+  applyTheme, closeProject, compile, createProject, downloadPdf, downloadZip, forwardSearch, importFolderAsProject, openPublishDialog, promptCreateBranch, scmPull, scmPush, scmSync, importZipAsProject, openFile, openProject, promptClone, promptNewFile, promptNewFolder, reconfigureEngine, runSlashCommand, serverInfo, setCompiler, setTheme, uploadFiles, workspace,
 } from '../state/actions';
 import { pickFiles } from '../storage/local-disk';
 import { TEMPLATES } from '../templates';
@@ -18,6 +18,7 @@ import { languageFor } from '../utils/paths';
 import { WizardDialog } from './Wizards';
 import { EditorFeatureSettings } from './EditorSettings';
 import { AboutSettings } from './AboutSettings';
+import { PublishDialog } from './PublishDialog';
 import { Button, Kbd, Modal, TextInput, Toggle, clsx } from './ui';
 import { FileIcon } from './FileIcon';
 
@@ -45,6 +46,8 @@ function DialogSwitch({ dialog }: { dialog: Dialog }) {
       return <WizardDialog wizard={dialog.wizard} />;
     case 'diff':
       return <DiffDialog d={dialog} />;
+    case 'publish':
+      return <PublishDialog />;
   }
 }
 
@@ -384,8 +387,12 @@ function CommandPalette() {
       cmd('newproject', 'New project…', <FolderPlus className="size-4" />, () => openDialog({ type: 'new-project' })),
       cmd('pdf', 'Download PDF', <Download className="size-4" />, downloadPdf),
       cmd('zip', 'Download project as .zip', <FileArchive className="size-4" />, downloadZip),
-      cmd('pull', 'Git: pull', <ArrowDownToLine className="size-4" />, () => void gitPull()),
-      cmd('commit', 'Git: commit or push…', <GitCommitHorizontal className="size-4" />, () => setState({ sidebar: 'git' })),
+      cmd('pull', 'Git: Pull', <ArrowDownToLine className="size-4" />, () => void scmPull()),
+      cmd('push', 'Git: Push', <ArrowUpFromLine className="size-4" />, () => void scmPush()),
+      cmd('sync', 'Git: Sync', <RefreshCw className="size-4" />, () => void scmSync()),
+      cmd('commit', 'Git: Commit…', <GitCommitHorizontal className="size-4" />, () => setState({ sidebar: 'git' })),
+      cmd('branch', 'Git: Create branch…', <GitBranch className="size-4" />, promptCreateBranch),
+      cmd('publish', 'Git: Publish repository…', <CloudUpload className="size-4" />, openPublishDialog),
       cmd('clone', 'Clone a Git repository…', <GitBranch className="size-4" />, promptClone),
       cmd('home', 'All projects', <Home className="size-4" />, () => void closeProject()),
       cmd('auto', 'Toggle auto-compile', <Zap className="size-4" />, () => updateSettings({ autoCompile: !useStore.getState().settings.autoCompile })),

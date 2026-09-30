@@ -138,28 +138,6 @@ export const savePdf = (pdfPath: string, pdf: Uint8Array, main: string, synctex:
 
 // ---- git -------------------------------------------------------------------------------
 
-export interface GitStatus {
-  current: string | null;
-  detached: boolean;
-  hasCommits: boolean;
-  tracking: string | null;
-  ahead: number;
-  behind: number;
-  modified: string[];
-  deleted: string[];
-  staged: string[];
-  untracked: string[];
-}
-
-export interface RemoteStatus {
-  hasRemote: boolean;
-  tracking?: string | null;
-  branch?: string;
-  behind: number;
-  ahead: number;
-  dirty: boolean;
-}
-
 export interface ChangedFile {
   path: string;
   oldPath: string | null;
@@ -184,18 +162,68 @@ export interface FileDiff {
   path: string;
 }
 
-export const gitStatus = () => get<{ status: GitStatus }>('/status').then((r) => r.status);
-/** Fetches from origin first, so it can take a moment. */
-export const remoteStatus = () => get<RemoteStatus>('/remote-status');
-export const workingFiles = () => get<{ files: ChangedFile[] }>('/working-files').then((r) => r.files);
-export const workingFile = (path: string) => get<FileDiff>('/working-file' + qs({ path }));
 export const commits = (skip = 0, limit = 50) => get<{ commits: Commit[]; hasMore: boolean }>('/commits' + qs({ skip: String(skip), limit: String(limit) }));
 export const commitFiles = (hash: string) => get<{ files: ChangedFile[]; message: string }>('/commit-files' + qs({ hash }));
 export const commitFile = (hash: string, path: string, oldPath?: string | null) =>
   get<FileDiff>('/commit-file' + qs({ hash, path, oldPath: oldPath ?? undefined }));
-export const commit = (message: string) => post<{ committed: boolean; hash?: string }>('/api/git/commit', { message });
-/** `pulled`: the remote had new commits, so ours were rebased onto them before pushing. */
-export const push = (message: string) => post<{ committed: boolean; pulled?: boolean }>('/push', { message });
-/** `cleared`: local build output (main.pdf, main.synctex.gz…) replaced by the remote's copy. */
-export const pull = () => post<{ output: string; changed: boolean; cleared?: string[] }>('/pull');
 export const initRepo = () => post('/api/git/init');
+
+// ---- source control (gitlatex/routes/scm.py) ----------------------------------------------
+
+export interface ScmFile {
+  path: string;
+  oldPath: string | null;
+  /** M modified, A added, D deleted, R renamed, T type change, ? untracked, U conflicted. */
+  status: string;
+  /** Conflicts only: git's two-letter code (UU both modified, AA both added, …) and a label. */
+  kind?: string;
+  label?: string;
+}
+
+export interface ScmStatus {
+  branch: string | null;
+  detached: boolean;
+  hasCommits: boolean;
+  upstream: string | null;
+  ahead: number;
+  behind: number;
+  staged: ScmFile[];
+  changes: ScmFile[];
+  conflicts: ScmFile[];
+  remotes: string[];
+  /** `autostash`: a pull went through, but the user's uncommitted edits conflicted with it. */
+  inProgress: 'merge' | 'rebase' | 'cherry-pick' | 'autostash' | null;
+  /** Whose version git's "current" (ours) and "incoming" (theirs) are, e.g. "Your version". */
+  sides: { current: string; incoming: string };
+}
+
+export interface ScmResult {
+  status: ScmStatus;
+  conflicts?: string[];
+  cleared?: string[];
+  /** Push: a coauthor had pushed first, so their commits were pulled in. */
+  pulled?: boolean;
+  /** Commit: the new commit, or null when a continued rebase stopped at another conflict. */
+  commit?: string | null;
+  output?: string;
+}
+
+export const scm = {
+  status: () => get<ScmStatus>('/api/scm/status'),
+  stage: (paths?: string[]) => post<ScmResult>('/api/scm/stage', { paths }),
+  unstage: (paths?: string[]) => post<ScmResult>('/api/scm/unstage', { paths }),
+  discard: (paths: string[]) => post<ScmResult>('/api/scm/discard', { paths }),
+  resolve: (path: string, side: 'current' | 'incoming') => post<ScmResult>('/api/scm/resolve', { path, side }),
+  markResolved: (path: string) => post<ScmResult>('/api/scm/mark-resolved', { path }),
+  abort: () => post<ScmResult>('/api/scm/abort'),
+  commit: (message: string) => post<ScmResult>('/api/scm/commit', { message }),
+  pull: () => post<ScmResult>('/api/scm/pull'),
+  push: () => post<ScmResult>('/api/scm/push'),
+  sync: () => post<ScmResult>('/api/scm/sync'),
+  fetch: () => post<ScmResult>('/api/scm/fetch'),
+  branches: () => get<{ local: string[]; remote: string[] }>('/api/scm/branches'),
+  checkout: (name: string, create = false) => post<ScmResult>('/api/scm/checkout', { name, create }),
+  publishOptions: () => get<{ gh: boolean }>('/api/scm/publish-options'),
+  publish: (opts: { url?: string; name?: string; private?: boolean }) => post<ScmResult>('/api/scm/publish', opts),
+  diff: (path: string, staged: boolean) => get<FileDiff>(`/api/scm/diff${qs({ path, staged: staged ? '1' : '0' })}`),
+};
