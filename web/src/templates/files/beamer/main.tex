@@ -1,0 +1,51 @@
+\documentclass[aspectratio=169]{beamer}
+\usetheme{Madrid}
+\usecolortheme{default}
+\usepackage{amsmath}
+\usepackage{booktabs}
+
+\title{Presentation Title}
+\subtitle{A Subtitle}
+\author{Your Name}
+\institute{Your Institution}
+\date{\today}
+
+\begin{document}
+
+\begin{frame}
+  \titlepage
+\end{frame}
+
+\begin{frame}{Outline}
+  \tableofcontents
+\end{frame}
+
+\section{Motivation}
+\begin{frame}{Why it matters}
+  \begin{itemize}
+    \item<1-> First point
+    \item<2-> Second point appears on click
+    \item<3-> Third point
+  \end{itemize}
+\end{frame}
+
+\section{Results}
+\begin{frame}{Key equation}
+  \begin{block}{Euler's identity}
+    \[ e^{i\pi} + 1 = 0 \]
+  \end{block}
+  \begin{columns}
+    \column{0.5\textwidth}
+      Left column text.
+    \column{0.5\textwidth}
+      \begin{tabular}{lr}
+        \toprule Item & Value \\ \midrule A & 1 \\ B & 2 \\ \bottomrule
+      \end{tabular}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{Thank you}
+  \centering \Large Questions?
+\end{frame}
+
+\end{document}

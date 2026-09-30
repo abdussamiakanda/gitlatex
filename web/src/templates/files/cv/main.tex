@@ -1,0 +1,46 @@
+\documentclass[10pt,a4paper]{article}
+\usepackage[margin=1.6cm]{geometry}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{tabularx}
+\usepackage[hidelinks]{hyperref}
+
+\definecolor{accent}{HTML}{3B5BDB}
+\pagestyle{empty}
+\setlength{\parindent}{0pt}
+\titleformat{\section}{\large\bfseries\color{accent}}{}{0pt}{}[\vspace{-4pt}\rule{\linewidth}{0.6pt}]
+\titlespacing*{\section}{0pt}{12pt}{6pt}
+\setlist[itemize]{leftmargin=1.2em, itemsep=1pt, topsep=2pt}
+
+\newcommand{\entry}[4]{%
+  \textbf{#1} \hfill {\small\color{gray} #2}\\
+  \textit{#3}\par\smallskip #4\par\medskip}
+
+\begin{document}
+{\Huge\bfseries Your Name}\\[4pt]
+{\color{gray} Job Title \quad|\quad City, Country \quad|\quad
+ \href{mailto:you@example.org}{you@example.org} \quad|\quad
+ \href{https://github.com/}{github.com/you}}
+
+\section{Experience}
+\entry{Senior Engineer}{2021 -- present}{Company Name}{%
+\begin{itemize}
+  \item Led a team of five building a browser-based compiler.
+  \item Cut build times by 60\%.
+\end{itemize}}
+
+\entry{Engineer}{2018 -- 2021}{Previous Company}{%
+\begin{itemize}
+  \item Shipped features used by millions.
+\end{itemize}}
+
+\section{Education}
+\entry{M.Sc. Computer Science}{2016 -- 2018}{University}{Thesis on typesetting algorithms.}
+
+\section{Skills}
+\begin{tabularx}{\linewidth}{@{}lX@{}}
+  \textbf{Languages} & TypeScript, Rust, Python, \LaTeX \\
+  \textbf{Tools}     & Git, Docker, WebAssembly \\
+\end{tabularx}
+\end{document}

@@ -1,0 +1,103 @@
+% ============================================================================
+%  Welcome to TexBrowser IDE
+%  Everything on this page is compiled by a real TeX Live (pdfTeX) running as
+%  WebAssembly inside your browser. No server ever sees your document.
+% ============================================================================
+\documentclass[11pt]{article}
+
+\usepackage[margin=2.2cm]{geometry}
+\usepackage{amsmath, amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage[numbers]{natbib}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true, linkcolor=MidnightBlue, citecolor=ForestGreen, urlcolor=RoyalBlue}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small TexBrowser IDE}
+\fancyhead[R]{\small\thepage}
+
+\title{Welcome to \textbf{TexBrowser IDE}}
+\author{Your browser, compiling real \LaTeX{}}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+This document was typeset by genuine \TeX{} Live binaries (pdf\TeX, Xe\TeX,
+Bib\TeX) compiled to WebAssembly and running in a background thread of your
+browser. Edit anything on the left and watch the PDF update.
+\end{abstract}
+
+\section{Try the slash commands}\label{sec:slash}
+Start a new line and type \texttt{/} to open the command menu. Try
+\texttt{/table}, \texttt{/matrix}, \texttt{/image}, \texttt{/equation} or
+\texttt{/cite}. The IDE inserts a ready-made template and adds any package it
+needs to the preamble for you.
+
+\begin{itemize}[leftmargin=2.4em, label=\textcolor{MidnightBlue}{$\blacktriangleright$}]
+  \item \textbf{Beginners}: never memorise syntax again.
+  \item \textbf{Experts}: full \TeX{} --- \verb|\makeatletter|, \verb|\dimexpr|,
+        \verb|\ifcase|, any package from \TeX{} Live.
+  \item \textbf{Everyone}: your files never leave your machine unless you push
+        them to your own GitHub repository.
+\end{itemize}
+
+\section{Mathematics}
+The Gaussian integral and a matrix, straight from \texttt{amsmath}:
+\begin{equation}\label{eq:gauss}
+  \int_{-\infty}^{\infty} e^{-x^2}\,\mathrm{d}x = \sqrt{\pi},
+  \qquad
+  A = \begin{pmatrix} 1 & 2 \\ 3 & 4 \end{pmatrix}.
+\end{equation}
+Equation~\eqref{eq:gauss} is referenced automatically --- cross-references,
+tables of contents and bibliographies are resolved with as many passes as
+\TeX{} needs. Low-level primitives work too: $3\times 2\,\text{pt} + 1\,\text{pt}
+= \the\dimexpr 3\dimexpr 2pt\relax + 1pt\relax$.
+
+\section{Figures and tables}
+Images live in the project's virtual file system (IndexedDB) and are read by
+\verb|\includegraphics| just like on disk:
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.55\linewidth]{images/sample-chart.png}
+  \caption{A chart stored in your browser's virtual file system.}
+  \label{fig:chart}
+\end{figure}
+
+\begin{table}[h]
+  \centering
+  \begin{tabular}{lcc}
+    \toprule
+    Feature            & Overleaf & TexBrowser \\
+    \midrule
+    Real TeX Live       & \checkmark & \checkmark \\
+    Works offline       & ---        & \checkmark \\
+    No account needed   & ---        & \checkmark \\
+    Your data stays local & ---      & \checkmark \\
+    \bottomrule
+  \end{tabular}
+  \caption{Why compile in the browser?}
+\end{table}
+
+\section{Citations}
+BibTeX runs automatically when you cite something, e.g.\ Knuth's
+book~\cite{knuth1984} or Lamport's manual~\cite{lamport1994}.
+
+\section{Where next?}
+\begin{enumerate}[label=\arabic*.]
+  \item Press \textbf{Ctrl+Enter} (or \textbf{Cmd+Enter}) to recompile.
+  \item Double-click anywhere in the PDF to jump to the matching source line.
+  \item Open the \emph{GitHub} panel to push this project to a repository.
+  \item Create a new project from a template: thesis, paper, beamer, CV\ldots
+\end{enumerate}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+\end{document}

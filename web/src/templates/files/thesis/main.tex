@@ -1,0 +1,49 @@
+\documentclass[12pt,a4paper,oneside]{report}
+
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath, amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{setspace}\onehalfspacing
+\usepackage{titlesec}
+\titleformat{\chapter}[display]{\normalfont\huge\bfseries}{\chaptertitlename\ \thechapter}{16pt}{\Huge}
+\usepackage[numbers]{natbib}
+\usepackage[hidelinks]{hyperref}
+
+\begin{document}
+
+\begin{titlepage}
+  \centering
+  \vspace*{3cm}
+  {\Huge\bfseries Thesis Title\par}
+  \vspace{1.5cm}
+  {\Large Your Name\par}
+  \vfill
+  A thesis submitted in partial fulfilment of the requirements\\
+  for the degree of Doctor of Philosophy\par
+  \vspace{1cm}
+  {\large \today\par}
+\end{titlepage}
+
+\pagenumbering{roman}
+\chapter*{Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
+Summarise the whole thesis in one page.
+
+\tableofcontents
+\listoffigures
+\listoftables
+
+\cleardoublepage
+\pagenumbering{arabic}
+\include{chapters/introduction}
+\include{chapters/background}
+\include{chapters/conclusion}
+
+\appendix
+\chapter{Supplementary Material}
+Extra proofs and data.
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+\end{document}

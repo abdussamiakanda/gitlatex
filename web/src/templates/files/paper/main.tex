@@ -1,0 +1,70 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{caption}
+\usepackage{xcolor}
+\usepackage[numbers,sort&compress]{natbib}
+\usepackage[colorlinks=true, allcolors=blue]{hyperref}
+\usepackage{cleveref}
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}[theorem]{Lemma}
+
+\title{A Concise Title That Describes Your Contribution}
+\author{First Author\thanks{University of Somewhere, \texttt{first@example.org}}
+   \and Second Author}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+One paragraph summarising the problem, the approach, the main result and why
+it matters. Keep it under 200 words.
+\end{abstract}
+
+\section{Introduction}\label{sec:intro}
+Motivate the problem and state your contributions. Prior work includes the
+classic texts of \citet{knuth1984} and \citet{lamport1994}.
+
+\section{Method}\label{sec:method}
+\begin{theorem}\label{thm:main}
+For every $n \in \mathbb{N}$, $\sum_{k=1}^{n} k = \frac{n(n+1)}{2}$.
+\end{theorem}
+\begin{proof}
+By induction on $n$.
+\end{proof}
+
+\Cref{thm:main} is used throughout \cref{sec:results}.
+
+\section{Results}\label{sec:results}
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.6\linewidth]{figures/results.png}
+  \caption{Main result.}\label{fig:results}
+\end{figure}
+
+\begin{table}[t]
+  \centering
+  \caption{Comparison with baselines.}\label{tab:comparison}
+  \begin{tabular}{lrr}
+    \toprule
+    Method & Accuracy (\%) & Time (s) \\
+    \midrule
+    Baseline & 81.2 & 12.4 \\
+    Ours     & \textbf{89.7} & \textbf{7.9} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+As shown in \cref{fig:results} and \cref{tab:comparison}, our method wins.
+
+\section{Conclusion}
+Summarise and outline future work.
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+\end{document}

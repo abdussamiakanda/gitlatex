@@ -51,7 +51,15 @@ gitlatex = [
     "public/js/*.js",
     "public/js/*/*.js",
     "public/css/*.css",
+    # The editor UI, built from web/ by `npm run build` (not in git; CI builds
+    # it before packaging), and the manifest of the in-browser TeX engine.
+    "ui/*",
+    "ui/assets/*",
+    "engine/manifest.json",
 ]
+
+[tool.setuptools.exclude-package-data]
+gitlatex = ["ui/assets/*.map"]
 
 [tool.setuptools_scm]
 # The version comes from the latest git tag (v1.7.0 -> 1.7.0); untagged commits

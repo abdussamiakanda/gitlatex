@@ -1,0 +1,4 @@
+# The editor UI ships prebuilt in gitlatex/ui (package data); its sources in
+# web/ and the test repos stay out of the sdist.
+prune web
+prune repos

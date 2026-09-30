@@ -1,0 +1,39 @@
+\documentclass[11pt]{article}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{MATH 101 --- Homework 1}
+\rhead{Your Name}
+\cfoot{\thepage}
+
+\newtheorem*{problem}{Problem}
+\newenvironment{solution}{\begin{proof}[Solution]}{\end{proof}}
+
+\begin{document}
+
+\begin{problem}[1]
+Prove that $\sqrt{2}$ is irrational.
+\end{problem}
+\begin{solution}
+Suppose $\sqrt{2} = p/q$ in lowest terms. Then $p^2 = 2q^2$, so $p$ is even \ldots
+\end{solution}
+
+\begin{problem}[2]
+Compute the following.
+\begin{enumerate}[label=(\alph*)]
+  \item $\displaystyle \lim_{x\to 0} \frac{\sin x}{x}$
+  \item $\displaystyle \int_0^1 x^2\,dx$
+\end{enumerate}
+\end{problem}
+\begin{solution}
+\begin{enumerate}[label=(\alph*)]
+  \item $1$.
+  \item $\left.\frac{x^3}{3}\right|_0^1 = \frac13$.
+\end{enumerate}
+\end{solution}
+
+\end{document}

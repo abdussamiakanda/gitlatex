@@ -25,7 +25,10 @@ def create_app(repos_dir=None):
     app = Flask(__name__, static_folder=None)
     app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50MB
 
-    state.BASE_DIR = str(Path(repos_dir) if repos_dir else _repos_base())
+    # Absolute, because Flask's send_file resolves relative paths against the
+    # package folder rather than the working directory (`--repos repos` broke
+    # every file download).
+    state.BASE_DIR = os.path.abspath(str(Path(repos_dir) if repos_dir else _repos_base()))
     os.makedirs(state.BASE_DIR, exist_ok=True)
 
     public = paths._public_dir()

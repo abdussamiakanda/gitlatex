@@ -51,6 +51,52 @@ def push():
         return jsonify(error=str(e)), 500
 
 
+@bp.route("/api/git/commit", methods=["POST"])
+def commit_all():
+    """Stage everything and commit, without pushing (for projects with no remote)."""
+    if not state.current_repo_path:
+        return jsonify(error="No repository selected"), 400
+    if Repo is None:
+        return jsonify(error="GitPython not installed"), 500
+    # Not _open_repo(): a brand-new repository has no commits yet, and this is
+    # how it gets its first one.
+    try:
+        repo = Repo(state.current_repo_path)
+    except Exception as e:
+        return jsonify(error=str(e)), 500
+    try:
+        message = (_json_message() or datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        repo.git.add("-A")
+        if not repo.git.status("--porcelain").strip():
+            return jsonify(success=True, committed=False)
+        c = repo.index.commit(message)
+        print("Commit:", message)
+        return jsonify(success=True, committed=True, hash=c.hexsha)
+    except Exception as e:
+        return jsonify(error=str(e)), 500
+    finally:
+        _close_repo(repo)
+
+
+@bp.route("/api/git/init", methods=["POST"])
+def init_repo():
+    if not state.current_repo_path:
+        return jsonify(error="No repository selected"), 400
+    if Repo is None:
+        return jsonify(error="GitPython not installed"), 500
+    try:
+        _close_repo(Repo.init(state.current_repo_path))
+        return jsonify(success=True)
+    except Exception as e:
+        return jsonify(error=str(e)), 500
+
+
+def _json_message():
+    payload = request.get_json(silent=True)
+    message = payload.get("message") if isinstance(payload, dict) else None
+    return message.strip() if isinstance(message, str) else ""
+
+
 @bp.route("/pull", methods=["POST"])
 def pull():
     if not state.current_repo_path:

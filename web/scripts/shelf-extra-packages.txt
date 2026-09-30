@@ -1,0 +1,53 @@
+# Packages shelved from texlive-fonts-extra (see --extra-packages in build-shelf.mjs).
+# The full collection is 1.7 GB; this list keeps the fonts people actually use in
+# papers, theses, CVs and slides. Packages they require from the same collection
+# are added automatically.
+
+# Times / Palatino / Charter / Garamond clones and other text+math families
+newtx
+newtxtt
+newpx
+tempora
+xcharter
+heuristica
+ebgaramond
+cochineal
+baskervillef
+crimson
+crimsonpro
+kpfonts
+stix
+stix2-type1
+stix2-otf
+mlmodern
+
+# Libertine / Libertinus
+libertine
+libertinus
+libertinus-fonts
+libertinus-type1
+libertinus-otf
+
+# Sans and mono (CV, slides, code)
+sourcesanspro
+sourceserifpro
+sourcecodepro
+roboto
+lato
+fira
+firamath
+opensans
+carlito
+cabin
+raleway
+inconsolata
+dejavu
+arev
+cantarell
+comfortaa
+notomath
+
+# Icons (CV templates)
+fontawesome
+fontawesome5
+academicons

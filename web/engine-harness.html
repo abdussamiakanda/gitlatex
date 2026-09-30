@@ -1,0 +1,18 @@
+<!doctype html>
+<!-- Dev/test-only page: drives the compile worker without the IDE UI. Not part of the production build. -->
+<html lang="en"><head><meta charset="utf-8" /><title>Engine harness</title></head>
+<body style="font-family: monospace; background: #111; color: #ddd">
+  <pre id="out"></pre>
+  <script type="module">
+    import { EngineClient } from '/src/engine/EngineClient.ts';
+    const out = document.getElementById('out');
+    const base = new URL('./', location.href);
+    const shelf = new URLSearchParams(location.search).get('shelf') !== '0';
+    const engine = new EngineClient({
+      manifestUrl: new URL('engine/manifest.json', base).href,
+      shelfUrl: shelf ? new URL('shelf/index.json', base).href : null,
+    });
+    engine.subscribe((s) => { if (s.progress) out.textContent = `[${s.state}] ${s.progress.message}\n` + out.textContent.slice(0, 4000); });
+    window.engine = engine;
+  </script>
+</body></html>

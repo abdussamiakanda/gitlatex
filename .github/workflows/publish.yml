@@ -50,6 +50,20 @@ jobs:
           # Tags pushed with GITHUB_TOKEN don't re-trigger workflows, so no double publish.
           git push origin "$NEXT"
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      # The editor UI (web/) is built into gitlatex/ui, which the wheel ships.
+      - name: Build and test the editor UI
+        working-directory: web
+        run: |
+          npm ci
+          npm test
+          npm run build
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -59,6 +73,9 @@ jobs:
           python -m pip install --upgrade build twine
           python -m build
           python -m twine check dist/*
+          # Fail rather than publish a package without its UI or engine manifest.
+          unzip -l dist/*.whl | grep -q "gitlatex/ui/index.html"
+          unzip -l dist/*.whl | grep -q "gitlatex/engine/manifest.json"
 
       - name: Make sure the build got a clean release version
         id: version

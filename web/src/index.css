@@ -1,0 +1,253 @@
+@import "tailwindcss";
+
+/* Theme tokens: dark-first, with a light theme. Components use semantic
+   colour names (bg-panel, text-muted, border-line, …) so both themes work. */
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
+@theme inline {
+  --color-bg: var(--c-bg);
+  --color-panel: var(--c-panel);
+  --color-panel-2: var(--c-panel-2);
+  --color-hover: var(--c-hover);
+  --color-line: var(--c-line);
+  --color-fg: var(--c-fg);
+  --color-muted: var(--c-muted);
+  --color-faint: var(--c-faint);
+  --color-accent: var(--c-accent);
+  --color-accent-2: var(--c-accent-2);
+  --color-accent-fg: var(--c-accent-fg);
+  --color-danger: var(--c-danger);
+  --color-warn: var(--c-warn);
+  --color-ok: var(--c-ok);
+  --color-info: var(--c-info);
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --font-serif: "Latin Modern Roman", "CMU Serif", Georgia, "Times New Roman", serif;
+}
+
+/* GitLaTeX palette (the same tokens as the classic UI, public/css/base.css):
+   GitHub-style surfaces, teal accent, Git-orange second accent. */
+:root {
+  --c-bg: #f6f8fa;
+  --c-panel: #ffffff;
+  --c-panel-2: #f6f8fa;
+  --c-hover: #f0f2f5;
+  --c-line: #d0d7de;
+  --c-fg: #1f2328;
+  --c-muted: #656d76;
+  --c-faint: #8c959f;
+  --c-accent: #008080;
+  --c-accent-2: #f1502f;
+  --c-accent-fg: #ffffff;
+  --c-danger: #cf222e;
+  --c-warn: #9a6700;
+  --c-ok: #1a7f37;
+  --c-info: #0969da;
+  --c-accent-rgb: 0 128 128;
+  --shadow-pop: 0 16px 48px -12px rgb(31 35 40 / 0.22), 0 0 0 1px rgb(31 35 40 / 0.06);
+}
+
+[data-theme='dark'] {
+  --c-bg: #0d1117;
+  --c-panel: #161b22;
+  --c-panel-2: #1c2128;
+  --c-hover: #21262d;
+  --c-line: #30363d;
+  --c-fg: #e6edf3;
+  --c-muted: #8b949e;
+  --c-faint: #6e7681;
+  --c-accent: #008080;
+  --c-accent-2: #f1502f;
+  --c-accent-fg: #ffffff;
+  --c-danger: #f85149;
+  --c-warn: #d29922;
+  --c-ok: #3fb950;
+  --c-info: #58a6ff;
+  --c-accent-rgb: 0 150 150;
+  --shadow-pop: 0 20px 60px -12px rgb(0 0 0 / 0.65), 0 0 0 1px rgb(255 255 255 / 0.06);
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--c-bg);
+  color: var(--c-fg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+/* Monaco's context menu lives in a shadow root attached outside .monaco-editor,
+   where the theme's --vscode-* colours are not defined, so it rendered with no
+   background. Give it the app's colours (Monaco's own values still win inside
+   the editor). */
+:root {
+  --vscode-menu-background: var(--c-panel);
+  --vscode-menu-foreground: var(--c-fg);
+  --vscode-menu-border: var(--c-line);
+  --vscode-menu-selectionBackground: var(--c-accent);
+  --vscode-menu-selectionForeground: var(--c-accent-fg);
+  --vscode-menu-selectionBorder: transparent;
+  --vscode-menu-separatorBackground: var(--c-line);
+  --vscode-widget-shadow: rgb(0 0 0 / 0.35);
+  --vscode-keybindingLabel-foreground: var(--c-muted);
+}
+
+/* Tailwind v4 resets buttons to the default cursor; everything clickable gets a pointer. */
+button:not(:disabled),
+[role='button'],
+[role='menuitem'],
+summary,
+label:has(> input[type='checkbox']) {
+  cursor: pointer;
+}
+
+/* Scrollbars that match the theme */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--c-line) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--c-line);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.shadow-pop {
+  box-shadow: var(--shadow-pop);
+}
+
+.brand-gradient {
+  background-color: var(--c-accent);
+}
+
+.brand-git {
+  color: var(--c-accent-2);
+}
+
+.brand-text {
+  color: var(--c-accent);
+}
+
+/* Focus ring used by all interactive elements */
+.focus-ring:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 1px;
+}
+
+/* Split-pane gutters */
+.gutter {
+  background: transparent;
+  transition: background 0.15s;
+}
+.gutter:hover,
+.gutter[data-dragging='true'] {
+  background: var(--c-accent);
+}
+
+/* PDF pages */
+.pdf-page {
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.25), 0 8px 24px -8px rgb(0 0 0 / 0.35);
+}
+.pdf-dark .pdf-page canvas {
+  filter: invert(0.9) hue-rotate(180deg) contrast(0.9);
+}
+.synctex-flash {
+  animation: synctex-flash 1.8s ease-out forwards;
+}
+@keyframes synctex-flash {
+  0% { background: rgb(var(--c-accent-rgb) / 0.4); outline: 2px solid rgb(var(--c-accent-rgb) / 0.9); }
+  100% { background: rgb(var(--c-accent-rgb) / 0); outline: 2px solid rgb(var(--c-accent-rgb) / 0); }
+}
+
+/* pdf.js text layer (ported from pdf_viewer.css): transparent text over the
+   canvas for selection and copy. Relies on --total-scale-factor on the page. */
+.textLayer {
+  position: absolute;
+  inset: 0;
+  overflow: clip;
+  opacity: 1;
+  line-height: 1;
+  text-align: initial;
+  letter-spacing: normal;
+  word-spacing: normal;
+  text-size-adjust: none;
+  forced-color-adjust: none;
+  transform-origin: 0 0;
+  z-index: 0;
+  --min-font-size: 1;
+  --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size));
+  --min-font-size-inv: calc(1 / var(--min-font-size));
+}
+.textLayer :is(span, br) {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+}
+.textLayer > :not(.markedContent),
+.textLayer .markedContent span:not(.markedContent) {
+  z-index: 1;
+  --font-height: 0;
+  font-size: calc(var(--text-scale-factor) * var(--font-height));
+  --scale-x: 1;
+  --rotate: 0deg;
+  transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv));
+}
+.textLayer .markedContent {
+  display: contents;
+}
+.textLayer ::selection {
+  background: rgb(var(--c-accent-rgb) / 0.35);
+}
+
+/* Monaco: glyph margin markers for compile diagnostics */
+.tb-glyph-error::before,
+.tb-glyph-warning::before {
+  content: '';
+  display: block;
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  margin: 6px 0 0 6px;
+}
+.tb-glyph-error::before { background: var(--c-danger); }
+.tb-glyph-warning::before { background: var(--c-warn); }
+.tb-synctex-line {
+  background: rgb(var(--c-accent-rgb) / 0.18);
+}
+
+/* KaTeX hover preview inherits text colour */
+.katex-preview .katex {
+  font-size: 1.15em;
+  color: var(--c-fg);
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+.animate-pop {
+  animation: fade-in 0.14s ease-out;
+}
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.progress-indeterminate {
+  background: linear-gradient(90deg, transparent, var(--c-accent), var(--c-accent-2), transparent);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}

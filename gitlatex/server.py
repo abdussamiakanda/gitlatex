@@ -56,7 +56,15 @@ def main():
     parser.add_argument("--host", default="127.0.0.1", help="Host (default: 127.0.0.1)")
     parser.add_argument("--no-browser", action="store_true", help="Do not open browser")
     parser.add_argument("--repos", default=None, help="Path to repos directory (default: ./repos)")
+    parser.add_argument(
+        "--fetch-engine", action="store_true",
+        help="Download the in-browser TeX engine (~190 MB) into ~/.gitlatex now, then exit",
+    )
     args = parser.parse_args()
+    if args.fetch_engine:
+        from gitlatex.routes.engine import fetch_engine
+        fetch_engine()
+        return 0
     run_server(
         host=args.host,
         port=args.port,

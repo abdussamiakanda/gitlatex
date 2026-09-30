@@ -1,6 +1,7 @@
 """Version, links and the PyPI update check shown on the Settings page."""
 
 import os
+import shutil
 import time
 
 from flask import Blueprint, jsonify, request
@@ -21,9 +22,14 @@ bp = Blueprint("system", __name__)
 
 @bp.route("/api/info")
 def api_info():
-    """Technical info for the Settings page."""
+    """Technical info for the Settings page, and which local TeX programs exist.
+
+    The editor's "Auto" compiler uses `latex` to pick local TeX when it is
+    installed and the in-browser engine otherwise.
+    """
     return jsonify(
         version=GITLATEX_VERSION,
+        latex={name: shutil.which(name) is not None for name in ("pdflatex", "xelatex", "lualatex")},
         repository="https://github.com/abdussamiakanda/gitlatex",
         pypi="https://pypi.org/project/gitlatex",
     )

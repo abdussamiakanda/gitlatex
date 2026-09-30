@@ -14,13 +14,16 @@ blueprint below - nothing else in the app needs to know about it.
     snippets      the user's own editor snippets
     review        comment threads on lines of project files
     git          push, pull, status, history and diffs
+    workspace     the file API behind the editor UI in web/
+    engine        the in-browser TeX engine and its package shelf
 
-`pages` is registered last: its catch-all route serves index.html for unknown
+`pages` is registered last: its catch-all route serves the app for unknown
 paths, so every real endpoint must be matched before it.
 """
 
 from gitlatex.routes import (
     compile as compile_routes,
+    engine,
     files,
     git,
     pages,
@@ -31,6 +34,7 @@ from gitlatex.routes import (
     spell,
     synctex,
     system,
+    workspace,
 )
 
 BLUEPRINTS = (
@@ -44,6 +48,8 @@ BLUEPRINTS = (
     snippets.bp,
     review.bp,
     git.bp,
+    workspace.bp,
+    engine.bp,
     pages.bp,
 )
 

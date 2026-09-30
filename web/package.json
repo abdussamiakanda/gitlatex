@@ -1,0 +1,54 @@
+{
+  "name": "gitlatex-web",
+  "private": true,
+  "version": "1.0.0",
+  "description": "GitLaTeX's editor UI: Monaco, pdf.js and an in-browser TeX Live (WebAssembly) engine. Built into ../gitlatex/ui.",
+  "license": "ISC",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -b --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "engine:fetch": "node scripts/fetch-engine.mjs",
+    "shelf:build": "node scripts/build-shelf.mjs",
+    "e2e": "node tests/e2e/run-e2e.mjs",
+    "e2e:gitlatex": "node tests/e2e/gitlatex.mjs",
+    "e2e:features": "node tests/e2e/editor-features.mjs",
+    "e2e:synctex": "node tests/e2e/synctex.mjs"
+  },
+  "dependencies": {
+    "clsx": "^2.1.1",
+    "fflate": "^0.8.3",
+    "idb": "^8.0.3",
+    "katex": "^0.18.9",
+    "lucide-react": "^1.49.0",
+    "material-symbols": "^0.47.5",
+    "monaco-editor": "^0.57.0",
+    "monaco-vim": "^0.4.4",
+    "pdfjs-dist": "^6.3.289",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "zustand": "^5.0.15"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/katex": "^0.16.8",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "fake-indexeddb": "^6.2.5",
+    "jsdom": "^30.1.1",
+    "playwright": "^1.56.1",
+    "tailwindcss": "^4.3.3",
+    "typescript": "~6.0.2",
+    "vite": "^8.3.1",
+    "vitest": "^5.0.2"
+  }
+}

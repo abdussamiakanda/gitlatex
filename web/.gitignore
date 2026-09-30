@@ -1,0 +1,19 @@
+# dependencies & build output
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Generated at build time by `npm run engine:fetch` / `npm run shelf:build`
+public/engine/
+public/shelf/
+.cache/
+
+# test artefacts
+tests/e2e/out/
+test-results/
+
+# misc
+.DS_Store
+*.log
+!tests/unit/fixtures/*.log
+.vite/

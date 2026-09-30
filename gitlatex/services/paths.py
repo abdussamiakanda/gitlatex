@@ -22,9 +22,19 @@ def _public_dir():
     return str(package_root / "public")
 
 
-def _static_path(relative_path):
-    """Resolve path under public/; return None if outside or missing (security)."""
-    public_dir = os.path.normpath(_public_dir())
+def _ui_dir():
+    """The built editor UI (web/ compiled by Vite), if this install has one."""
+    package_root = Path(os.path.realpath(__file__)).resolve().parent.parent
+    return str(package_root / "ui")
+
+
+def has_ui():
+    return os.path.isfile(os.path.join(_ui_dir(), "index.html"))
+
+
+def _static_path(relative_path, root=None):
+    """Resolve path under public/ (or root); return None if outside or missing (security)."""
+    public_dir = os.path.normpath(root or _public_dir())
     safe = relative_path.replace("\\", "/").lstrip("/")
     if ".." in safe:
         return None

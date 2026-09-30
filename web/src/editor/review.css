@@ -1,0 +1,305 @@
+/*
+ * Review comments (editor/review.ts): cards beside the editor, highlights on
+ * commented text, and the hover tooltip. The cards are placed by script
+ * (translateY) level with their text, so this is plain CSS, not Tailwind.
+ */
+
+:root {
+  --review-highlight: rgb(191 135 0 / 0.16);
+  --review-highlight-active: rgb(191 135 0 / 0.34);
+  --review-marker: #bf8700;
+}
+[data-theme='dark'] {
+  --review-highlight: rgb(210 153 34 / 0.18);
+  --review-highlight-active: rgb(210 153 34 / 0.38);
+  --review-marker: #d29922;
+}
+
+.review-identity {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  font-size: 11px;
+  color: var(--c-faint);
+  border-top: 1px solid var(--c-line);
+}
+.review-identity:empty {
+  display: none;
+}
+.review-identity strong {
+  color: var(--c-muted);
+  font-weight: 600;
+}
+.review-identity.warn {
+  color: var(--c-warn);
+}
+
+#review-cards {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+.review-empty {
+  padding: 16px 14px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--c-faint);
+}
+.review-empty.hidden,
+.review-add.hidden {
+  display: none;
+}
+.review-add {
+  position: absolute;
+  top: 0;
+  left: 8px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--c-accent-fg);
+  background: var(--c-accent);
+  border-radius: 6px;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.2);
+}
+.review-add:hover {
+  filter: brightness(1.1);
+}
+
+.review-card {
+  position: absolute;
+  top: 0;
+  left: 8px;
+  right: 8px;
+  padding: 8px 10px;
+  font-size: 12.5px;
+  color: var(--c-fg);
+  background: var(--c-panel);
+  border: 1px solid var(--c-line);
+  border-left: 3px solid var(--review-marker);
+  border-radius: 6px;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.15);
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.review-card.active {
+  z-index: 1;
+  cursor: default;
+  box-shadow: var(--shadow-pop);
+  border-color: var(--review-marker);
+}
+.review-card.resolved {
+  opacity: 0.65;
+  border-left-color: var(--c-faint);
+}
+.review-quote {
+  margin-bottom: 6px;
+  padding-left: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--c-faint);
+  border-left: 2px solid var(--c-line);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.review-msg + .review-msg {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--c-line);
+}
+.review-msg-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.review-avatar {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 20px;
+  text-align: center;
+  color: #fff;
+}
+.review-author {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.review-date {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--c-faint);
+}
+.review-card-tools {
+  display: inline-flex;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.review-msg-delete {
+  margin-left: auto;
+  visibility: hidden;
+}
+.review-msg:hover .review-msg-delete {
+  visibility: visible;
+}
+.review-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  color: var(--c-muted);
+}
+.review-icon-btn:hover {
+  background: var(--c-hover);
+  color: var(--c-fg);
+}
+.review-msg-text {
+  margin: 4px 0 0 26px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.review-resolved-note {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--c-faint);
+}
+
+/* The reply box only shows on the active card. */
+.review-reply {
+  display: none;
+  margin-top: 8px;
+}
+.review-card.active .review-reply {
+  display: block;
+}
+.review-input {
+  display: block;
+  width: 100%;
+  resize: none;
+  padding: 6px 8px;
+  font: inherit;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--c-fg);
+  background: var(--c-panel-2);
+  border: 1px solid var(--c-line);
+  border-radius: 6px;
+  outline: none;
+}
+.review-input:focus {
+  border-color: var(--c-accent);
+}
+.review-draft-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 8px;
+}
+.review-btn {
+  height: 26px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--c-fg);
+  background: var(--c-panel-2);
+  border: 1px solid var(--c-line);
+  border-radius: 6px;
+}
+.review-btn:hover {
+  background: var(--c-hover);
+}
+.review-btn.primary {
+  color: var(--c-accent-fg);
+  background: var(--c-accent);
+  border-color: var(--c-accent);
+}
+.review-btn.primary:hover {
+  filter: brightness(1.1);
+}
+
+/* --- In the editor --- */
+.monaco-editor .review-highlight {
+  background: var(--review-highlight);
+  border-bottom: 1px solid var(--review-marker);
+}
+.monaco-editor .review-highlight.active {
+  background: var(--review-highlight-active);
+}
+.monaco-editor .review-highlight.resolved {
+  background: transparent;
+  border-bottom-style: dashed;
+}
+.monaco-editor .review-line-marker {
+  background: var(--review-marker);
+  width: 3px !important;
+  margin-left: 3px;
+}
+.review-tip {
+  max-width: 280px;
+  padding: 6px 10px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--c-fg);
+  background: var(--c-panel);
+  border: 1px solid var(--c-line);
+  border-left: 3px solid var(--review-marker);
+  border-radius: 6px;
+  box-shadow: var(--shadow-pop);
+  cursor: pointer;
+  z-index: 50;
+}
+.review-tip:hover {
+  border-color: var(--review-marker);
+}
+.review-tip-head {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+}
+.review-tip-text {
+  margin-top: 2px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.review-tip-hint {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--c-accent);
+}
+
+/* --- Vim status bar (monaco-vim) --- */
+.vim-statusbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 22px;
+  padding: 0 10px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--c-muted);
+  background: var(--c-panel-2);
+  border-top: 1px solid var(--c-line);
+}
+.vim-statusbar input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  color: var(--c-fg);
+  background: transparent;
+  border: none;
+  outline: none;
+}
