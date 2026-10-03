@@ -661,7 +661,10 @@ export async function compile(opts: { clean?: boolean; reason?: 'manual' | 'auto
   clearTimeout(autoTimer);
   if (!ws) return;
   const project = ws.project;
+  const sourcePath = getState().activePath;
+  const sourceLine = editorBridge.get()?.getPosition()?.lineNumber;
   const backend = await resolveCompiler(project.engine);
+  if (ws?.project !== project) return;
   if (opts.reason === 'open' && !getState().settings.autoCompile && (backend !== 'browser' || engine.state.state !== 'ready')) return;
   if (running) {
     pending = { clean: !!opts.clean || !!pending?.clean };
@@ -702,14 +705,22 @@ export async function compile(opts: { clean?: boolean; reason?: 'manual' | 'auto
         synctex = null;
       }
     }
+    if (ws !== current || generation !== compileGeneration) return;
+    let cursorPage: number | null = null;
+    if ((result.status === 'success' || result.status === 'warnings') && sourcePath && sourceLine && /\.tex$/i.test(sourcePath)) {
+      try { cursorPage = synctex?.forward(sourcePath, sourceLine)[0]?.page ?? null; }
+      catch { /* Navigation is optional if the source has no usable mapping. */ }
+    }
     const prev = getState().compile;
     const { pdf, synctex: _s, ...rest } = result;
+    if (pdf) setState({ pdfTarget: null });
     void _s;
     patchCompile({
       status: result.status,
       result: { id: 0, ...rest },
       pdf: pdf ?? prev.pdf,
       pdfVersion: pdf ? prev.pdfVersion + 1 : prev.pdfVersion,
+      cursorPage: pdf ? cursorPage : prev.cursorPage,
       pdfFromCurrentRun: !!pdf,
       synctex: pdf ? synctex : prev.synctex,
       diagnostics,
