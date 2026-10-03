@@ -9,6 +9,7 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useSta
 import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs';
 import workerUrl from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url';
 import type { SyncRect } from '../latex/synctex';
+import { changedPageTiles, type ChangeTile } from './changes';
 
 pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
@@ -31,6 +32,7 @@ export const PdfViewer = forwardRef<
   {
     data: Uint8Array;
     version: number;
+    cursorPage: number | null;
     zoom: Zoom;
     onZoomChange: (z: Zoom) => void;
     onPageChange: (page: number, total: number) => void;
@@ -39,7 +41,7 @@ export const PdfViewer = forwardRef<
     target: { rects: SyncRect[]; nonce: number } | null;
     dark: boolean;
   }
->(function PdfViewer({ data, version, zoom, onZoomChange, onPageChange, onScaleChange, onInverseSearch, target, dark }, ref) {
+>(function PdfViewer({ data, version, cursorPage, zoom, onZoomChange, onPageChange, onScaleChange, onInverseSearch, target, dark }, ref) {
   const scroller = useRef<HTMLDivElement>(null);
   const docRef = useRef<pdfjs.PDFDocumentProxy | null>(null);
   const taskRef = useRef<pdfjs.PDFDocumentLoadingTask | null>(null);
@@ -50,6 +52,15 @@ export const PdfViewer = forwardRef<
   const tasks = useRef(new Map<number, pdfjs.RenderTask>());
   const docVersion = useRef(0);
   const [highlight, setHighlight] = useState<{ rects: SyncRect[]; nonce: number } | null>(null);
+
+  const [loadedVersion, setLoadedVersion] = useState<number | null>(null);
+  const navigatedVersion = useRef<number | null>(null);
+  const [changes, setChanges] = useState<{ page: number; tiles: ChangeTile[] } | null>(null);
+  useEffect(() => {
+    if (!changes) return;
+    const timer = setTimeout(() => setChanges(null), 3000);
+    return () => clearTimeout(timer);
+  }, [changes]);
 
   // ---- load document ----------------------------------------------------------------------
   useEffect(() => {
@@ -68,6 +79,14 @@ export const PdfViewer = forwardRef<
           next.push({ w: vp.width, h: vp.height });
         }
         if (cancelled) return void task.destroy();
+        const oldDoc = docRef.current;
+        const page = cursorPage ? Math.min(cursorPage, doc.numPages) : null;
+        let tiles: ChangeTile[] = [];
+        if (oldDoc && page && page <= oldDoc.numPages) {
+          try { tiles = await changedPageTiles(await oldDoc.getPage(page), await doc.getPage(page)); }
+          catch { /* A comparison failure must not prevent PDF display. */ }
+        }
+        if (cancelled) return void task.destroy();
         const oldTask = taskRef.current;
         docRef.current = doc;
         taskRef.current = task;
@@ -75,6 +94,8 @@ export const PdfViewer = forwardRef<
         rendered.current.clear();
         setError(null);
         setSizes(next);
+        setLoadedVersion(version);
+        setChanges(page && tiles.length ? { page, tiles } : null);
         // Destroy the previous document once its canvases have been replaced.
         if (oldTask) setTimeout(() => void oldTask.destroy(), 4000);
       },
@@ -87,7 +108,7 @@ export const PdfViewer = forwardRef<
       // Only abort if this task never became the displayed document.
       if (taskRef.current !== task) void task.destroy();
     };
-  }, [data, version]);
+  }, [data, version, cursorPage]);
 
   useEffect(() => () => void taskRef.current?.destroy(), []);
 
@@ -229,9 +250,22 @@ export const PdfViewer = forwardRef<
     },
   }));
 
+  // Navigate once, only after the PDF matching this compile has been loaded.
+  useEffect(() => {
+    if (loadedVersion !== version || navigatedVersion.current === version || !sizes.length) return;
+    navigatedVersion.current = version;
+    if (cursorPage && scroller.current) {
+      const page = Math.min(cursorPage, sizes.length);
+      scroller.current.scrollTop = Math.max(0, pageTop(page) - 8);
+      void renderPage(page - 1);
+      onScroll();
+    }
+  }, [loadedVersion, version, cursorPage, sizes, pageTop, renderPage, onScroll]);
+
   // SyncTeX forward search target.
   useEffect(() => {
-    if (!target || !target.rects.length || !scroller.current) return;
+    if (!target) { setHighlight(null); return; }
+    if (!target.rects.length || !scroller.current) return;
     const r = target.rects[0];
     const top = pageTop(r.page) + r.y * scale - scroller.current.clientHeight / 3;
     scroller.current.scrollTo({ top, behavior: 'smooth' });
@@ -258,6 +292,11 @@ export const PdfViewer = forwardRef<
             className="pdf-page relative shrink-0 bg-white"
             style={{ width: s.w * scale, height: s.h * scale, ['--total-scale-factor' as string]: scale, ['--scale-round-x' as string]: '1px', ['--scale-round-y' as string]: '1px' }}
           >
+            {changes?.page === i + 1 && changes.tiles.map((tile, k) => (
+              <div key={`change-${version}-${k}`} aria-hidden="true"
+                className="pointer-events-none absolute z-10"
+                style={{ left: `${tile.x}%`, top: `${tile.y}%`, width: `${tile.w}%`, height: `${tile.h}%`, background: 'rgba(255,185,0,0.35)' }} />
+            ))}
             {highlight?.rects
               .filter((r) => r.page === i + 1)
               .map((r, k) => (

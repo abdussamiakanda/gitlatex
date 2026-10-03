@@ -9,6 +9,7 @@
  */
 
 import { getApiBase } from "../core/api.js";
+import { changedPageOverlay } from "./pdfchanges.js";
 
 const PDFJS_ROOT = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/";
 const MIN_SCALE = 0.25;
@@ -75,9 +76,11 @@ export function setPdfDoubleClickHandler(fn) {
 /**
  * Shows the PDF at url. path is its repo-relative path when it lives in the
  * project; SyncTeX needs it. Resolves true when PDF.js drew it, false when the
- * iframe fallback took over.
+ * iframe fallback took over. options.page selects the cursor page after a build;
+ * options.highlightChanges briefly marks visual changes on that page only.
  */
-export async function showPdf(url, path = null) {
+export async function showPdf(url, path = null, options = {}) {
+  const requestedPage = Number.isInteger(options.page) && options.page > 0 ? options.page : null;
   const id = ++view.loadId;
   const { empty } = els();
   if (empty) empty.classList.add("hidden");
@@ -98,6 +101,12 @@ export async function showPdf(url, path = null) {
     if (doc) doc.destroy();
     if (id !== view.loadId) return false;
     console.warn("PDF.js could not show the PDF, using the browser viewer:", e);
+    if (requestedPage) {
+      const [base, hash = ""] = url.split("#", 2);
+      const fragment = new URLSearchParams(hash);
+      fragment.set("page", String(requestedPage));
+      url = base + "#" + fragment;
+    }
     showFallback(url, path);
     return false;
   }
@@ -107,6 +116,19 @@ export async function showPdf(url, path = null) {
   }
   const oldDoc = view.doc;
   const sameFile = view.path && view.path === path && !view.usingFallback;
+  const page = requestedPage ? Math.min(requestedPage, pages.length) : null;
+  let overlay = null;
+  if (options.highlightChanges && sameFile && page && view.pages[page - 1]) {
+    try {
+      overlay = await changedPageOverlay(view.pages[page - 1], pages[page - 1]);
+    } catch (_) {
+      // Rendering/comparison is optional; navigation must still work.
+    }
+  }
+  if (id !== view.loadId) {
+    doc.destroy();
+    return false;
+  }
   view.url = url;
   view.path = path;
   view.doc = doc;
@@ -117,8 +139,13 @@ export async function showPdf(url, path = null) {
   // A rebuild of the same file keeps the reader where they were.
   const { scroller } = els();
   const keep = sameFile && scroller ? { top: scroller.scrollTop, left: scroller.scrollLeft } : { top: 0, left: 0 };
-  await mountPages(scale, keep, id);
+  await mountPages(scale, keep, id, page);
   if (oldDoc && oldDoc !== doc) oldDoc.destroy();
+  if (id !== view.loadId) return false;
+  if (overlay && view.entries[page - 1]) {
+    view.entries[page - 1].div.appendChild(overlay);
+    setTimeout(() => overlay.remove(), 3000);
+  }
   return true;
 }
 
@@ -216,7 +243,7 @@ function clampScale(s) {
  * old one and the visible pages are drawn before the swap, so a recompile or
  * zoom does not flash blank pages.
  */
-async function mountPages(scale, keep, id) {
+async function mountPages(scale, keep, id, page = null) {
   const { scroller, zoomLabel } = els();
   if (!scroller) return;
   const inner = document.createElement("div");
@@ -233,6 +260,8 @@ async function mountPages(scale, keep, id) {
   });
   scroller.appendChild(inner);
 
+  // Render the destination before swapping layouts, so it is ready on arrival.
+  if (page && entries[page - 1]) keep = { top: entries[page - 1].div.offsetTop, left: 0 };
   const top = keep.top;
   const bottom = top + scroller.clientHeight;
   await Promise.all(entries

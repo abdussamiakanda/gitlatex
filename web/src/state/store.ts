@@ -45,6 +45,7 @@ export interface CompileState {
   /** Last successfully produced PDF (kept visible while a later compile fails). */
   pdf: Uint8Array | null;
   pdfVersion: number;
+  cursorPage: number | null;
   pdfFromCurrentRun: boolean;
   synctex: SyncTex | null;
   diagnostics: Diagnostic[];
@@ -148,6 +149,7 @@ export const initialCompile: CompileState = {
   result: null,
   pdf: null,
   pdfVersion: 0,
+  cursorPage: null,
   pdfFromCurrentRun: false,
   synctex: null,
   diagnostics: [],

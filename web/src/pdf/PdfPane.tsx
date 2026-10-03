@@ -40,7 +40,7 @@ export function PdfPane() {
     return () => clearTimeout(t);
   }, []);
 
-  const { pdf, pdfVersion, status, diagnostics } = compileState;
+  const { pdf, pdfVersion, cursorPage, status, diagnostics } = compileState;
   const errors = diagnostics.filter((d) => d.severity === 'error');
   const running = status === 'running';
   const failed = status === 'failed' || status === 'crashed';
@@ -86,13 +86,14 @@ export function PdfPane() {
       <div className="relative min-h-0 flex-1">
         {pdf ? (
           settings.pdfNative && nativeUrl ? (
-            <iframe title="PDF" src={nativeUrl} className="h-full w-full border-0 bg-white" />
+            <iframe title="PDF" src={nativeUrl + (cursorPage ? `#page=${cursorPage}` : '')} className="h-full w-full border-0 bg-white" />
           ) : (
             <Suspense fallback={<div className="flex h-full items-center justify-center"><Spinner className="size-6 text-accent" /></div>}>
               <PdfViewer
                 ref={viewer}
                 data={pdf}
                 version={pdfVersion}
+                cursorPage={cursorPage}
                 zoom={zoom}
                 onZoomChange={setZoom}
                 onScaleChange={setScale}

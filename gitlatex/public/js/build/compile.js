@@ -4,7 +4,7 @@
 
 import { state } from "../core/state.js";
 import { applyProblems, renderProblems } from "./problems.js";
-import { fetchApi, getApiBase } from "../core/api.js";
+import { fetchApi, fetchJson, getApiBase } from "../core/api.js";
 import { getLatexEngine, getStoredCompilerApi, getStoredCompilerApiKey, getUseCompilerApi, normalizeCompilerApiUrl } from "../core/storage.js";
 import { getMainFile } from "../editor/mainfile.js";
 import { refreshProjectIndex } from "../editor/projectindex.js";
@@ -30,7 +30,37 @@ export function setCompileLoading(loading) {
   }
 }
 
+// Keep the source location that belongs to this build, even if the editor moves.
+function compileSource() {
+  const position = state.editor && state.editor.getPosition();
+  return position && /\.tex$/i.test(state.currentFile || "")
+    ? { file: state.currentFile, line: position.lineNumber, column: position.column }
+    : null;
+}
+
+async function showBuildPdf(url, path, source, repo, page = null) {
+  if (state.currentRepo !== repo) return;
+  if (path && source) {
+    try {
+      const data = await fetchJson("/synctex/forward", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pdf: path, ...source }),
+        signal: AbortSignal.timeout(5000),
+      });
+      const mapped = data.boxes && data.boxes[0] && data.boxes[0].page;
+      if (Number.isInteger(mapped) && mapped > 0) page = mapped;
+    } catch (_) {
+      // Missing SyncTeX or a failed lookup must never hide a successful build.
+    }
+  }
+  if (state.currentRepo !== repo) return;
+  await showPdf(url, path, { page, highlightChanges: true });
+}
+
 export async function compile() {
+  const source = compileSource();
+  const repo = state.currentRepo;
   if (state.currentFile && state.currentFile.endsWith(".tex")) await saveCurrentFile();
   const mainFile = getMainFile() || "main.tex";
   const compilerApi = getUseCompilerApi() ? getStoredCompilerApi() : "";
@@ -47,7 +77,7 @@ export async function compile() {
       const res = await fetch(compilerUrl, {
         method: "POST",
         headers,
-        body: JSON.stringify({ main: mainFile, files, engine: getLatexEngine() })
+        body: JSON.stringify({ main: mainFile, files, engine: getLatexEngine(), source })
       });
       const data = await res.json().catch(() => ({}));
       if (data.success && data.pdf) {
@@ -57,7 +87,7 @@ export async function compile() {
         if (isDataUrl) {
           const base64 = pdfStr.includes(",") ? pdfStr.slice(pdfStr.indexOf(",") + 1).trim() : pdfStr;
           if (!base64) {
-            showPdf(data.pdf);
+            await showBuildPdf(data.pdf, null, source, repo, data.page);
             setConsole("Compiled " + mainFile + " via API.");
           } else {
             const savePayload = { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path: pdfPath, content: base64, main: mainFile, synctex: data.synctex || null }) };
@@ -83,19 +113,19 @@ export async function compile() {
             }
             try {
               if (saveRes.ok && saveData.success) {
-                showPdf(pdfUrlFor(pdfPath) + (pdfPath.includes("/") ? "&" : "?") + "t=" + Date.now(), pdfPath);
+                await showBuildPdf(pdfUrlFor(pdfPath) + (pdfPath.includes("/") ? "&" : "?") + "t=" + Date.now(), pdfPath, source, repo, data.page);
                 setConsole("Compiled " + mainFile + " via API. PDF saved to " + pdfPath);
               } else {
-                showPdf(data.pdf);
+                await showBuildPdf(data.pdf, null, source, repo, data.page);
                 setConsole("Compiled " + mainFile + " via API. Save to repo failed: " + (saveData.error || saveRes.status || "unknown"));
               }
             } catch (e) {
-              showPdf(data.pdf);
+              await showBuildPdf(data.pdf, null, source, repo, data.page);
               setConsole("Compiled " + mainFile + " via API. Save to repo failed: " + (e.message || "network error"));
             }
           }
         } else {
-          showPdf(data.pdf);
+          await showBuildPdf(data.pdf, null, source, repo, data.page);
           setConsole("Compiled " + mainFile + " via API.");
         }
       } else if (data.error) {
@@ -120,7 +150,7 @@ export async function compile() {
       applyProblems(data.problems || []);
       if (data.success && data.pdf) {
         // Cache-bust so the viewer shows the freshly built PDF.
-        showPdf((getApiBase() || "") + data.pdf + "?t=" + Date.now(), mainFile.replace(/\.tex$/i, ".pdf"));
+        await showBuildPdf((getApiBase() || "") + data.pdf + "?t=" + Date.now(), mainFile.replace(/\.tex$/i, ".pdf"), source, repo);
         renderProblems(data.problems || [], describeBuild(mainFile, data), data.log);
       } else if (data.error) {
         renderProblems(data.problems || [], "Compile error: " + data.error, data.log);
