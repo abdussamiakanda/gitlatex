@@ -295,7 +295,7 @@ export const PdfViewer = forwardRef<
             {changes?.page === i + 1 && changes.tiles.map((tile, k) => (
               <div key={`change-${version}-${k}`} aria-hidden="true"
                 className="pointer-events-none absolute z-10"
-                style={{ left: `${tile.x}%`, top: `${tile.y}%`, width: `${tile.w}%`, height: `${tile.h}%`, background: 'rgba(255,185,0,0.35)' }} />
+                style={{ left: `${tile.x}%`, top: `${tile.y}%`, width: `${tile.w}%`, height: `${tile.h}%`, background: 'rgb(var(--c-accent-rgb) / 0.4)' }} />
             ))}
             {highlight?.rects
               .filter((r) => r.page === i + 1)
