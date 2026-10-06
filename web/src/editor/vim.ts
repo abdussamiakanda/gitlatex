@@ -26,6 +26,9 @@ type MonacoVim = typeof import('monaco-vim');
 let modulePromise: Promise<MonacoVim> | null = null;
 let configured = false;
 let adapter: { dispose(): void } | null = null;
+/** The editor the adapter is attached to, and the one Vim was last requested for. */
+let adapterEditor: Editor | null = null;
+let wanted: Editor | null = null;
 
 function load() {
   modulePromise ??= import('monaco-vim').catch((err: unknown) => {
@@ -59,16 +62,25 @@ function configure(VimMode: MonacoVim['VimMode'], hooks: VimHooks) {
 /** Turn Vim mode on or off for the editor. `statusBar` shows the mode and pending keys. */
 export async function setVimMode(editor: Editor, statusBar: HTMLElement | null, on: boolean, hooks: VimHooks) {
   if (!on) {
-    adapter?.dispose();
-    adapter = null;
+    if (wanted === editor) wanted = null;
+    if (adapterEditor === editor) {
+      adapter?.dispose();
+      adapter = null;
+      adapterEditor = null;
+    }
     if (statusBar) statusBar.textContent = '';
     return;
   }
-  if (adapter) return;
+  wanted = editor;
+  if (adapterEditor === editor) return;
   const mod = await load();
-  if (adapter) return; // turned on twice while loading
+  // While loading, Vim may have been turned off or the editor replaced (React
+  // remounts): attach only to the editor that is still wanted.
+  if (wanted !== editor || adapterEditor === editor) return;
+  adapter?.dispose();
   configure(mod.VimMode, hooks);
   adapter = mod.initVimMode(editor, statusBar ?? undefined);
+  adapterEditor = editor;
 }
 
 export function vimActive() {

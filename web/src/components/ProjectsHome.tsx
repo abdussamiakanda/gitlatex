@@ -23,7 +23,7 @@ export function ProjectsHome() {
   return (
     <div className="flex h-full flex-col overflow-y-auto">
       <header className="flex h-11 shrink-0 items-center gap-2 border-b border-line bg-panel px-3">
-        <Wordmark className="h-6" />
+        <Wordmark className="h-8" />
         <div className="flex-1" />
         <IconButton label="Toggle light/dark theme" onClick={() => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark')}>
           {theme === 'light' ? <Moon className="size-4" /> : <Sun className="size-4" />}

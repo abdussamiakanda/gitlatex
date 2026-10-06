@@ -1,4 +1,4 @@
-import { Files, ListTree, History, Cpu, Settings, Keyboard, CircleHelp, GitBranch, Home, MessageSquareText } from 'lucide-react';
+import { Files, ListTree, History, Cpu, Settings, Keyboard, CircleHelp, GitBranch, MessageSquareText } from 'lucide-react';
 import { useStore, setState, openDialog, type SidebarView } from '../state/store';
 import { FileTree } from './FileTree';
 import { OutlinePanel } from './OutlinePanel';
@@ -7,7 +7,7 @@ import { ReviewPanel } from './ReviewPanel';
 import { HistoryPanel } from './HistoryPanel';
 import { EnginePanel } from './EnginePanel';
 import { clsx } from './ui';
-import { closeProject, newProjectDialog } from '../state/actions';
+import { newProjectDialog } from '../state/actions';
 
 const VIEWS: { id: SidebarView; label: string; icon: React.ReactNode }[] = [
   { id: 'files', label: 'Files', icon: <Files className="size-[18px]" /> },
@@ -45,8 +45,6 @@ export function ActivityBar() {
   );
   return (
     <nav className="hidden w-12 shrink-0 flex-col items-center gap-1 border-r border-line bg-panel py-2 sm:flex" aria-label="Sidebar views">
-      {btn(false, 'All projects', <Home className="size-[18px]" />, () => void closeProject())}
-      <div className="my-1 h-px w-6 bg-line" />
       {VIEWS.map((v) => btn(sidebar === v.id, v.label, v.icon, () => setState({ sidebar: sidebar === v.id ? null : v.id }), v.id === 'review' ? reviewCount : v.id === 'git' ? scmCount : 0))}
       <div className="flex-1" />
       {btn(false, 'Help & templates', <CircleHelp className="size-[18px]" />, () => newProjectDialog())}

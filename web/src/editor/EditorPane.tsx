@@ -496,7 +496,7 @@ export function EditorPane() {
           <div className="relative min-h-0 flex-1">
             <div ref={hostRef} className="absolute inset-0" data-testid="editor" />
           </div>
-          <div ref={vimBarRef} className={clsx('vim-statusbar', !settings.vim && 'hidden')} />
+          {settings.vim && <div ref={vimBarRef} className="vim-statusbar" />}
         </div>
       </div>
 

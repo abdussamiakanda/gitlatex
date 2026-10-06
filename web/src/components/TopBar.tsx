@@ -80,7 +80,7 @@ export function TopBar({ compact, mobileView, onMobileView }: { compact: boolean
       >
         <Logo className="md:hidden" />
         <div className="hidden md:block">
-          <Wordmark className="h-6" />
+          <Wordmark className="h-8" />
         </div>
       </button>
       <span className="hidden h-5 w-px bg-line md:block" />
