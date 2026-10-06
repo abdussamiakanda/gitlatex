@@ -33,7 +33,7 @@ dev = ["build", "twine"]
 
 [project.urls]
 Homepage = "https://github.com/abdussamiakanda/gitlatex"
-Documentation = "https://github.com/abdussamiakanda/gitlatex#readme"
+Documentation = "https://github.com/abdussamiakanda/gitlatex/tree/master/docs"
 Repository = "https://github.com/abdussamiakanda/gitlatex"
 
 [project.scripts]

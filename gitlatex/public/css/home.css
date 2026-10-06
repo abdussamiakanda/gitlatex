@@ -521,6 +521,12 @@
   font-size: 18px;
   color: var(--text-muted);
 }
+.repo-row-icon-git {
+  color: var(--accent-hover);
+}
+.repo-row-icon-localgit {
+  color: var(--accent);
+}
 
 .repo-cell-name {
   display: flex;
@@ -577,6 +583,12 @@
   background: var(--accent-muted);
   color: var(--accent-hover);
   border: 1px solid var(--accent-hover);
+}
+
+.repo-type-localgit {
+  background: transparent;
+  color: var(--accent-hover);
+  border: 1px dashed var(--accent-hover);
 }
 
 .repo-type-local {

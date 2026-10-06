@@ -114,7 +114,7 @@ function sortRepos(items) {
 }
 
 function buildRow(repo) {
-  const { name, hasGit, fileCount, lastModified, owner, createdAt, createdBy } = repo;
+  const { name, hasGit, fileCount, lastModified, owner, remoteUrl, createdAt, createdBy } = repo;
   const row = document.createElement("div");
   row.className = "repo-row";
   row.setAttribute("role", "row");
@@ -125,7 +125,10 @@ function buildRow(repo) {
   const icon = document.createElement("span");
   icon.className = "material-icons repo-row-icon";
   icon.setAttribute("aria-hidden", "true");
-  icon.textContent = hasGit ? "folder_shared" : "folder";
+  // Remote: a Git repository with a remote; Local Git: no remote; Folder: no Git.
+  const kind = !hasGit ? "local" : remoteUrl ? "git" : "localgit";
+  icon.textContent = { git: "folder_shared", localgit: "source", local: "folder" }[kind];
+  icon.classList.add("repo-row-icon-" + kind);
 
   // The name is the focusable control; clicking anywhere else on the row is
   // handled by a delegated listener, so there is only one tab stop per row.
@@ -142,9 +145,9 @@ function buildRow(repo) {
   typeCell.className = "repo-cell repo-cell-type";
   typeCell.setAttribute("role", "cell");
   const tag = document.createElement("span");
-  tag.className = "repo-type-tag " + (hasGit ? "repo-type-git" : "repo-type-local");
-  tag.textContent = hasGit ? "Git" : "Local";
-  tag.title = hasGit ? "Git repository" : "Local folder (no Git)";
+  tag.className = "repo-type-tag repo-type-" + kind;
+  tag.textContent = { git: "Remote", localgit: "Local Git", local: "Folder" }[kind];
+  tag.title = { git: "Git repository with a remote", localgit: "Local Git repository with no remote", local: "Folder (no Git)" }[kind];
   typeCell.appendChild(tag);
 
   const ownerCell = document.createElement("div");

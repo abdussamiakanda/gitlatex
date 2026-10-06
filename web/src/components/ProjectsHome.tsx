@@ -3,11 +3,11 @@
  * opens the dialog that also offers a Git clone, a .zip or a folder import.
  */
 import { useMemo, useState } from 'react';
-import { FolderGit2, Folder, Plus, Search, MoreHorizontal, Pencil, Copy, Trash2, Moon, Sun, Settings } from 'lucide-react';
+import { FolderGit2, FolderSync, Folder, Plus, Search, MoreHorizontal, Pencil, Copy, Trash2, Moon, Sun, Settings } from 'lucide-react';
 import { useStore, openDialog } from '../state/store';
 import { confirmDeleteProject, duplicateProject, newProjectDialog, openProject, promptRenameProject, setTheme } from '../state/actions';
 import { TEMPLATES } from '../templates';
-import { timeAgo } from '../utils/misc';
+import { remoteLabel, timeAgo } from '../utils/misc';
 import { Button, IconButton, TextInput, useMenu } from './ui';
 import { Wordmark } from './TopBar';
 import { MaterialIcon } from './MaterialIcon';
@@ -55,10 +55,23 @@ export function ProjectsHome() {
             {shown.map((p) => (
               <li key={p.id} className="group flex items-center gap-3 px-3 py-2.5 hover:bg-hover">
                 <button className="focus-ring flex min-w-0 flex-1 items-center gap-3 text-left" onClick={() => void openProject(p.id)}>
-                  {p.hasGit ? <FolderGit2 className="size-5 shrink-0 text-accent" /> : <Folder className="size-5 shrink-0 text-muted" />}
+                  {!p.hasGit ? (
+                    <Folder className="size-5 shrink-0 text-muted" />
+                  ) : p.remoteUrl ? (
+                    <FolderSync className="size-5 shrink-0 text-accent-2" />
+                  ) : (
+                    <FolderGit2 className="size-5 shrink-0 text-accent" />
+                  )}
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[14px] font-medium text-fg">{p.name}</span>
-                    <span className="block text-[11.5px] text-faint">{p.hasGit ? 'Git repository' : 'Folder'}{p.updatedAt ? ` · changed ${timeAgo(p.updatedAt)}` : ''}</span>
+                    <span className="flex min-w-0 items-center gap-1 text-[11.5px] text-faint">
+                      {p.hasGit && p.remoteUrl ? (
+                        <span className="truncate" title={remoteLabel(p.remoteUrl)}>{remoteLabel(p.remoteUrl)}</span>
+                      ) : (
+                        <span className="shrink-0">{p.hasGit ? 'Git repository, no remote' : 'Folder'}</span>
+                      )}
+                      {p.updatedAt ? <span className="shrink-0">· changed {timeAgo(p.updatedAt)}</span> : null}
+                    </span>
                   </span>
                 </button>
                 <IconButton

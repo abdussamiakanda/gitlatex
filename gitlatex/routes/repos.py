@@ -49,10 +49,12 @@ def list_repos():
             try:
                 repo = Repo(full)
                 try:
-                    origin = repo.remotes.origin
-                    remote_url = next(origin.urls, None)
-                    owner = parse_owner_from_remote_url(remote_url) if remote_url else None
-                except (AttributeError, StopIteration):
+                    # Prefer origin, but a repo whose only remote has another name is still remote.
+                    remote = next((r for r in repo.remotes if r.name == "origin"), None) or next(iter(repo.remotes), None)
+                    if remote is not None:
+                        remote_url = next(remote.urls, None)
+                        owner = parse_owner_from_remote_url(remote_url) if remote_url else None
+                except Exception:
                     pass
                 try:
                     commits = list(repo.iter_commits(repo.head, reverse=True, max_count=1))

@@ -14,6 +14,8 @@ export interface ProjectMeta {
   template?: string;
   /** The folder is a Git repository. */
   hasGit?: boolean;
+  /** URL of the repository's remote (origin, else the first one); null for local-only repositories. */
+  remoteUrl?: string | null;
   openTabs?: string[];
   activePath?: string | null;
 }

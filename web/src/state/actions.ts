@@ -99,7 +99,7 @@ export async function refreshProjects() {
   const { repos } = await server.listProjects();
   const projects: ProjectMeta[] = repos.map((r) => {
     const t = r.lastModified ? Date.parse(r.lastModified) : 0;
-    return { id: r.name, name: r.name, createdAt: t, updatedAt: t, mainFile: '', engine: 'pdftex', hasGit: r.hasGit };
+    return { id: r.name, name: r.name, createdAt: t, updatedAt: t, mainFile: '', engine: 'pdftex', hasGit: r.hasGit, remoteUrl: r.remoteUrl };
   });
   projects.sort((a, b) => b.updatedAt - a.updatedAt);
   setState({ projects });

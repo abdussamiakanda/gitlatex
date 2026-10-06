@@ -37,6 +37,23 @@ export function timeAgo(ts: number): string {
   return new Date(ts).toLocaleDateString();
 }
 
+/**
+ * A short, credential-free label for a Git remote URL: "github.com/owner/repo"
+ * for https://user:token@github.com/owner/repo.git or git@github.com:owner/repo.git.
+ */
+export function remoteLabel(url: string): string {
+  const u = url.trim().replace(/\.git\/?$/, '').replace(/\/+$/, '');
+  const scp = /^[^/@\s]+@([^:/\s]+):(.+)$/.exec(u);
+  if (scp) return `${scp[1]}/${scp[2]}`;
+  try {
+    const parsed = new URL(u);
+    if (parsed.host) return parsed.host + parsed.pathname;
+  } catch {
+    /* Not a URL: a local path or something unusual. */
+  }
+  return u.replace(/^[a-z][\w+.-]*:\/\/[^@/]*@/i, '');
+}
+
 export function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
