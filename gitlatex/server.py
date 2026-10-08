@@ -44,8 +44,17 @@ def run_server(host="127.0.0.1", port=5000, open_browser=True, repos_dir=None):
             webbrowser.open(url)
         threading.Thread(target=open_later, daemon=True).start()
 
-    print(f"GitLaTeX IDE is running on {url}")
-    app.run(host=host, port=port, threaded=True, use_reloader=False)
+    import click  # ships with Flask; drops the colour when output is not a terminal
+    click.echo(f"GitLaTeX IDE is running on {click.style(url, fg='cyan', bold=True)}")
+    click.secho("Press CTRL+C to quit", fg="yellow")
+    # Quiet Flask's startup banner and Werkzeug's dev-server notice and request lines;
+    # the line above and log_request in app.py already cover them. Errors still show.
+    import logging
+    import flask.cli
+    flask.cli.show_server_banner = lambda *args, **kwargs: None
+    logging.getLogger("werkzeug").setLevel(logging.ERROR)
+    # load_dotenv=False: don't pick up a .env from whatever folder gitlatex is started in.
+    app.run(host=host, port=port, threaded=True, use_reloader=False, load_dotenv=False)
 
 
 def main():

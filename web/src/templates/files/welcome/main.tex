@@ -1,5 +1,5 @@
 % ============================================================================
-%  Welcome to TexBrowser IDE
+%  Welcome to GitLaTeX
 %  Everything on this page is compiled by a real TeX Live (pdfTeX) running as
 %  WebAssembly inside your browser. No server ever sees your document.
 % ============================================================================
@@ -18,10 +18,10 @@
 
 \pagestyle{fancy}
 \fancyhf{}
-\fancyhead[L]{\small TexBrowser IDE}
+\fancyhead[L]{\small GitLaTeX}
 \fancyhead[R]{\small\thepage}
 
-\title{Welcome to \textbf{TexBrowser IDE}}
+\title{Welcome to \textbf{GitLaTeX}}
 \author{Your browser, compiling real \LaTeX{}}
 \date{\today}
 
@@ -45,7 +45,7 @@ needs to the preamble for you.
   \item \textbf{Experts}: full \TeX{} --- \verb|\makeatletter|, \verb|\dimexpr|,
         \verb|\ifcase|, any package from \TeX{} Live.
   \item \textbf{Everyone}: your files never leave your machine unless you push
-        them to your own GitHub repository.
+        them to your own Git remote.
 \end{itemize}
 
 \section{Mathematics}
@@ -61,13 +61,13 @@ tables of contents and bibliographies are resolved with as many passes as
 = \the\dimexpr 3\dimexpr 2pt\relax + 1pt\relax$.
 
 \section{Figures and tables}
-Images live in the project's virtual file system (IndexedDB) and are read by
+Images live in the project folder and are read by
 \verb|\includegraphics| just like on disk:
 
 \begin{figure}[h]
   \centering
   \includegraphics[width=0.55\linewidth]{images/sample-chart.png}
-  \caption{A chart stored in your browser's virtual file system.}
+  \caption{A chart stored in the project folder.}
   \label{fig:chart}
 \end{figure}
 
@@ -75,7 +75,7 @@ Images live in the project's virtual file system (IndexedDB) and are read by
   \centering
   \begin{tabular}{lcc}
     \toprule
-    Feature            & Overleaf & TexBrowser \\
+    Feature            & Overleaf & GitLaTeX \\
     \midrule
     Real TeX Live       & \checkmark & \checkmark \\
     Works offline       & ---        & \checkmark \\
@@ -94,7 +94,7 @@ book~\cite{knuth1984} or Lamport's manual~\cite{lamport1994}.
 \begin{enumerate}[label=\arabic*.]
   \item Press \textbf{Ctrl+Enter} (or \textbf{Cmd+Enter}) to recompile.
   \item Double-click anywhere in the PDF to jump to the matching source line.
-  \item Open the \emph{GitHub} panel to push this project to a repository.
+  \item Open the \emph{Git} panel to commit and push this project.
   \item Create a new project from a template: thesis, paper, beamer, CV\ldots
 \end{enumerate}
 

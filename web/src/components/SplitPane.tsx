@@ -30,7 +30,7 @@ export function SplitPane({
   /** Which pane has the fixed size. */
   sizeTarget?: 'first' | 'second';
 }) {
-  const key = `texbrowser.split.${id}`;
+  const key = `gitlatex.split.${id}`;
   const container = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState<number | null>(() => {
     const saved = Number(localStorage.getItem(key));

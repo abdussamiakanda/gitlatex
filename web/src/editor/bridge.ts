@@ -32,14 +32,14 @@ export const editorBridge = {
     if (range) editor.setSelection(range);
     const controller = editor.getContribution('snippetController2') as unknown as { insert(s: string): void } | null;
     if (controller) controller.insert(snippet);
-    else editor.trigger('texbrowser', 'type', { text: snippet.replace(/\$\{\d+:?([^}]*)\}|\$\d/g, '$1') });
+    else editor.trigger('gitlatex', 'type', { text: snippet.replace(/\$\{\d+:?([^}]*)\}|\$\d/g, '$1') });
     return true;
   },
   insertText(text: string) {
     if (!editor) return false;
     const sel = editor.getSelection();
     if (!sel) return false;
-    editor.executeEdits('texbrowser', [{ range: sel, text, forceMoveMarkers: true }]);
+    editor.executeEdits('gitlatex', [{ range: sel, text, forceMoveMarkers: true }]);
     editor.focus();
     return true;
   },

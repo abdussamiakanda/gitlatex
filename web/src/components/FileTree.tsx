@@ -101,7 +101,7 @@ export function FileTree() {
     e.preventDefault();
     e.stopPropagation();
     setDropTarget(null);
-    const moving = e.dataTransfer.getData('application/x-texbrowser-path');
+    const moving = e.dataTransfer.getData('application/x-gitlatex-path');
     if (moving) {
       const target = joinPath(dir, basename(moving));
       if (target !== moving && !target.startsWith(moving + '/')) {
@@ -136,7 +136,7 @@ export function FileTree() {
           <div key={n.path} {...dropProps(n.path)} className={clsx(dropTarget === n.path && 'rounded bg-accent/10 outline outline-1 outline-accent/50')}>
             <button
               draggable
-              onDragStart={(e) => e.dataTransfer.setData('application/x-texbrowser-path', n.path)}
+              onDragStart={(e) => e.dataTransfer.setData('application/x-gitlatex-path', n.path)}
               onClick={() => toggle(n.path)}
               onContextMenu={(e) => menu.open(e, folderMenu(n.path))}
               className="focus-ring flex h-7 w-full items-center gap-1 rounded-md pr-2 text-left text-[13px] text-fg hover:bg-hover"
@@ -155,7 +155,7 @@ export function FileTree() {
         <button
           key={n.path}
           draggable
-          onDragStart={(e) => e.dataTransfer.setData('application/x-texbrowser-path', n.path)}
+          onDragStart={(e) => e.dataTransfer.setData('application/x-gitlatex-path', n.path)}
           onClick={() => openFile(n.path)}
           onContextMenu={(e) => menu.open(e, fileMenu(n.path))}
           title={n.path}

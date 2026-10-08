@@ -58,6 +58,8 @@ export interface CompileState {
 export interface AppState {
   settings: Settings;
   projects: ProjectMeta[];
+  /** Projects whose folders are being deleted right now. */
+  deleting: string[];
   project: ProjectMeta | null;
   treeVersion: number;
   contentVersion: number;
@@ -162,6 +164,7 @@ export const initialCompile: CompileState = {
 export const useStore = create<AppState>(() => ({
   settings: loadSettings(),
   projects: [],
+  deleting: [],
   project: null,
   treeVersion: 0,
   contentVersion: 0,

@@ -454,10 +454,18 @@ export function confirmDeleteProject(id: string) {
     confirm: 'Delete project',
     danger: true,
     onConfirm: async () => {
-      if (ws?.project.id === id) await closeProject();
-      await server.deleteProject(id);
-      Workspace.forget(id);
-      await refreshProjects();
+      setState({ deleting: [...getState().deleting, id] });
+      try {
+        if (ws?.project.id === id) await closeProject();
+        await server.deleteProject(id);
+        Workspace.forget(id);
+        await refreshProjects();
+        toast({ kind: 'success', title: `Deleted ${id}` });
+      } catch (err) {
+        toast({ kind: 'error', title: `Could not delete ${id}`, message: err instanceof Error ? err.message : String(err) });
+      } finally {
+        setState({ deleting: getState().deleting.filter((d) => d !== id) });
+      }
     },
   });
 }
@@ -777,7 +785,7 @@ export function applyMarkers() {
           source: d.source === 'bibtex' ? 'BibTeX' : 'TeX',
         };
       });
-    monaco.editor.setModelMarkers(model, 'texbrowser', markers);
+    monaco.editor.setModelMarkers(model, 'gitlatex', markers);
   }
 }
 

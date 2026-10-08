@@ -8,12 +8,13 @@ import { useStore, openDialog } from '../state/store';
 import { confirmDeleteProject, duplicateProject, newProjectDialog, openProject, promptRenameProject, setTheme } from '../state/actions';
 import { TEMPLATES } from '../templates';
 import { remoteLabel, timeAgo } from '../utils/misc';
-import { Button, IconButton, TextInput, useMenu } from './ui';
+import { Button, IconButton, Spinner, TextInput, clsx, useMenu } from './ui';
 import { Wordmark } from './TopBar';
 import { MaterialIcon } from './MaterialIcon';
 
 export function ProjectsHome() {
   const projects = useStore((s) => s.projects);
+  const deleting = useStore((s) => s.deleting);
   const theme = useStore((s) => s.settings.theme);
   const update = useStore((s) => s.update);
   const [query, setQuery] = useState('');
@@ -52,43 +53,53 @@ export function ProjectsHome() {
 
         {projects.length ? (
           <ul className="mt-5 divide-y divide-line overflow-hidden rounded-xl border border-line bg-panel">
-            {shown.map((p) => (
-              <li key={p.id} className="group flex items-center gap-3 px-3 py-2.5 hover:bg-hover">
-                <button className="focus-ring flex min-w-0 flex-1 items-center gap-3 text-left" onClick={() => void openProject(p.id)}>
-                  {!p.hasGit ? (
-                    <Folder className="size-5 shrink-0 text-muted" />
-                  ) : p.remoteUrl ? (
-                    <FolderSync className="size-5 shrink-0 text-accent-2" />
-                  ) : (
-                    <FolderGit2 className="size-5 shrink-0 text-accent" />
-                  )}
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[14px] font-medium text-fg">{p.name}</span>
-                    <span className="flex min-w-0 items-center gap-1 text-[11.5px] text-faint">
-                      {p.hasGit && p.remoteUrl ? (
-                        <span className="truncate" title={remoteLabel(p.remoteUrl)}>{remoteLabel(p.remoteUrl)}</span>
+            {shown.map((p) => {
+              const removing = deleting.includes(p.id);
+              return (
+                <li key={p.id} className={clsx('group flex items-center gap-3 px-3 py-2.5', removing ? 'opacity-60' : 'hover:bg-hover')} aria-busy={removing}>
+                  <button className="focus-ring flex min-w-0 flex-1 items-center gap-3 text-left disabled:cursor-default" disabled={removing} onClick={() => void openProject(p.id)}>
+                    {removing ? (
+                      <Spinner className="size-5 shrink-0 text-danger" />
+                    ) : !p.hasGit ? (
+                      <Folder className="size-5 shrink-0 text-muted" />
+                    ) : p.remoteUrl ? (
+                      <FolderSync className="size-5 shrink-0 text-accent-2" />
+                    ) : (
+                      <FolderGit2 className="size-5 shrink-0 text-accent" />
+                    )}
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[14px] font-medium text-fg">{p.name}</span>
+                      {removing ? (
+                        <span className="block text-[11.5px] text-danger">Deleting…</span>
                       ) : (
-                        <span className="shrink-0">{p.hasGit ? 'Git repository, no remote' : 'Folder'}</span>
+                        <span className="flex min-w-0 items-center gap-1 text-[11.5px] text-faint">
+                          {p.hasGit && p.remoteUrl ? (
+                            <span className="truncate" title={remoteLabel(p.remoteUrl)}>{remoteLabel(p.remoteUrl)}</span>
+                          ) : (
+                            <span className="shrink-0">{p.hasGit ? 'Git repository, no remote' : 'Folder'}</span>
+                          )}
+                          {p.updatedAt ? <span className="shrink-0">· changed {timeAgo(p.updatedAt)}</span> : null}
+                        </span>
                       )}
-                      {p.updatedAt ? <span className="shrink-0">· changed {timeAgo(p.updatedAt)}</span> : null}
                     </span>
-                  </span>
-                </button>
-                <IconButton
-                  label={`Actions for ${p.name}`}
-                  onClick={(e) =>
-                    menu.open(e, [
-                      { label: 'Rename…', icon: <Pencil className="size-3.5" />, onSelect: () => promptRenameProject(p.id) },
-                      { label: 'Duplicate', icon: <Copy className="size-3.5" />, onSelect: () => void duplicateProject(p.id) },
-                      'separator',
-                      { label: 'Delete…', icon: <Trash2 className="size-3.5" />, danger: true, onSelect: () => confirmDeleteProject(p.id) },
-                    ])
-                  }
-                >
-                  <MoreHorizontal className="size-4" />
-                </IconButton>
-              </li>
-            ))}
+                  </button>
+                  <IconButton
+                    label={`Actions for ${p.name}`}
+                    disabled={removing}
+                    onClick={(e) =>
+                      menu.open(e, [
+                        { label: 'Rename…', icon: <Pencil className="size-3.5" />, onSelect: () => promptRenameProject(p.id) },
+                        { label: 'Duplicate', icon: <Copy className="size-3.5" />, onSelect: () => void duplicateProject(p.id) },
+                        'separator',
+                        { label: 'Delete…', icon: <Trash2 className="size-3.5" />, danger: true, onSelect: () => confirmDeleteProject(p.id) },
+                      ])
+                    }
+                  >
+                    <MoreHorizontal className="size-4" />
+                  </IconButton>
+                </li>
+              );
+            })}
             {!shown.length && <li className="px-3 py-6 text-center text-[13px] text-faint">No project matches “{query}”.</li>}
           </ul>
         ) : (

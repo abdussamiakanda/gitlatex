@@ -5,7 +5,7 @@ export const DOCS = {
     files: {
       'main.tex': String.raw`\documentclass{article}
 \usepackage[margin=2cm]{geometry}
-\usepackage{fancyhdr}\pagestyle{fancy}\fancyhead[L]{TexBrowser}\fancyhead[R]{\thepage}
+\usepackage{fancyhdr}\pagestyle{fancy}\fancyhead[L]{GitLaTeX}\fancyhead[R]{\thepage}
 \usepackage{titlesec}\titleformat{\section}{\Large\bfseries\sffamily}{\thesection}{1em}{}
 \usepackage{enumitem}
 \makeatletter

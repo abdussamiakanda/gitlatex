@@ -288,27 +288,35 @@ export function EditorPane() {
 
     // Live math preview under the cursor.
     let mathTimer: ReturnType<typeof setTimeout> | undefined;
+    let shownMath: { tex: string; display: boolean; endLine: number } | null = null;
+    /** Places the preview below the math's last line, or hides it while that line is scrolled out of view. */
+    const placeMath = () => {
+      const vis = shownMath && editor.getScrolledVisiblePosition({ lineNumber: shownMath.endLine, column: 1 });
+      if (!shownMath || !vis || vis.top < 0 || vis.top + vis.height > editor.getLayoutInfo().height) return setMath(null);
+      const hostRect = host.getBoundingClientRect();
+      const paneRect = paneRef.current!.getBoundingClientRect();
+      setMath({ tex: shownMath.tex, display: shownMath.display, x: hostRect.left - paneRect.left + 56, y: hostRect.top - paneRect.top + vis.top + vis.height + 6 });
+    };
     const mathSub = editor.onDidChangeCursorSelection(() => {
       clearTimeout(mathTimer);
       mathTimer = setTimeout(() => {
         const model = editor.getModel();
         const pos = editor.getPosition();
-        if (!getState().settings.mathPreview || !model || !pos || model.getLanguageId() !== 'latex' || slashRef.current) {
-          setMath(null);
-          return;
-        }
-        const m = mathAt(model, pos);
-        if (!m) {
-          setMath(null);
-          return;
-        }
-        const vis = editor.getScrolledVisiblePosition({ lineNumber: m.endLine, column: 1 });
-        const hostRect = host.getBoundingClientRect();
-        const paneRect = paneRef.current!.getBoundingClientRect();
-        if (!vis) return setMath(null);
-        setMath({ tex: m.tex, display: m.display, x: hostRect.left - paneRect.left + 56, y: hostRect.top - paneRect.top + vis.top + vis.height + 6 });
+        const enabled = getState().settings.mathPreview && model && pos && model.getLanguageId() === 'latex' && !slashRef.current;
+        shownMath = enabled ? mathAt(model, pos) : null;
+        placeMath();
       }, 180);
     });
+    const mathScrollSub = editor.onDidScrollChange(() => {
+      if (shownMath) placeMath();
+    });
+    const forgetMath = () => {
+      clearTimeout(mathTimer);
+      shownMath = null;
+      setMath(null);
+    };
+    const mathModelSub = editor.onDidChangeModel(forgetMath);
+    const mathBlurSub = editor.onDidBlurEditorWidget(forgetMath);
 
     return () => {
       syncClickSub.dispose();
@@ -321,6 +329,9 @@ export function EditorPane() {
       cursorSub.dispose();
       blurSub.dispose();
       mathSub.dispose();
+      mathScrollSub.dispose();
+      mathModelSub.dispose();
+      mathBlurSub.dispose();
       clearTimeout(mathTimer);
       slashOpen.reset();
       editorBridge.set(null);

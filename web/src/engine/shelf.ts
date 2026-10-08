@@ -35,7 +35,7 @@ export interface ShelfIndex {
   files: string;
 }
 
-export const SHELF_CACHE = 'texbrowser-shelf-v1';
+export const SHELF_CACHE = 'gitlatex-shelf-v1';
 
 export const normaliseFontName = (s: string) => s.toLowerCase().replace(/[\s_-]+/g, '');
 

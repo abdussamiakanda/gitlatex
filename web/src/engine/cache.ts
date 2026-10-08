@@ -61,7 +61,7 @@ export async function cachedFetch(url: string, cacheName: string, opts: CachedFe
   }
 }
 
-export async function clearCaches(prefix = 'texbrowser-'): Promise<void> {
+export async function clearCaches(prefix = 'gitlatex-'): Promise<void> {
   if (!hasCaches()) return;
   for (const key of await caches.keys()) if (key.startsWith(prefix)) await caches.delete(key);
 }

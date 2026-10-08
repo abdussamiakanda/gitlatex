@@ -34,7 +34,7 @@ declare global {
   var BusytexPipeline: Record<string, any> | undefined;
 }
 
-export const ENGINE_CACHE = 'texbrowser-engine-v1';
+export const ENGINE_CACHE = 'gitlatex-engine-v1';
 export const SHELF_ROOT = '/texmf-shelf';
 export const PROJECT_ROOT = '/home/web_user/project';
 

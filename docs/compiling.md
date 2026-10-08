@@ -19,9 +19,9 @@ needs a network connection once. `gitlatex --fetch-engine` downloads the engine
 ahead of time (for example before going offline).
 
 Browser builds write `main.pdf` and its SyncTeX data into the project folder,
-just like local builds. The package shelf defaults to the one published by
-[TexBrowser IDE](https://github.com/jukomol/TexBrowser-IDE); point
-`GITLATEX_SHELF_URL` elsewhere, or set it empty to disable on-demand packages.
+just like local builds. The package shelf defaults to a public one hosted on
+GitHub Pages; point `GITLATEX_SHELF_URL` elsewhere, or set it empty to disable
+on-demand packages.
 
 ### Remote Compiler API
 

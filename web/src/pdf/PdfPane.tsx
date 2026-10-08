@@ -7,7 +7,7 @@ import {
   ZoomIn, ZoomOut, MoveHorizontal, Maximize, Moon, Sun, Download, ExternalLink, FileWarning, Wrench, ScrollText, RefreshCw, MonitorSmartphone, Sparkles, AlertTriangle, ChevronDown, ChevronUp, Loader2,
 } from 'lucide-react';
 import { useStore, setState, updateSettings } from '../state/store';
-import { applyQuickFix, compile, downloadPdf, inverseSearch, openPdfInNewTab, revealDiagnostic } from '../state/actions';
+import { applyQuickFix, compile, downloadPdf, inverseSearch, openPdfInNewTab, revealDiagnostic, useCompiler } from '../state/actions';
 import { explain } from '../latex/explain';
 import type { PdfViewerHandle, Zoom } from './PdfViewer';
 import { Button, IconButton, ProgressBar, Spinner, clsx } from '../components/ui';
@@ -26,7 +26,7 @@ export function PdfPane() {
   const settings = useStore((s) => s.settings);
   const target = useStore((s) => s.pdfTarget);
   const [zoom, setZoom] = useState<Zoom>(() => {
-    const z = localStorage.getItem('texbrowser.pdfZoom');
+    const z = localStorage.getItem('gitlatex.pdfZoom');
     return z === 'page' ? 'page' : z && !isNaN(Number(z)) ? Number(z) : 'width';
   });
   const [page, setPage] = useState({ n: 1, total: 0 });
@@ -34,7 +34,7 @@ export function PdfPane() {
   const [scale, setScale] = useState(1);
   const viewer = useRef<PdfViewerHandle>(null);
 
-  useEffect(() => localStorage.setItem('texbrowser.pdfZoom', String(zoom)), [zoom]);
+  useEffect(() => localStorage.setItem('gitlatex.pdfZoom', String(zoom)), [zoom]);
   useEffect(() => {
     const t = setTimeout(() => void loadViewer().catch(() => undefined), 500);
     return () => clearTimeout(t);
@@ -44,6 +44,8 @@ export function PdfPane() {
   const errors = diagnostics.filter((d) => d.severity === 'error');
   const running = status === 'running';
   const failed = status === 'failed' || status === 'crashed';
+  // The engine cards only matter when this project compiles in the browser.
+  const browserEngine = useCompiler().active === 'browser';
 
   const nativeUrl = useMemo(() => (settings.pdfNative && pdf ? URL.createObjectURL(new Blob([pdf as BlobPart], { type: 'application/pdf' })) : null), [pdf, settings.pdfNative]);
   useEffect(() => () => void (nativeUrl && URL.revokeObjectURL(nativeUrl)), [nativeUrl]);
@@ -104,7 +106,7 @@ export function PdfPane() {
               />
             </Suspense>
           )
-        ) : engine.state === 'booting' || engine.state === 'idle' ? (
+        ) : browserEngine && engine.state === 'booting' ? (
           <BootCard />
         ) : running ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-muted">
@@ -114,7 +116,7 @@ export function PdfPane() {
         ) : null}
 
         {(failed || (errors.length > 0 && !running)) && <ErrorOverlay diagnostics={diagnostics} hasPdf={!!pdf} stale={failed && !!pdf} />}
-        {engine.state === 'error' && !pdf && <EngineErrorCard message={engine.error ?? 'Unknown error'} />}
+        {browserEngine && engine.state === 'error' && !pdf && <EngineErrorCard message={engine.error ?? 'Unknown error'} />}
       </div>
     </div>
   );
