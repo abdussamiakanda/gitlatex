@@ -17,6 +17,7 @@
     "test:watch": "vitest",
     "engine:fetch": "node scripts/fetch-engine.mjs",
     "shelf:build": "node scripts/build-shelf.mjs",
+    "screenshots": "node scripts/screenshots.mjs",
     "e2e": "node tests/e2e/run-e2e.mjs",
     "e2e:gitlatex": "node tests/e2e/gitlatex.mjs",
     "e2e:features": "node tests/e2e/editor-features.mjs",

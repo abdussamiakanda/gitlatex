@@ -15,6 +15,13 @@ without a subscription, and without leaving your own machine.
 [![Python](https://img.shields.io/pypi/pyversions/gitlatex)](https://pypi.org/project/gitlatex/)
 [![License: ISC](https://img.shields.io/badge/license-ISC-green.svg)](#license)
 
+<br>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/abdussamiakanda/gitlatex/master/docs/images/editor-dark.png">
+  <img src="https://raw.githubusercontent.com/abdussamiakanda/gitlatex/master/docs/images/editor-light.png" alt="The GitLaTeX editor with a LaTeX paper open next to its compiled PDF">
+</picture>
+
 </div>
 
 ---
@@ -85,6 +92,25 @@ automatically as you type.
   cursors, while everyone keeps their own folder and Git.
   [More](https://github.com/abdussamiakanda/gitlatex/blob/master/docs/live-collaboration.md)
 - **Vim mode** with VimTeX-style keys. [More](https://github.com/abdussamiakanda/gitlatex/blob/master/docs/vim-mode.md)
+
+<table>
+  <tr>
+    <td width="50%"><img src="https://raw.githubusercontent.com/abdussamiakanda/gitlatex/master/docs/images/live-collaboration.png" alt="Two co-authors editing the same paper live, with a collaborator's cursor in the editor"></td>
+    <td width="50%"><img src="https://raw.githubusercontent.com/abdussamiakanda/gitlatex/master/docs/images/source-control.png" alt="A side-by-side diff of an uncommitted change"></td>
+  </tr>
+  <tr>
+    <td align="center"><b>Live collaboration</b>: shared cursors, everyone on their own machine</td>
+    <td align="center"><b>Git built in</b>: side-by-side diffs before you commit</td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="https://raw.githubusercontent.com/abdussamiakanda/gitlatex/master/docs/images/home.png" alt="The projects page listing local Git repositories"></td>
+    <td width="50%"><img src="https://raw.githubusercontent.com/abdussamiakanda/gitlatex/master/docs/images/editor-light.png" alt="The editor in the light theme"></td>
+  </tr>
+  <tr>
+    <td align="center"><b>Your projects</b>: plain folders, each one a Git repo</td>
+    <td align="center"><b>Light and dark themes</b></td>
+  </tr>
+</table>
 
 All the docs are in [`docs/`](https://github.com/abdussamiakanda/gitlatex/tree/master/docs).
 
