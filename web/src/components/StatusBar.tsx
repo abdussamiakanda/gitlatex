@@ -47,11 +47,11 @@ export function StatusBar() {
         <span className={clsx('flex items-center gap-1', warnings && 'text-warn')}><AlertTriangle className="size-3" />{warnings}</span>
       </button>
       {backend === 'api' ? (
-        <button onClick={() => setState({ bottom: 'log' })} className="flex items-center gap-1 truncate hover:text-fg" title="Compiled by the remote Compiler API">
+        <button onClick={() => setState({ sidebar: 'engine' })} className="flex items-center gap-1 truncate hover:text-fg" title="Compiled by the remote Compiler API">
           <Cloud className="size-3" /> <span className="truncate">Compiler API</span>
         </button>
       ) : backend === 'local' ? (
-        <button onClick={() => setState({ bottom: 'log' })} className="flex items-center gap-1 truncate hover:text-fg" title="Compiled with the TeX installation on this machine">
+        <button onClick={() => setState({ sidebar: 'engine' })} className="flex items-center gap-1 truncate hover:text-fg" title="Compiled with the TeX installation on this machine">
           <Monitor className="size-3" /> <span className="truncate">Local TeX</span>
         </button>
       ) : (

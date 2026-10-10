@@ -4,9 +4,10 @@
  * programs, or the Compiler API endpoint.
  */
 import { useEffect } from 'react';
-import { Cpu, Package, Trash2, RefreshCw, CheckCircle2, Circle, Cloud, Monitor, Globe, XCircle, Settings } from 'lucide-react';
+import { Cpu, Package, Trash2, RefreshCw, CheckCircle2, Circle, Cloud, Monitor, Globe, XCircle, Settings, ExternalLink } from 'lucide-react';
 import { useStore, toast, openDialog, getCompilerApi, normalizeCompilerApiUrl } from '../state/store';
-import { engine, reconfigureEngine, setCompiler, useCompiler, type Compiler } from '../state/actions';
+import { engine, reconfigureEngine, setCompiler, setEngine, useCompiler, type Compiler } from '../state/actions';
+import { ENGINE_LABELS, type TexEngine } from '../engine/protocol';
 import type { CompilerMode } from '../types';
 import { formatBytes } from '../utils/misc';
 import { Button, ProgressBar, SectionTitle, clsx } from './ui';
@@ -14,9 +15,15 @@ import { Button, ProgressBar, SectionTitle, clsx } from './ui';
 const MODES: { id: CompilerMode; label: string }[] = [
   { id: 'auto', label: 'Auto' },
   { id: 'browser', label: 'Browser' },
-  { id: 'local', label: 'Local TeX' },
+  { id: 'local', label: 'Local' },
   { id: 'api', label: 'API' },
 ];
+
+const TEX_ENGINES: TexEngine[] = ['pdftex', 'xetex', 'luatex'];
+const LOCAL_PROGRAM = { pdftex: 'pdflatex', xetex: 'xelatex', luatex: 'lualatex' } as const satisfies Record<TexEngine, string>;
+
+/** Reference implementation of the Compiler API. */
+export const COMPILER_API_REPO = 'https://github.com/abdussamiakanda/latex-fastapi';
 
 const ACTIVE_LABEL: Record<Compiler, string> = { browser: 'in-browser TeX', local: 'local TeX', api: 'the Compiler API' };
 
@@ -54,6 +61,8 @@ export function EnginePanel() {
           )}
         </div>
 
+        <TexEnginePicker active={active} latex={latex} />
+
         {active === 'browser' && <BrowserEngine />}
         {active === 'local' && <LocalTex latex={latex} />}
         {active === 'api' && <CompilerApi />}
@@ -90,9 +99,46 @@ export function EnginePanel() {
   );
 }
 
+/** The TeX engine for the open project (pdfLaTeX, XeLaTeX or LuaLaTeX). */
+function TexEnginePicker({ active, latex }: { active: Compiler | null | undefined; latex: Record<'pdflatex' | 'xelatex' | 'lualatex', boolean> | null }) {
+  const texEngine = useStore((s) => s.project?.engine);
+  const info = useStore((s) => s.engine.info);
+  if (!texEngine) return null;
+  return (
+    <div>
+      <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted">TeX engine for this project</div>
+      <div className="flex rounded-lg border border-line p-0.5" role="radiogroup" aria-label="TeX engine for this project">
+        {TEX_ENGINES.map((e) => {
+          // The in-browser build or the local TeX install may lack an engine; the API is assumed to have all three.
+          const available =
+            active === 'browser' ? !info || info.engines.includes(e)
+            : active === 'local' ? !latex || latex[LOCAL_PROGRAM[e]]
+            : true;
+          return (
+            <button
+              key={e}
+              role="radio"
+              aria-checked={texEngine === e}
+              disabled={!available}
+              title={available ? undefined : active === 'local' ? `${LOCAL_PROGRAM[e]} is not installed on this machine` : 'Not in this engine build'}
+              onClick={() => setEngine(e)}
+              className={clsx(
+                'flex-1 rounded-md px-1.5 py-1 text-[12px] font-medium disabled:cursor-not-allowed disabled:opacity-40',
+                texEngine === e ? 'bg-accent text-accent-fg' : 'text-muted hover:text-fg',
+              )}
+            >
+              {ENGINE_LABELS[e]}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function LocalTex({ latex }: { latex: Record<'pdflatex' | 'xelatex' | 'lualatex', boolean> | null }) {
   const texEngine = useStore((s) => s.project?.engine);
-  const program = texEngine === 'xetex' ? 'xelatex' : texEngine === 'luatex' ? 'lualatex' : 'pdflatex';
+  const program = LOCAL_PROGRAM[texEngine ?? 'pdftex'];
   const found = latex ? Object.values(latex).some(Boolean) : null;
   return (
     <div className="rounded-lg border border-line bg-panel-2 p-3">
@@ -112,7 +158,7 @@ function LocalTex({ latex }: { latex: Record<'pdflatex' | 'xelatex' | 'lualatex'
       {found === false && (
         <p className="mt-2 text-xs text-warn">No TeX installation was found on the PATH of the machine running gitlatex. Install TeX Live, MiKTeX or MacTeX, or switch to Browser.</p>
       )}
-      {latex && found && !latex[program] && <p className="mt-2 text-xs text-warn">{program} is not installed. Pick another engine in the top bar, or install it.</p>}
+      {latex && found && !latex[program] && <p className="mt-2 text-xs text-warn">{program} is not installed. Pick another engine above, or install it.</p>}
       <p className="mt-2 text-[11px] text-faint">Runs {program}, then bibtex or biber when needed, and reruns until references settle. The PDF is written next to the main file.</p>
     </div>
   );
@@ -140,6 +186,12 @@ function CompilerApi() {
       <Button size="sm" className="mt-3" icon={<Settings className="size-3.5" />} onClick={() => openDialog({ type: 'settings' })}>
         {endpoint ? 'Change in Settings' : 'Set it up in Settings'}
       </Button>
+      <p className="mt-3 text-[11px] text-faint">
+        Need a server?
+        <a href={COMPILER_API_REPO} target="_blank" rel="noreferrer" className="ml-1 inline-flex items-center gap-1 text-accent hover:underline">
+          Deploy your own Compiler API (latex-fastapi) <ExternalLink className="size-3" />
+        </a>
+      </p>
     </div>
   );
 }

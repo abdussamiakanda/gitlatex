@@ -1,6 +1,6 @@
 /**
- * Settings sections for the gitlatex editor features: Vim mode, spell
- * checking (with the personal dictionary) and the snippet manager.
+ * Settings for the gitlatex editor features: Vim mode, spell checking (with
+ * the personal dictionary) and the snippet manager.
  */
 import { useEffect, useState } from 'react';
 import { Pencil, Plus, Trash2, Upload, Download, X } from 'lucide-react';
@@ -9,7 +9,7 @@ import { onSpellStatus, removeWordFromDictionary, type SpellStatus } from '../ed
 import { exportSnippetsJson, importSnippets, loadSnippets, onSnippets, saveSnippets, type Snippet, type SnippetScope } from '../editor/snippets';
 import { pickFiles } from '../storage/local-disk';
 import { downloadBlob } from '../utils/misc';
-import { Button, IconButton, TextInput, Toggle, clsx } from './ui';
+import { Button, IconButton, TextInput, Toggle } from './ui';
 
 const VIM_KEYS: [string, string][] = [
   ['Text objects', 'ie/ae environment · i$/a$ math · ic/ac command · id/ad delimiters · iP/aP section · im/am item'],
@@ -20,18 +20,15 @@ const VIM_KEYS: [string, string][] = [
   ['Ex', ':w · :VimtexCompile · :VimtexView · :VimtexToc · :VimtexErrors'],
 ];
 
-export function EditorFeatureSettings({ section }: { section: (title: string) => React.ReactNode }) {
-  const s = useStore((st) => st.settings);
-  const [spell, setSpell] = useState<SpellStatus>({ available: null, userWords: [] });
+/** Vim mode, with the VimTeX key reference. Rows go inside a settings group. */
+export function VimSettings({ rowClassName }: { rowClassName?: string }) {
+  const vim = useStore((st) => st.settings.vim);
   const [showKeys, setShowKeys] = useState(false);
-  useEffect(() => onSpellStatus(setSpell), []);
-
   return (
     <>
-      {section('Editor')}
-      <Toggle label="Vim keybindings" description="Normal, insert and visual modes, with VimTeX-style mappings in .tex files" checked={s.vim} onChange={(v) => updateSettings({ vim: v })} />
-      {s.vim && (
-        <div className="pb-2">
+      <Toggle className={rowClassName} label="Vim keybindings" description="Normal, insert and visual modes, with VimTeX-style mappings in .tex files" checked={vim} onChange={(v) => updateSettings({ vim: v })} />
+      {vim && (
+        <div className={rowClassName}>
           <button className="text-[12px] text-accent hover:underline" onClick={() => setShowKeys((v) => !v)}>
             {showKeys ? 'Hide' : 'Show'} the VimTeX keys
           </button>
@@ -49,24 +46,37 @@ export function EditorFeatureSettings({ section }: { section: (title: string) =>
           )}
         </div>
       )}
+    </>
+  );
+}
 
-      {section('Spell checking')}
+/** Spell checking and the personal dictionary. Rows go inside a settings group. */
+export function SpellSettings({ rowClassName }: { rowClassName?: string }) {
+  const spellCheck = useStore((st) => st.settings.spellCheck);
+  const [spell, setSpell] = useState<SpellStatus>({ available: null, userWords: [] });
+  useEffect(() => onSpellStatus(setSpell), []);
+  return (
+    <>
       <Toggle
+        className={rowClassName}
         label="Check spelling"
         description={
           spell.available === false
             ? 'Unavailable: install the checker with  pip install symspellpy'
             : 'Underlines unknown words in .tex, .txt and .md files; comments, math and command arguments are skipped. Fix one with Ctrl+. or the lightbulb.'
         }
-        checked={s.spellCheck && spell.available !== false}
+        checked={spellCheck && spell.available !== false}
         onChange={(v) => updateSettings({ spellCheck: v })}
       />
-      <div className="pb-2">
-        <div className="text-[12px] text-muted">
-          Personal dictionary · {spell.userWords.length} word{spell.userWords.length === 1 ? '' : 's'}
+      <div className={rowClassName}>
+        <div className="text-[13px] text-fg">Personal dictionary</div>
+        <div className="mt-0.5 text-xs text-muted">
+          {spell.userWords.length
+            ? `${spell.userWords.length} word${spell.userWords.length === 1 ? '' : 's'} you added with "Add to dictionary".`
+            : 'Words you add with "Add to dictionary" show up here.'}
         </div>
         {spell.userWords.length > 0 && (
-          <div className="mt-1.5 flex max-h-28 flex-wrap gap-1 overflow-y-auto">
+          <div className="mt-2 flex max-h-40 flex-wrap gap-1 overflow-y-auto">
             {spell.userWords.map((w) => (
               <span key={w} className="inline-flex items-center gap-1 rounded bg-panel-2 py-0.5 pl-1.5 pr-0.5 text-[11.5px] text-fg">
                 {w}
@@ -78,9 +88,6 @@ export function EditorFeatureSettings({ section }: { section: (title: string) =>
           </div>
         )}
       </div>
-
-      {section('Snippets')}
-      <SnippetManager />
     </>
   );
 }
@@ -88,7 +95,7 @@ export function EditorFeatureSettings({ section }: { section: (title: string) =>
 const EMPTY: Snippet = { prefix: '', body: '', description: '', scope: 'latex' };
 const SCOPE_LABEL: Record<SnippetScope, string> = { latex: '.tex', bib: '.bib', all: 'all' };
 
-function SnippetManager() {
+export function SnippetManager() {
   const [list, setList] = useState<Snippet[]>([]);
   const [editing, setEditing] = useState<{ index: number; value: Snippet } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -122,41 +129,47 @@ function SnippetManager() {
   };
 
   return (
-    <div className="pb-2 text-[13px]">
-      <p className="text-[12px] text-muted">
+    <div className="text-[13px]">
+      <p className="text-[12px] leading-relaxed text-muted">
         Type a prefix and press Tab (or pick it from the suggestions) to insert its body. Bodies use tab stops: <code>$1</code>, <code>{'${1:default}'}</code>, <code>{'${1|a,b|}'}</code>, <code>$0</code>. Select text in the editor and right-click → Save
         Selection as Snippet to make one. Saved in <code>~/.gitlatex/snippets.json</code>, shared by all projects.
       </p>
 
-      {list.length > 0 && (
-        <div className="mt-2 divide-y divide-line rounded-lg border border-line">
-          {list.map((sn, i) => (
-            <div key={`${sn.scope}:${sn.prefix}`} className="flex items-center gap-2 px-2 py-1">
-              <code className="shrink-0 rounded bg-panel-2 px-1.5 text-[12px] text-accent">{sn.prefix}</code>
-              <span className="min-w-0 flex-1 truncate text-[12px] text-muted" title={sn.body}>
-                {sn.description || sn.body.split('\n')[0]}
-              </span>
-              <span className="shrink-0 text-[11px] text-faint">{SCOPE_LABEL[sn.scope]}</span>
-              <IconButton size="sm" label="Edit snippet" onClick={() => (setError(null), setEditing({ index: i, value: { ...sn } }))}>
-                <Pencil className="size-3.5" />
-              </IconButton>
-              <IconButton
-                size="sm"
-                label="Delete snippet"
-                onClick={() => {
-                  if (editing?.index === i) setEditing(null);
-                  void save(list.filter((_, k) => k !== i));
-                }}
-              >
-                <Trash2 className="size-3.5" />
-              </IconButton>
-            </div>
-          ))}
-        </div>
-      )}
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Button size="sm" icon={<Plus className="size-3.5" />} onClick={() => (setError(null), setEditing({ index: -1, value: { ...EMPTY } }))}>
+          New snippet
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          icon={<Upload className="size-3.5" />}
+          onClick={async () => {
+            const [file] = await pickFiles({ accept: '.json,.code-snippets', multiple: false });
+            if (!file) return;
+            try {
+              const n = await importSnippets(await file.text());
+              setError(null);
+              toast({ kind: 'success', title: `Imported ${n} snippet${n === 1 ? '' : 's'}` });
+            } catch (err) {
+              setError(err instanceof Error ? err.message : String(err));
+            }
+          }}
+        >
+          Import
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          icon={<Download className="size-3.5" />}
+          disabled={!list.length}
+          onClick={() => downloadBlob(new Blob([exportSnippetsJson()], { type: 'application/json' }), 'gitlatex-snippets.json')}
+        >
+          Export
+        </Button>
+      </div>
 
       {editing && (
-        <div className="mt-2 space-y-2 rounded-lg border border-accent/40 bg-panel-2 p-3">
+        <div className="mt-3 space-y-2 rounded-lg border border-accent/40 bg-panel-2 p-3">
           <div className="flex gap-2">
             <label className="block flex-1 text-[12px] text-muted">
               Prefix
@@ -202,38 +215,33 @@ function SnippetManager() {
 
       {error && <p className="mt-2 text-xs text-danger">{error}</p>}
 
-      <div className={clsx('flex flex-wrap gap-2', 'mt-2')}>
-        <Button size="sm" icon={<Plus className="size-3.5" />} onClick={() => (setError(null), setEditing({ index: -1, value: { ...EMPTY } }))}>
-          New snippet
-        </Button>
-        <Button
-          size="sm"
-          variant="ghost"
-          icon={<Upload className="size-3.5" />}
-          onClick={async () => {
-            const [file] = await pickFiles({ accept: '.json,.code-snippets', multiple: false });
-            if (!file) return;
-            try {
-              const n = await importSnippets(await file.text());
-              setError(null);
-              toast({ kind: 'success', title: `Imported ${n} snippet${n === 1 ? '' : 's'}` });
-            } catch (err) {
-              setError(err instanceof Error ? err.message : String(err));
-            }
-          }}
-        >
-          Import
-        </Button>
-        <Button
-          size="sm"
-          variant="ghost"
-          icon={<Download className="size-3.5" />}
-          disabled={!list.length}
-          onClick={() => downloadBlob(new Blob([exportSnippetsJson()], { type: 'application/json' }), 'gitlatex-snippets.json')}
-        >
-          Export
-        </Button>
-      </div>
+
+      {list.length > 0 && (
+        <div className="mt-3 divide-y divide-line rounded-lg border border-line">
+          {list.map((sn, i) => (
+            <div key={`${sn.scope}:${sn.prefix}`} className="flex items-center gap-2 px-3 py-1.5">
+              <code className="shrink-0 rounded bg-panel-2 px-1.5 text-[12px] text-accent">{sn.prefix}</code>
+              <span className="min-w-0 flex-1 truncate text-[12px] text-muted" title={sn.body}>
+                {sn.description || sn.body.split('\n')[0]}
+              </span>
+              <span className="shrink-0 text-[11px] text-faint">{SCOPE_LABEL[sn.scope]}</span>
+              <IconButton size="sm" label="Edit snippet" onClick={() => (setError(null), setEditing({ index: i, value: { ...sn } }))}>
+                <Pencil className="size-3.5" />
+              </IconButton>
+              <IconButton
+                size="sm"
+                label="Delete snippet"
+                onClick={() => {
+                  if (editing?.index === i) setEditing(null);
+                  void save(list.filter((_, k) => k !== i));
+                }}
+              >
+                <Trash2 className="size-3.5" />
+              </IconButton>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -78,9 +78,9 @@ export function Kbd({ children }: { children: ReactNode }) {
   return <kbd className="rounded border border-line bg-panel-2 px-1.5 py-0.5 font-mono text-[10px] text-muted">{children}</kbd>;
 }
 
-export function Toggle({ checked, onChange, label, description }: { checked: boolean; onChange: (v: boolean) => void; label: string; description?: string }) {
+export function Toggle({ checked, onChange, label, description, className }: { checked: boolean; onChange: (v: boolean) => void; label: string; description?: string; className?: string }) {
   return (
-    <label className="flex cursor-pointer items-start justify-between gap-4 py-2">
+    <label className={clsx('flex cursor-pointer items-start justify-between gap-4', className ?? 'py-2')}>
       <span>
         <span className="block text-[13px] text-fg">{label}</span>
         {description && <span className="mt-0.5 block text-xs text-muted">{description}</span>}
@@ -122,6 +122,7 @@ export function Modal({
   footer,
   width = 'max-w-lg',
   icon,
+  bodyClassName = 'max-h-[70vh] overflow-y-auto px-4 py-4',
 }: {
   title: ReactNode;
   onClose: () => void;
@@ -129,6 +130,7 @@ export function Modal({
   footer?: ReactNode;
   width?: string;
   icon?: ReactNode;
+  bodyClassName?: string;
 }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -150,7 +152,7 @@ export function Modal({
             <X className="size-4" />
           </IconButton>
         </div>
-        <div className="max-h-[70vh] overflow-y-auto px-4 py-4">{children}</div>
+        <div className={bodyClassName}>{children}</div>
         {footer && <div className="flex items-center justify-end gap-2 border-t border-line bg-panel-2/50 px-4 py-3">{footer}</div>}
       </div>
     </div>,

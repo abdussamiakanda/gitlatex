@@ -2,11 +2,11 @@
  * All modal dialogs, rendered from the store's `dialog` field.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Settings, FolderPlus, Search, Keyboard, GitCompare, FileArchive, FolderInput, Play, RotateCcw, FilePlus2, FolderPlus as FolderPlusIcon, Upload, Download, Moon, Crosshair, Zap, Files, ListTree, History, Cpu, FileText, Sparkles, GitBranch, GitCommitHorizontal, ArrowDownToLine, ArrowUpFromLine, RefreshCw, CloudUpload, Home, ExternalLink } from 'lucide-react';
-import { useStore, closeDialog, openDialog, setState, updateSettings, toast, getCompilerApi, setCompilerApi, type Dialog } from '../state/store';
+import { Settings, FolderPlus, Search, Keyboard, GitCompare, FileArchive, FolderInput, Play, RotateCcw, FilePlus2, FolderPlus as FolderPlusIcon, Upload, Download, Moon, Crosshair, Zap, Files, ListTree, History, Cpu, FileText, Sparkles, GitBranch, GitCommitHorizontal, ArrowDownToLine, ArrowUpFromLine, RefreshCw, CloudUpload, Home } from 'lucide-react';
+import { useStore, closeDialog, openDialog, setState, updateSettings, toast, type Dialog } from '../state/store';
 import { MaterialIcon } from './MaterialIcon';
 import {
-  applyTheme, closeProject, compile, createProject, downloadPdf, downloadZip, forwardSearch, importFolderAsProject, openPublishDialog, promptCreateBranch, scmPull, scmPush, scmSync, importZipAsProject, openFile, openProject, promptClone, promptNewFile, promptNewFolder, reconfigureEngine, runSlashCommand, serverInfo, setCompiler, setTheme, uploadFiles, workspace,
+  applyTheme, closeProject, compile, createProject, downloadPdf, downloadZip, forwardSearch, importFolderAsProject, openPublishDialog, promptCreateBranch, scmPull, scmPush, scmSync, importZipAsProject, openFile, openProject, promptClone, promptNewFile, promptNewFolder, runSlashCommand, setTheme, uploadFiles, workspace,
 } from '../state/actions';
 import { pickFiles } from '../storage/local-disk';
 import { TEMPLATES } from '../templates';
@@ -16,10 +16,9 @@ import { monaco } from '../editor/monaco';
 import { modKey } from '../utils/misc';
 import { languageFor } from '../utils/paths';
 import { WizardDialog } from './Wizards';
-import { EditorFeatureSettings } from './EditorSettings';
-import { AboutSettings } from './AboutSettings';
+import { SettingsDialog } from './SettingsDialog';
 import { PublishDialog } from './PublishDialog';
-import { Button, Kbd, Modal, TextInput, Toggle, clsx } from './ui';
+import { Button, Kbd, Modal, TextInput, clsx } from './ui';
 import { FileIcon } from './FileIcon';
 
 export function Dialogs() {
@@ -136,159 +135,6 @@ function ConfirmDialog({ d }: { d: Extract<Dialog, { type: 'confirm' }> }) {
 }
 
 // ---------------------------------------------------------------------------
-
-function SettingsDialog({ section: jumpTo }: { section?: 'about' }) {
-  const s = useStore((st) => st.settings);
-  useEffect(() => {
-    if (jumpTo) requestAnimationFrame(() => document.getElementById(`settings-${jumpTo}`)?.scrollIntoView({ block: 'start' }));
-  }, [jumpTo]);
-  const [latex, setLatex] = useState<Record<string, boolean> | null>(null);
-  useEffect(() => {
-    void serverInfo().then((info) => setLatex(info?.latex ?? null));
-  }, []);
-  const localNames = latex ? Object.entries(latex).filter(([, ok]) => ok).map(([name]) => name) : [];
-  const [api, setApi] = useState(getCompilerApi);
-  const section = (title: string) => <div className="mb-1 mt-5 text-[11px] font-semibold uppercase tracking-wider text-muted first:mt-0">{title}</div>;
-  return (
-    <Modal title="Settings" icon={<Settings className="size-4 text-accent" />} onClose={closeDialog} width="max-w-xl">
-      {section('Appearance')}
-      <div className="flex items-center justify-between py-2">
-        <span className="text-[13px] text-fg">Theme</span>
-        <div className="flex gap-1">
-          {(['dark', 'light', 'system'] as const).map((t) => (
-            <button key={t} onClick={() => setTheme(t)} className={clsx('rounded-md border px-3 py-1 text-xs capitalize', s.theme === t ? 'border-accent bg-accent/15 text-fg' : 'border-line text-muted')}>
-              {t}
-            </button>
-          ))}
-        </div>
-      </div>
-      <label className="flex items-center justify-between py-2 text-[13px] text-fg">
-        Editor font size
-        <span className="flex items-center gap-2">
-          <input type="range" min={11} max={22} value={s.editorFontSize} onChange={(e) => updateSettings({ editorFontSize: Number(e.target.value) })} className="accent-[var(--c-accent)]" />
-          <span className="w-8 text-right tabular-nums text-muted">{s.editorFontSize}px</span>
-        </span>
-      </label>
-      <Toggle label="Word wrap" checked={s.wordWrap} onChange={(v) => updateSettings({ wordWrap: v })} />
-      <Toggle label="Minimap" checked={s.minimap} onChange={(v) => updateSettings({ minimap: v })} />
-      <Toggle label="Formatting toolbar" description="Buttons for bold, lists, equations, tables, images…" checked={s.formatBar} onChange={(v) => updateSettings({ formatBar: v })} />
-
-      {section('Writing assistance')}
-      <Toggle label="Slash commands" description="Type / on an empty line to insert blocks" checked={s.slashCommands} onChange={(v) => updateSettings({ slashCommands: v })} />
-      <Toggle label="Live math preview" description="Rendered preview of the formula under the cursor" checked={s.mathPreview} onChange={(v) => updateSettings({ mathPreview: v })} />
-      <Toggle label="Explain errors in plain language" description="Friendly explanations and one-click fixes" checked={s.beginnerMode} onChange={(v) => updateSettings({ beginnerMode: v })} />
-
-      <EditorFeatureSettings section={section} />
-
-      {section('Compiler')}
-      <div className="grid grid-cols-2 gap-1.5 py-2">
-        {([
-          ['auto', 'Auto', 'Local TeX if installed, otherwise the browser'],
-          ['browser', 'In the browser', 'TeX Live as WebAssembly; nothing to install'],
-          ['local', 'Local TeX', 'pdflatex / xelatex / lualatex on this machine'],
-          ['api', 'Compiler API', 'A remote web service that compiles LaTeX'],
-        ] as const).map(([id, label, hint]) => (
-          <button
-            key={id}
-            onClick={() => setCompiler(id)}
-            className={clsx('rounded-lg border p-2 text-left', s.compiler === id ? 'border-accent bg-accent/10' : 'border-line hover:bg-hover')}
-          >
-            <div className="text-[13px] font-medium text-fg">{label}</div>
-            <div className="mt-0.5 text-[11px] leading-snug text-muted">{hint}</div>
-          </button>
-        ))}
-      </div>
-      {s.compiler === 'api' && (
-        <div className="space-y-2 rounded-lg border border-line bg-panel-2 p-3">
-          <label className="block text-[13px] text-fg">
-            Compiler API URL
-            <TextInput
-              className="mt-1"
-              placeholder="https://latex.example.com/compile"
-              value={api.url}
-              onChange={(e) => setApi((a) => ({ ...a, url: e.target.value }))}
-              onBlur={() => setCompilerApi({ url: api.url })}
-            />
-          </label>
-          <label className="block text-[13px] text-fg">
-            API key <span className="text-faint">(optional, sent as a Bearer token)</span>
-            <TextInput
-              className="mt-1"
-              type="password"
-              autoComplete="off"
-              value={api.key}
-              onChange={(e) => setApi((a) => ({ ...a, key: e.target.value }))}
-              onBlur={() => setCompilerApi({ key: api.key })}
-            />
-          </label>
-          <p className="text-[11.5px] text-faint">
-            The project is sent as <code>{'{ main, files, engine }'}</code>; the service returns the PDF (and optionally SyncTeX).
-            <a href="classic#/compiler-api" target="_blank" rel="noreferrer" className="ml-1 inline-flex items-center gap-1 text-accent hover:underline">
-              How to build one <ExternalLink className="size-3" />
-            </a>
-          </p>
-        </div>
-      )}
-      <p className="pb-1 text-[11.5px] text-faint">
-        {latex === null ? 'Checking for a local TeX installation…' : localNames.length ? `Found on this machine: ${localNames.join(', ')}.` : 'No local TeX installation found, so Auto compiles in the browser.'}
-      </p>
-      <Toggle label="Save the PDF to the project folder" description="Browser and Compiler API builds write main.pdf next to main.tex, as local builds do" checked={s.savePdf} onChange={(v) => updateSettings({ savePdf: v })} />
-
-      {section('Compilation')}
-      <Toggle label="Auto-compile while typing" checked={s.autoCompile} onChange={(v) => updateSettings({ autoCompile: v })} />
-      {s.autoCompile && (
-        <label className="flex items-center justify-between py-2 text-[13px] text-fg">
-          Delay after last keystroke
-          <select value={s.autoCompileDelay} onChange={(e) => updateSettings({ autoCompileDelay: Number(e.target.value) })} className="h-8 rounded-md border border-line bg-panel-2 px-2 text-[13px]">
-            {[800, 1500, 3000, 5000].map((ms) => <option key={ms} value={ms}>{ms / 1000} s</option>)}
-          </select>
-        </label>
-      )}
-      <label className="flex items-center justify-between py-2 text-[13px] text-fg">
-        Run BibTeX
-        <select value={s.bibtex} onChange={(e) => updateSettings({ bibtex: e.target.value as typeof s.bibtex })} className="h-8 rounded-md border border-line bg-panel-2 px-2 text-[13px]">
-          <option value="auto">When the document cites something</option>
-          <option value="always">Always</option>
-          <option value="never">Never</option>
-        </select>
-      </label>
-      <Toggle label="Stop at the first error" description="Otherwise TeX recovers and still produces a PDF, like Overleaf" checked={s.haltOnError} onChange={(v) => updateSettings({ haltOnError: v })} />
-      <Toggle
-        label="Fetch missing packages on demand"
-        description="Downloads TikZ, biblatex, extra fonts… from the package shelf when a document needs them"
-        checked={s.useShelf}
-        onChange={(v) => {
-          updateSettings({ useShelf: v });
-          reconfigureEngine();
-        }}
-      />
-
-      {section('PDF')}
-      <Toggle label="Dark pages" description="Invert PDF colours in the preview (not in the file)" checked={s.pdfDarkMode} onChange={(v) => updateSettings({ pdfDarkMode: v })} />
-      <Toggle label="Use the browser's native PDF viewer" description="Loses SyncTeX double-click navigation" checked={s.pdfNative} onChange={(v) => updateSettings({ pdfNative: v })} />
-
-      {section('Classic editor')}
-      <div className="py-2 text-[13px] text-muted">
-        The previous GitLaTeX editor is still available, and works on the same folders.
-        <a href="classic" className="ml-1 inline-flex items-center gap-1 text-accent hover:underline">
-          Open the classic editor <ExternalLink className="size-3" />
-        </a>
-      </div>
-
-      {section('Advanced')}
-      <label className="block py-1 text-[13px] text-fg">
-        Engine manifest URL
-        <TextInput className="mt-1" placeholder="engine/manifest.json (default)" value={s.engineUrl} onChange={(e) => updateSettings({ engineUrl: e.target.value })} onBlur={reconfigureEngine} />
-      </label>
-      <label className="block py-1 text-[13px] text-fg">
-        Package shelf URL
-        <TextInput className="mt-1" placeholder="shelf/index.json (default, cached by the gitlatex server)" value={s.shelfUrl} onChange={(e) => updateSettings({ shelfUrl: e.target.value })} onBlur={reconfigureEngine} />
-      </label>
-
-      <AboutSettings section={section} />
-    </Modal>
-  );
-}
 
 // ---------------------------------------------------------------------------
 

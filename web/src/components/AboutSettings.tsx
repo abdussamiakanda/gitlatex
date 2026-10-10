@@ -9,11 +9,12 @@ import { checkForUpdate } from '../state/updates';
 import { serverInfo } from '../state/actions';
 import type { ServerInfo } from '../storage/server';
 import { Button } from './ui';
+import { COMPILER_API_REPO } from './EnginePanel';
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-baseline gap-3 py-1 text-[13px]">
-      <dt className="w-28 shrink-0 text-muted">{label}</dt>
+      <dt className="w-32 shrink-0 text-muted">{label}</dt>
       <dd className="min-w-0 flex-1 text-fg">{children}</dd>
     </div>
   );
@@ -43,7 +44,6 @@ export function AboutSettings({ section }: { section: (title: string) => React.R
 
   return (
     <>
-      <div id="settings-about" />
       {section('About GitLaTeX')}
       <dl className="py-1">
         <Row label="Version">
@@ -56,7 +56,7 @@ export function AboutSettings({ section }: { section: (title: string) => React.R
         </Row>
         <Row label="GitHub">{link(info?.repository)}</Row>
         <Row label="PyPI">{link(info?.pypi, 'pypi.org/project/gitlatex')}</Row>
-        <Row label="Compiler API">{link('classic#/compiler-api', 'Build your own')}</Row>
+        <Row label="Compiler API">{link(COMPILER_API_REPO, 'github.com/abdussamiakanda/latex-fastapi')}</Row>
       </dl>
 
       {available && (

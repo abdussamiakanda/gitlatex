@@ -1,10 +1,9 @@
-import { Play, Square, ChevronDown, FolderOpen, Plus, FileArchive, FolderInput, Pencil, Copy, Trash2, Download, Moon, Sun, Search, RotateCcw, Zap, FileDown, FileText, Check, Columns2, PanelLeft, GitBranch, Home, ArrowUpFromLine } from 'lucide-react';
+import { Play, Square, ChevronDown, FolderOpen, Plus, FileArchive, FolderInput, Pencil, Copy, Trash2, Download, Moon, Sun, Search, RotateCcw, Zap, FileDown, FileText, Check, PanelLeft, GitBranch, Home } from 'lucide-react';
 import { useStore, openDialog, setState, updateSettings } from '../state/store';
 import {
-  cancelCompile, closeProject, compile, confirmDeleteProject, downloadActive, downloadPdf, downloadZip, duplicateProject, importFolderAsProject, importZipAsProject, newProjectDialog, openProject, promptClone, promptRenameProject, setEngine, setTheme,
+  cancelCompile, closeProject, compile, confirmDeleteProject, downloadActive, downloadPdf, downloadZip, duplicateProject, importFolderAsProject, importZipAsProject, newProjectDialog, openProject, promptClone, promptRenameProject, setTheme,
 } from '../state/actions';
 import { pickFiles } from '../storage/local-disk';
-import { ENGINE_LABELS, type TexEngine } from '../engine/protocol';
 import { modKey, timeAgo } from '../utils/misc';
 import { Button, IconButton, Kbd, useMenu, clsx, type MenuItem } from './ui';
 
@@ -28,12 +27,10 @@ export function TopBar({ compact, mobileView, onMobileView }: { compact: boolean
   const projects = useStore((s) => s.projects);
   const status = useStore((s) => s.compile.status);
   const settings = useStore((s) => s.settings);
-  const engineInfo = useStore((s) => s.engine.info);
   const sidebar = useStore((s) => s.sidebar);
   const projectMenu = useMenu();
   const compileMenu = useMenu();
   const downloadMenu = useMenu();
-  const engineMenu = useMenu();
   const running = status === 'running';
 
   const projectItems = (): (MenuItem | 'separator')[] => [
@@ -55,17 +52,6 @@ export function TopBar({ compact, mobileView, onMobileView }: { compact: boolean
     { label: 'Duplicate project', icon: <Copy className="size-3.5" />, onSelect: () => project && void duplicateProject(project.id) },
     { label: 'Delete project…', icon: <Trash2 className="size-3.5" />, danger: true, onSelect: () => project && confirmDeleteProject(project.id) },
   ];
-
-  const engineItems = (): MenuItem[] =>
-    (['pdftex', 'xetex', 'luatex'] as TexEngine[]).map((e) => {
-      const available = !engineInfo || engineInfo.engines.includes(e);
-      return {
-        label: `${ENGINE_LABELS[e]}${available ? '' : ' (not in this engine build)'}`,
-        icon: project?.engine === e ? <Check className="size-3.5 text-accent" /> : undefined,
-        disabled: !available,
-        onSelect: () => setEngine(e),
-      };
-    });
 
   return (
     <header className="flex h-11 shrink-0 items-center gap-2 border-b border-line bg-panel px-2">
@@ -106,16 +92,6 @@ export function TopBar({ compact, mobileView, onMobileView }: { compact: boolean
         </div>
       )}
 
-      <button
-        onClick={(e) => engineMenu.open(e, engineItems(), true)}
-        className="focus-ring hidden items-center gap-1 rounded-md border border-line px-2 py-1 text-[12px] text-muted hover:bg-hover hover:text-fg sm:flex"
-        title="TeX engine for this project"
-      >
-        <Columns2 className="size-3.5" />
-        {project ? ENGINE_LABELS[project.engine] : '…'}
-        <ChevronDown className="size-3" />
-      </button>
-
       <div className="flex items-stretch">
         {running ? (
           <Button variant="danger" className="rounded-r-none" icon={<Square className="size-3.5 fill-current" />} onClick={cancelCompile} title="Stop compiling">
@@ -148,11 +124,6 @@ export function TopBar({ compact, mobileView, onMobileView }: { compact: boolean
         </button>
       </div>
 
-      {project?.hasGit && (
-        <IconButton label="Source control: commit, push and pull" onClick={() => setState({ sidebar: 'git' })}>
-          <ArrowUpFromLine className="size-4" />
-        </IconButton>
-      )}
       <IconButton
         label="Download"
         onClick={(e) =>
@@ -181,7 +152,6 @@ export function TopBar({ compact, mobileView, onMobileView }: { compact: boolean
       {projectMenu.node}
       {compileMenu.node}
       {downloadMenu.node}
-      {engineMenu.node}
     </header>
   );
 }
