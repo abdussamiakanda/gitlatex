@@ -20,6 +20,7 @@ import { installSnippets } from './snippets';
 import { installReview } from './review';
 import { installConflictTools } from './conflicts';
 import { setVimMode, type VimHooks } from './vim';
+import { attachCollabEditor } from '../collab/session';
 import {
   applyMarkers, applyQuickFix, closeTab, compile, ensurePackage, forwardSearch, openFile, runSlashCommand, uploadFiles, workspace, downloadActive,
 } from '../state/actions';
@@ -157,6 +158,7 @@ export function EditorPane() {
     const spell = installSpellCheck(editor, s.spellCheck);
     const review = installReview(editor);
     const conflictTools = installConflictTools(editor, () => getState().scm?.sides);
+    const collab = attachCollabEditor(editor);
     installSnippets(
       editor,
       () => promptText('New snippet', 'Prefix (type it, then press Tab)', '', 'Save'),
@@ -323,6 +325,7 @@ export function EditorPane() {
       spell.dispose();
       review.dispose();
       conflictTools.dispose();
+      collab.dispose();
       void setVimMode(editor, null, false, vimHooks);
       contentSub.dispose();
       scrollSub.dispose();

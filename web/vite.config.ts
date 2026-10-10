@@ -15,7 +15,7 @@ const API_ROUTES = [
   '/api', '/repos', '/select-repo', '/create-workspace', '/delete-repo', '/clone',
   '/file-raw', '/compile', '/save-pdf', '/pdf', '/synctex',
   '/status', '/remote-status', '/working-files', '/working-file', '/commits', '/commit-files', '/commit-file',
-  '/compare-files', '/compare-file', '/push', '/pull', '/diff', '/engine', '/shelf', '/classic',
+  '/compare-files', '/compare-file', '/push', '/pull', '/diff', '/engine', '/shelf', '/classic', '/review',
 ];
 
 // monaco-vim imports Monaco's internals by their old `monaco-editor/esm/vs/...`

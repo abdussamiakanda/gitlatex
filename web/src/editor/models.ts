@@ -10,6 +10,17 @@ const models = new Map<string, monaco.editor.ITextModel>();
 let workspace: Workspace | null = null;
 let suppress = false;
 
+type ModelListener = (path: string, model: monaco.editor.ITextModel | null) => void;
+const listeners = new Set<ModelListener>();
+
+/** Hear about models being created (with the model) and disposed (with null). */
+export function watchModels(fn: ModelListener): () => void {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+}
+
+const notify = (path: string, model: monaco.editor.ITextModel | null) => listeners.forEach((l) => l(path, model));
+
 export const uriFor = (path: string) => monaco.Uri.from({ scheme: 'tbfile', path: '/' + path });
 export const pathOf = (model: monaco.editor.ITextModel) => model.uri.path.slice(1);
 
@@ -29,6 +40,7 @@ export function getModel(path: string): monaco.editor.ITextModel | null {
     if (!suppress) workspace?.setText(path, model.getValue());
   });
   models.set(path, model);
+  notify(path, model);
   return model;
 }
 
@@ -53,13 +65,14 @@ export function syncAllModels() {
 }
 
 export function disposeModel(path: string) {
+  if (!models.has(path)) return;
+  notify(path, null);
   models.get(path)?.dispose();
   models.delete(path);
 }
 
 export function disposeAll() {
-  for (const m of models.values()) m.dispose();
-  models.clear();
+  for (const p of [...models.keys()]) disposeModel(p);
 }
 
 export function openModels() {

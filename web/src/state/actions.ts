@@ -25,6 +25,10 @@ import type { CompilerMode, Diagnostic, ProjectMeta } from '../types';
 import { basename, dirname, isTextPath, joinPath, normalisePath, relativePath, stripExt } from '../utils/paths';
 import { KEEP } from './workspace';
 import { TEMPLATES } from '../templates';
+import { setCollabUser, startCollab, stopCollab } from '../collab/session';
+import { moveCollabConfig, readCollabColor, readCollabConfig, sameHost, splitHost, writeCollabAdmin, writeCollabColor, writeCollabConfig, type CollabAdmin, type CollabConfig, type CollabUser } from '../collab/config';
+import { deleteRoom, ensureRoom, rotateRoomToken } from '../collab/admin';
+import { baseKey, clearBase } from '../collab/base';
 
 // ---------------------------------------------------------------------------
 // Engine
@@ -110,6 +114,7 @@ export async function openProject(id: string) {
     await ws.flush();
     unsubscribe?.();
   }
+  stopCollab();
   engine.cancel();
   let next: Workspace;
   try {
@@ -152,6 +157,12 @@ export async function openProject(id: string) {
     /* ignore */
   }
   void refreshScm();
+  const collab = readCollabConfig(next.project.id);
+  if (collab.enabled && collab.host && collab.token) {
+    void collabUser().then((user) => {
+      if (ws === next) startCollab(next, collab, user);
+    });
+  }
   // Show the PDF from the last build straight away, as the classic UI did.
   void showExistingPdf(next);
   void warmUpEngine();
@@ -164,6 +175,7 @@ export async function closeProject() {
     await ws.flush();
     unsubscribe?.();
   }
+  stopCollab();
   engine.cancel();
   ws = null;
   unsubscribe = null;
@@ -197,6 +209,87 @@ async function showExistingPdf(current: Workspace) {
 function persistTabs() {
   const { openTabs, activePath } = getState();
   ws?.updateMeta({ openTabs, activePath });
+}
+
+// ---------------------------------------------------------------------------
+// Live collaboration (optional, per project)
+// ---------------------------------------------------------------------------
+
+/** Your git identity for the open project: collaborators see you by your git user.name. */
+export async function gitIdentity(): Promise<{ name: string; configured: boolean }> {
+  try {
+    const res = await fetch('/review/me');
+    const data = (await res.json()) as { user?: { name?: string; configured?: boolean } };
+    if (data.user?.configured && data.user.name) return { name: data.user.name, configured: true };
+  } catch {
+    /* fall through */
+  }
+  return { name: 'Anonymous', configured: false };
+}
+
+async function collabUser(): Promise<CollabUser> {
+  return { name: (await gitIdentity()).name, color: readCollabColor() };
+}
+
+/** Share the open project live in a room: save the settings and connect. */
+export async function joinCollab(config: Omit<CollabConfig, 'enabled'>) {
+  if (!ws) return;
+  const current = ws;
+  const full = { ...config, enabled: true };
+  writeCollabConfig(current.project.id, full);
+  await current.flush();
+  const user = await collabUser();
+  if (ws === current) startCollab(current, full, user);
+}
+
+/** Stop sharing the open project. Files stay as they are on disk. */
+export function leaveCollab(quiet = false) {
+  if (!ws) return;
+  writeCollabConfig(ws.project.id, { ...readCollabConfig(ws.project.id), enabled: false });
+  stopCollab();
+  if (!quiet) toast({ kind: 'info', title: 'Left the live session', message: 'Your files stay as they are on disk.' });
+}
+
+export function setCollabColor(color: string) {
+  writeCollabColor(color);
+  setState({ collabColor: color });
+  void collabUser().then(setCollabUser);
+}
+
+/** Sign in to (or, with null, out of) the relay as its owner. Global: used by every project. */
+export function setCollabAdmin(admin: CollabAdmin | null) {
+  writeCollabAdmin(admin);
+  setState({ collabAdmin: admin });
+}
+
+/** Is the open project shared in this room of this relay? */
+function sharesRoom(admin: CollabAdmin, room: string) {
+  if (!ws) return false;
+  const c = readCollabConfig(ws.project.id);
+  return c.enabled && c.room === room && sameHost(c.host, admin.host);
+}
+
+/** Owner: create (or reuse) the room on the relay and share the open project in it. */
+export async function hostCollab(admin: CollabAdmin, room: string) {
+  const rec = await ensureRoom(admin, room);
+  setCollabAdmin(admin);
+  await joinCollab({ host: admin.host, room: rec.room, token: rec.token });
+  return rec;
+}
+
+/** Owner: give a room a new token. Everyone in it is disconnected until they get the new invite. */
+export async function rotateCollabRoom(admin: CollabAdmin, room: string) {
+  const rec = await rotateRoomToken(admin, room);
+  if (sharesRoom(admin, room)) await joinCollab({ host: admin.host, room, token: rec.token });
+  return rec;
+}
+
+/** Owner: delete a room and its shared text on the relay. Everyone's files stay on their disks. */
+export async function deleteCollabRoom(admin: CollabAdmin, room: string) {
+  await deleteRoom(admin, room);
+  // The room's history is gone; a room made later under the same name starts fresh.
+  await clearBase(baseKey(splitHost(admin.host).host, room));
+  if (sharesRoom(admin, room)) leaveCollab(true);
 }
 
 // ---------------------------------------------------------------------------
@@ -417,9 +510,13 @@ export function promptRenameProject(id = ws?.project.id) {
     onSubmit: async (name) => {
       if (!name.trim() || name.trim() === id) return;
       const wasOpen = ws?.project.id === id;
-      if (wasOpen) await ws!.flush();
+      if (wasOpen) {
+        await ws!.flush();
+        stopCollab();
+      }
       const renamed = await server.renameProject(id, name.trim());
       Workspace.renamed(id, renamed.name);
+      moveCollabConfig(id, renamed.name);
       await refreshProjects();
       if (wasOpen) await openProject(renamed.name);
     },
@@ -459,6 +556,7 @@ export function confirmDeleteProject(id: string) {
         if (ws?.project.id === id) await closeProject();
         await server.deleteProject(id);
         Workspace.forget(id);
+        moveCollabConfig(id, null);
         await refreshProjects();
         toast({ kind: 'success', title: `Deleted ${id}` });
       } catch (err) {

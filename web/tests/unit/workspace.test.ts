@@ -74,6 +74,81 @@ describe('Workspace', () => {
   });
   afterEach(() => vi.unstubAllGlobals());
 
+  /** Make the next /api/project/open read the folder now but answer only when released. */
+  const holdOpen = () => {
+    let release!: () => void;
+    const held = new Promise<void>((r) => (release = r));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        const res = await server.handler(url, init);
+        if (url === '/api/project/open') await held;
+        return res;
+      }),
+    );
+    return release;
+  };
+
+  it('refresh() keeps what was typed, created or deleted while it read the disk', async () => {
+    const id = await Workspace.create('p', 'blank', [
+      { path: 'main.tex', text: 'a\nb\nc\nd\ne\n' },
+      { path: 'gone.tex', text: 'g' },
+    ]);
+    const ws = await Workspace.open(id);
+    // A pull changes the folder: line e, and a new file.
+    server.files.set('main.tex', 'a\nb\nc\nd\nE (pulled)\n');
+    server.files.set('pulled.tex', 'p');
+
+    const release = holdOpen();
+    const refreshing = ws.refresh();
+    await Promise.resolve();
+    // Meanwhile the user types, adds a file and deletes one.
+    ws.setText('main.tex', 'A (typed)\nb\nc\nd\ne\n');
+    ws.writeFile('new.tex', 'n');
+    ws.delete('gone.tex');
+    release();
+    await refreshing;
+
+    expect(ws.getText('main.tex')).toBe('A (typed)\nb\nc\nd\nE (pulled)\n');
+    expect(ws.getText('new.tex')).toBe('n');
+    expect(ws.get('gone.tex')).toBeUndefined();
+    expect(ws.getText('pulled.tex')).toBe('p');
+    await ws.flush();
+    expect(errors).toEqual([]);
+    expect(server.files.get('main.tex')).toBe('A (typed)\nb\nc\nd\nE (pulled)\n');
+    expect(server.files.get('new.tex')).toBe('n');
+    expect(server.files.has('gone.tex')).toBe(false);
+  });
+
+  it('refresh() lets your typing win where the disk changed the same line meanwhile', async () => {
+    const id = await Workspace.create('q', 'blank', [{ path: 'main.tex', text: 'a\nb\nc\n' }]);
+    const ws = await Workspace.open(id);
+    server.files.set('main.tex', 'a\nB (disk)\nc\n');
+    const release = holdOpen();
+    const refreshing = ws.refresh();
+    await Promise.resolve();
+    ws.setText('main.tex', 'a\nB (typed)\nc\n');
+    release();
+    await refreshing;
+    expect(ws.getText('main.tex')).toBe('a\nB (typed)\nc\n');
+    await ws.flush();
+    expect(server.files.get('main.tex')).toBe('a\nB (typed)\nc\n');
+  });
+
+  it('refresh() takes the disk for files nobody touched meanwhile', async () => {
+    const id = await Workspace.create('r', 'blank', [
+      { path: 'main.tex', text: 'a\n' },
+      { path: 'old.tex', text: 'o' },
+    ]);
+    const ws = await Workspace.open(id);
+    server.files.set('main.tex', 'a (pulled)\n');
+    server.files.delete('old.tex');
+    expect((await ws.refresh()).sort()).toEqual(['main.tex', 'old.tex']);
+    expect(ws.getText('main.tex')).toBe('a (pulled)\n');
+    expect(ws.get('old.tex')).toBeUndefined();
+    expect(ws.hasPendingWrites).toBe(false);
+  });
+
   it('creates, edits, renames and deletes, and the folder on disk follows', async () => {
     const id = await Workspace.create('Test paper', 'blank', [
       { path: 'main.tex', text: '\\documentclass{article}\\begin{document}Hi\\end{document}' },

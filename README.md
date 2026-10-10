@@ -81,6 +81,9 @@ automatically as you type.
   [More](https://github.com/abdussamiakanda/gitlatex/blob/master/docs/git.md)
 - **Review comments** — Overleaf-style comment threads, shared with coauthors
   through Git. [More](https://github.com/abdussamiakanda/gitlatex/blob/master/docs/review-comments.md)
+- **Live collaboration (optional)** — edit together in real time with shared
+  cursors, while everyone keeps their own folder and Git.
+  [More](https://github.com/abdussamiakanda/gitlatex/blob/master/docs/live-collaboration.md)
 - **Vim mode** with VimTeX-style keys. [More](https://github.com/abdussamiakanda/gitlatex/blob/master/docs/vim-mode.md)
 
 All the docs are in [`docs/`](https://github.com/abdussamiakanda/gitlatex/tree/master/docs).

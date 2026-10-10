@@ -221,6 +221,30 @@ label:has(> input[type='checkbox']) {
   background: rgb(var(--c-accent-rgb) / 0.18);
 }
 
+/* Live collaboration: other people's carets and selections (colours come from collab/session.ts) */
+.collab-caret {
+  position: relative;
+  border-left: 2px solid transparent;
+  margin-left: -1px;
+  margin-right: -1px;
+}
+.collab-caret::after {
+  position: absolute;
+  bottom: 100%;
+  left: -2px;
+  z-index: 10;
+  padding: 0 4px;
+  border-radius: 3px 3px 3px 0;
+  color: #fff;
+  font-family: var(--font-sans, system-ui, sans-serif);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 15px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0.9;
+}
+
 /* KaTeX hover preview inherits text colour */
 .katex-preview .katex {
   font-size: 1.15em;

@@ -20,10 +20,14 @@
     "e2e": "node tests/e2e/run-e2e.mjs",
     "e2e:gitlatex": "node tests/e2e/gitlatex.mjs",
     "e2e:features": "node tests/e2e/editor-features.mjs",
-    "e2e:synctex": "node tests/e2e/synctex.mjs"
+    "e2e:synctex": "node tests/e2e/synctex.mjs",
+    "e2e:collab": "node tests/e2e/collab.mjs",
+    "e2e:scm": "node tests/e2e/source-control.mjs",
+    "e2e:scm-actions": "node tests/e2e/scm-actions.mjs"
   },
   "dependencies": {
     "clsx": "^2.1.1",
+    "fast-diff": "^1.3.0",
     "fflate": "^0.8.3",
     "idb": "^8.0.3",
     "katex": "^0.18.9",
@@ -31,9 +35,13 @@
     "material-symbols": "^0.47.5",
     "monaco-editor": "^0.57.0",
     "monaco-vim": "^0.4.4",
+    "node-diff3": "^3.2.1",
     "pdfjs-dist": "^6.3.289",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
+    "y-partyserver": "^2.2.0",
+    "y-protocols": "^1.0.7",
+    "yjs": "^13.6.33",
     "zustand": "^5.0.15"
   },
   "devDependencies": {

@@ -2,7 +2,7 @@
  * All modal dialogs, rendered from the store's `dialog` field.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Settings, FolderPlus, Search, Keyboard, GitCompare, FileArchive, FolderInput, Play, RotateCcw, FilePlus2, FolderPlus as FolderPlusIcon, Upload, Download, Moon, Crosshair, Zap, Files, ListTree, History, Cpu, FileText, Sparkles, GitBranch, GitCommitHorizontal, ArrowDownToLine, ArrowUpFromLine, RefreshCw, CloudUpload, Home } from 'lucide-react';
+import { Settings, FolderPlus, Search, Keyboard, GitCompare, FileArchive, FolderInput, Play, RotateCcw, FilePlus2, FolderPlus as FolderPlusIcon, Upload, Download, Moon, Crosshair, Zap, Files, ListTree, History, Cpu, FileText, Sparkles, GitBranch, GitCommitHorizontal, ArrowDownToLine, ArrowUpFromLine, RefreshCw, CloudUpload, Home, Users } from 'lucide-react';
 import { useStore, closeDialog, openDialog, setState, updateSettings, toast, type Dialog } from '../state/store';
 import { MaterialIcon } from './MaterialIcon';
 import {
@@ -239,6 +239,7 @@ function CommandPalette() {
       cmd('commit', 'Git: Commit…', <GitCommitHorizontal className="size-4" />, () => setState({ sidebar: 'git' })),
       cmd('branch', 'Git: Create branch…', <GitBranch className="size-4" />, promptCreateBranch),
       cmd('publish', 'Git: Publish repository…', <CloudUpload className="size-4" />, openPublishDialog),
+      cmd('collab', 'Live collaboration…', <Users className="size-4" />, () => setState({ sidebar: 'collab' })),
       cmd('clone', 'Clone a Git repository…', <GitBranch className="size-4" />, promptClone),
       cmd('home', 'All projects', <Home className="size-4" />, () => void closeProject()),
       cmd('auto', 'Toggle auto-compile', <Zap className="size-4" />, () => updateSettings({ autoCompile: !useStore.getState().settings.autoCompile })),

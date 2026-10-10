@@ -6,6 +6,7 @@ import {
 import { pickFiles } from '../storage/local-disk';
 import { modKey, timeAgo } from '../utils/misc';
 import { Button, IconButton, Kbd, useMenu, clsx, type MenuItem } from './ui';
+import type { CollabState } from '../collab/session';
 
 /** The square GitLaTeX mark (public/logo-sq.png, also the favicon). */
 export function Logo({ className }: { className?: string }) {
@@ -28,6 +29,7 @@ export function TopBar({ compact, mobileView, onMobileView }: { compact: boolean
   const status = useStore((s) => s.compile.status);
   const settings = useStore((s) => s.settings);
   const sidebar = useStore((s) => s.sidebar);
+  const collab = useStore((s) => s.collab);
   const projectMenu = useMenu();
   const compileMenu = useMenu();
   const downloadMenu = useMenu();
@@ -124,6 +126,7 @@ export function TopBar({ compact, mobileView, onMobileView }: { compact: boolean
         </button>
       </div>
 
+      <OnlinePeers collab={collab} />
       <IconButton
         label="Download"
         onClick={(e) =>
@@ -153,5 +156,29 @@ export function TopBar({ compact, mobileView, onMobileView }: { compact: boolean
       {compileMenu.node}
       {downloadMenu.node}
     </header>
+  );
+}
+
+/** Live collaboration: the people editing this project with you right now (nothing when nobody is). */
+function OnlinePeers({ collab }: { collab: CollabState | null }) {
+  if (!collab?.peers.length) return null;
+  const shown = collab.peers.slice(0, 4);
+  const more = collab.peers.length - shown.length;
+  return (
+    <button
+      onClick={() => setState({ sidebar: 'collab' })}
+      title={`Editing with you: ${collab.peers.map((p) => p.name).join(', ')}`}
+      aria-label={`Live collaboration: ${collab.peers.length} online`}
+      className="focus-ring flex h-8 items-center rounded-md px-1.5 hover:bg-hover"
+    >
+      <span className="flex -space-x-1.5">
+        {shown.map((p) => (
+          <span key={p.id} className="flex size-6 items-center justify-center rounded-full text-[10.5px] font-semibold text-white ring-2 ring-panel" style={{ background: p.color }}>
+            {p.name.slice(0, 1).toUpperCase()}
+          </span>
+        ))}
+        {more > 0 && <span className="flex size-6 items-center justify-center rounded-full bg-line text-[10px] font-semibold text-muted ring-2 ring-panel">+{more}</span>}
+      </span>
+    </button>
   );
 }

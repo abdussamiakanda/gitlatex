@@ -78,6 +78,12 @@ serves `index.html` for unknown paths.
 | `engine/` | The WebAssembly TeX engine: worker, latexmk-style compile loop, package shelf |
 | `editor/`, `pdf/`, `latex/` | Monaco setup and LaTeX language features, the pdf.js viewer, log parsing and SyncTeX |
 | `components/` | Panels, dialogs, the projects home, Git panels |
+| `collab/` | Optional live collaboration: Yjs document per project, Monaco binding, remote cursors |
+
+**Collaboration relay** — a Cloudflare Worker with one Durable Object per room,
+kept in its own repository,
+[gitlatex-collab](https://github.com/abdussamiakanda/gitlatex-collab), so the
+pip package doesn't ship it.
 
 **Classic front end** (`gitlatex/public/`, served at `/classic`)
 

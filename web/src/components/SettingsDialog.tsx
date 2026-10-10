@@ -3,15 +3,16 @@
  * settings on the right.
  */
 import { useEffect, useState } from 'react';
-import { Settings, Palette, SquarePen, SpellCheck, Braces, Cpu, FileText, SlidersHorizontal, Info, ExternalLink, Sun, Moon, Monitor, Wand2, Globe } from 'lucide-react';
+import { Settings, Palette, SquarePen, SpellCheck, Braces, Cpu, FileText, SlidersHorizontal, Info, ExternalLink, Sun, Moon, Monitor, Wand2, Globe, Users, KeyRound } from 'lucide-react';
 import { useStore, closeDialog, updateSettings, getCompilerApi, setCompilerApi } from '../state/store';
-import { reconfigureEngine, serverInfo, setCompiler, setTheme } from '../state/actions';
+import { gitIdentity, reconfigureEngine, serverInfo, setCollabAdmin, setCompiler, setTheme } from '../state/actions';
+import { AdminLogin, ColorPicker, RoomList } from './CollabPanel';
 import { VimSettings, SpellSettings, SnippetManager } from './EditorSettings';
 import { AboutSettings } from './AboutSettings';
 import { COMPILER_API_REPO } from './EnginePanel';
-import { Modal, TextInput, Toggle, clsx } from './ui';
+import { Button, Modal, TextInput, Toggle, clsx } from './ui';
 
-type Page = 'appearance' | 'editor' | 'spelling' | 'snippets' | 'compiler' | 'pdf' | 'advanced' | 'about';
+type Page = 'appearance' | 'editor' | 'spelling' | 'snippets' | 'compiler' | 'pdf' | 'collab' | 'advanced' | 'about';
 
 const PAGES: { id: Page; label: string; icon: React.ReactNode; description: string }[] = [
   { id: 'appearance', label: 'Appearance', icon: <Palette className="size-4" />, description: 'Theme, text size and what the editor shows.' },
@@ -20,6 +21,7 @@ const PAGES: { id: Page; label: string; icon: React.ReactNode; description: stri
   { id: 'snippets', label: 'Snippets', icon: <Braces className="size-4" />, description: 'Reusable blocks of LaTeX inserted from a short prefix.' },
   { id: 'compiler', label: 'Compiler', icon: <Cpu className="size-4" />, description: 'Where documents are built, and how.' },
   { id: 'pdf', label: 'PDF viewer', icon: <FileText className="size-4" />, description: 'How the compiled PDF is shown.' },
+  { id: 'collab', label: 'Collaboration', icon: <Users className="size-4" />, description: 'Your live collaboration relay and how others see you. Used by every project.' },
   { id: 'advanced', label: 'Advanced', icon: <SlidersHorizontal className="size-4" />, description: 'The classic editor and engine download locations.' },
   { id: 'about', label: 'About', icon: <Info className="size-4" />, description: 'Version, updates and support.' },
 ];
@@ -89,6 +91,7 @@ export function SettingsDialog({ section }: { section?: 'about' }) {
           {page === 'snippets' && <SnippetManager />}
           {page === 'compiler' && <CompilerPage />}
           {page === 'pdf' && <PdfPage />}
+          {page === 'collab' && <CollabPage />}
           {page === 'advanced' && <AdvancedPage />}
           {page === 'about' && (
             <AboutSettings section={(title) => <h4 className="mb-2 mt-6 text-[11px] font-semibold uppercase tracking-wider text-muted first:mt-0">{title}</h4>} />
@@ -254,6 +257,68 @@ function PdfPage() {
       <Switch label="Dark pages" description="Invert PDF colours in the preview (not in the file)" checked={s.pdfDarkMode} onChange={(v) => updateSettings({ pdfDarkMode: v })} />
       <Switch label="Use the browser's native PDF viewer" description="Loses SyncTeX double-click navigation" checked={s.pdfNative} onChange={(v) => updateSettings({ pdfNative: v })} />
     </Group>
+  );
+}
+
+function CollabPage() {
+  const admin = useStore((st) => st.collabAdmin);
+  const project = useStore((st) => st.project);
+  const [me, setMe] = useState<{ name: string; configured: boolean } | null>(null);
+  useEffect(() => {
+    if (project) void gitIdentity().then(setMe);
+  }, [project]);
+  return (
+    <>
+      <Group title="Relay owner">
+        {admin ? (
+          <div className={clsx(ROW, 'flex items-center gap-3')}>
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-ok/15 text-ok">
+              <KeyRound className="size-4" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="text-[13px] text-fg">Signed in as the relay’s owner</div>
+              <div className="mt-0.5 truncate font-mono text-[12px] text-muted" title={admin.host}>
+                {admin.host.replace(/^https?:\/\//, '').replace(/\/+$/, '')}
+              </div>
+              <div className="mt-1 text-xs text-faint">Host projects from the Live collaboration tab.</div>
+            </div>
+            <Button size="sm" className="shrink-0" onClick={() => setCollabAdmin(null)}>
+              Sign out
+            </Button>
+          </div>
+        ) : (
+          <div className={ROW}>
+            <p className="mb-3 flex items-start gap-2 text-xs text-muted">
+              <KeyRound className="mt-0.5 size-3.5 shrink-0 text-accent" />
+              Only the relay’s owner signs in here, with the admin token chosen when deploying it. Co-authors don’t need this: they join from the Live collaboration tab with an invite.
+            </p>
+            <AdminLogin />
+          </div>
+        )}
+      </Group>
+      {admin && (
+        <section className="mt-6">
+          <RoomList admin={admin} />
+        </section>
+      )}
+      <Group title="You">
+        <Field
+          label="Name"
+          description={
+            me && !me.configured ? (
+              <>No git user.name is set, so others see you as “Anonymous”. Set it with <code>git config --global user.name "Your Name"</code>.</>
+            ) : (
+              'Your git user.name, the same name your commits and review comments use.'
+            )
+          }
+        >
+          {me?.configured && <span className="text-[13px] font-medium text-fg">{me.name}</span>}
+        </Field>
+        <Field label="Cursor colour" description="How your cursor and selection look to others.">
+          <ColorPicker heading={false} />
+        </Field>
+      </Group>
+    </>
   );
 }
 

@@ -16,6 +16,7 @@ import type { CompileFile, TexEngine } from '../engine/protocol';
 import { basename, dirname, isTextPath, normalisePath, stripExt } from '../utils/paths';
 import { base64ToBytes, debounce } from '../utils/misc';
 import { templateFiles, TEMPLATES } from '../templates';
+import { mergeText } from '../collab/merge';
 
 export interface MemFile {
   path: string;
@@ -71,7 +72,7 @@ function forgetLocalMeta(name: string) {
 }
 
 /** Files TeX writes next to the main document; never fed back into a compile. */
-const BUILD_OUTPUT = /\.(aux|log|out|toc|lof|lot|fls|fdb_latexmk|bcf|run\.xml|blg|nav|snm|vrb|xdv|synctex\.gz)$/i;
+export const BUILD_OUTPUT = /\.(aux|log|out|toc|lof|lot|fls|fdb_latexmk|bcf|run\.xml|blg|nav|snm|vrb|xdv|synctex\.gz)$/i;
 
 export class Workspace {
   /** Reports background write failures (set by the controller). */
@@ -82,6 +83,9 @@ export class Workspace {
   private listeners = new Set<(kind: ChangeKind, path?: string) => void>();
   private queue: Promise<void> = Promise.resolve();
   private pendingOps = 0;
+  /** Local changes are numbered, so refresh() can tell which happened while it read the disk. */
+  private seq = 0;
+  private changedAt = new Map<string, number>();
 
   private constructor(public project: ProjectMeta) {}
 
@@ -192,7 +196,12 @@ export class Workspace {
       });
   }
 
+  private markChanged(path: string) {
+    this.changedAt.set(path, ++this.seq);
+  }
+
   private touch(path: string) {
+    this.markChanged(path);
     this.dirty.add(path);
     this.project.updatedAt = Date.now();
     this.scheduleSave();
@@ -338,6 +347,7 @@ export class Workspace {
     for (const p of removed) {
       this.files.delete(p);
       this.dirty.delete(p);
+      this.markChanged(p);
     }
     this.enqueue(() => server.deletePath(path));
     // The parent folder still exists on disk; keep showing it.
@@ -366,6 +376,8 @@ export class Workspace {
     this.enqueue(() => server.movePath(from, target));
     for (const [a, b] of moves) {
       const f = this.files.get(a)!;
+      this.markChanged(a);
+      this.markChanged(b);
       this.files.delete(a);
       this.files.set(b, { ...f, path: b, updatedAt: Date.now() });
     }
@@ -384,11 +396,18 @@ export class Workspace {
   /**
    * Re-read the folder after something other than the editor changed it (a
    * pull, a discard, a branch switch). Only what differs is updated, and
-   * nothing is written back. Call flush() first so no edit is lost. Returns
-   * the paths whose content changed or that appeared or disappeared.
+   * nothing is written back. Call flush() first. Files changed in the editor
+   * while the folder was being read are not overwritten: an edited text is
+   * merged with the new disk version (your typing wins where both changed the
+   * same lines) and saved, and files created or deleted meanwhile stay so.
+   * Returns the paths whose content changed or that appeared or disappeared.
    */
   async refresh(): Promise<string[]> {
+    const since = this.seq;
+    const before = new Map<string, string>();
+    for (const f of this.files.values()) if (f.kind === 'text' && f.text !== undefined) before.set(f.path, f.text);
     const opened = await server.openProject(this.project.id);
+    const changedSince = (p: string) => (this.changedAt.get(p) ?? 0) > since;
     const now = Date.now();
     const next = new Map<string, MemFile>();
     for (const f of opened.files) {
@@ -402,7 +421,7 @@ export class Workspace {
     const changed: string[] = [];
     let treeChanged = false;
     for (const p of [...this.files.keys()]) {
-      if (!next.has(p)) {
+      if (!next.has(p) && !changedSince(p)) {
         this.files.delete(p);
         this.dirty.delete(p);
         treeChanged = true;
@@ -411,6 +430,21 @@ export class Workspace {
     }
     for (const [p, f] of next) {
       const old = this.files.get(p);
+      if (changedSince(p)) {
+        // Deleted here meanwhile: stays deleted. Edited here meanwhile: merge with the disk.
+        if (old?.kind === 'text' && f.kind === 'text' && old.text !== f.text) {
+          const merged = mergeText(before.get(p) ?? '', f.text ?? '', old.text ?? '').text;
+          if (merged !== old.text) {
+            this.files.set(p, { ...old, text: merged, updatedAt: now });
+            changed.push(p);
+          }
+          if (merged !== f.text) {
+            this.dirty.add(p);
+            this.scheduleSave();
+          }
+        }
+        continue;
+      }
       if (!old) treeChanged = true;
       else if (old.kind === f.kind && old.text === f.text && sameBytes(old.data, f.data) && !!old.omitted === !!f.omitted) continue;
       this.files.set(p, f);
