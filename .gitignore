@@ -23,3 +23,6 @@ gitlatex/_version.py
 
 # Editor UI built from web/ (npm run build)
 gitlatex/ui/
+
+# macOS Finder metadata
+.DS_Store
