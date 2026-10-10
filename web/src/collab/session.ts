@@ -21,7 +21,9 @@ import { disposeModel, openModels, watchModels } from '../editor/models';
 import { BUILD_OUTPUT, KEEP, type Workspace } from '../state/workspace';
 import { setState, toast } from '../state/store';
 import { basename } from '../utils/paths';
-import { LOCAL, TextBinding, replaceText, type PeerState } from './binding';
+import { LOCAL, TextBinding, replaceText } from './binding';
+import { BROWSER_ID, livePeers, type PeerState } from './peers';
+import { removeAwarenessStates } from 'y-protocols/awareness';
 import { baseKey, loadBase, saveBase, type Base } from './base';
 import { applyText, mergeText } from './merge';
 import { splitHost, type CollabConfig, type CollabUser } from './config';
@@ -86,7 +88,25 @@ class Session {
       protocol: secure ? 'wss' : 'ws',
     });
     const awareness = this.provider.awareness;
-    awareness.setLocalStateField('user', me);
+    awareness.setLocalStateField('user', { ...me, sid: BROWSER_ID });
+
+    // Say goodbye when the page goes away (reload, close, navigate). The provider only
+    // listens for "unload", which browsers often skip; without this the old presence
+    // lingers on the relay and you show up twice after a reload.
+    const onPageHide = () => removeAwarenessStates(awareness, [this.doc.clientID], 'page hidden');
+    const onPageShow = (e: PageTransitionEvent) => {
+      // Back from the back/forward cache: be present again.
+      if (e.persisted) {
+        awareness.setLocalStateField('user', { ...this.state.me, sid: BROWSER_ID });
+        publishCursor();
+      }
+    };
+    window.addEventListener('pagehide', onPageHide);
+    window.addEventListener('pageshow', onPageShow);
+    this.cleanup.push(() => {
+      window.removeEventListener('pagehide', onPageHide);
+      window.removeEventListener('pageshow', onPageShow);
+    });
 
     const onStatus = ({ status }: { status: 'connected' | 'disconnected' | 'connecting' }) => {
       if (status === 'connected') {
@@ -388,9 +408,7 @@ class Session {
   private onAwareness = () => {
     const peers: CollabPeer[] = [];
     const css: string[] = [];
-    this.provider.awareness.getStates().forEach((raw, id) => {
-      if (id === this.doc.clientID) return;
-      const s = raw as PeerState;
+    livePeers(this.provider.awareness, this.doc.clientID).forEach((s, id) => {
       if (!s.user) return;
       const color = SAFE_COLOR.test(s.user.color) ? s.user.color : '#4f8cff';
       const name = cleanName(s.user.name) || 'Collaborator';
@@ -407,7 +425,7 @@ class Session {
 
   setUser(user: CollabUser) {
     const me = { name: cleanName(user.name) || 'Anonymous', color: SAFE_COLOR.test(user.color) ? user.color : '#4f8cff' };
-    this.provider.awareness.setLocalStateField('user', me);
+    this.provider.awareness.setLocalStateField('user', { ...me, sid: BROWSER_ID });
     this.patch({ me });
   }
 
@@ -451,6 +469,24 @@ export function startCollab(ws: Workspace, config: CollabConfig, user: CollabUse
   stopCollab();
   current = new Session(ws, config, user);
   current.publish();
+}
+
+/**
+ * Where another person in the room is: their file, and the line and column of
+ * their cursor in it (null when they have no file open). Works whether or not
+ * that file is open here, since it is read from the shared text.
+ */
+export function locatePeer(id: number): { path: string; line?: number; column?: number } | null {
+  if (!current) return null;
+  const state = current.provider.awareness.getStates().get(id) as PeerState | undefined;
+  const cursor = state?.cursor;
+  if (!cursor?.path) return null;
+  const ytext = current.files.get(cursor.path);
+  const abs = ytext ? Y.createAbsolutePositionFromRelativePosition(Y.createRelativePositionFromJSON(cursor.head), current.doc) : null;
+  if (!ytext || !abs || abs.type !== ytext) return { path: cursor.path };
+  const before = ytext.toString().slice(0, abs.index);
+  const line = before.split('\n').length;
+  return { path: cursor.path, line, column: abs.index - before.lastIndexOf('\n') };
 }
 
 /** Change how you appear (name or colour) without reconnecting. */

@@ -93,8 +93,10 @@ everyone's files stay on disk).
    invite, and click **Join**.
 
 From then on the project reconnects automatically whenever it's opened. While
-others are online, their avatars show in the top bar; the **Live
-collaboration** panel shows who is editing which file, the invite (to bring in
+others are online, their avatars show in the top bar: **click one to jump to
+where that person is typing** (their file opens at their cursor). The **Live
+collaboration** panel shows who is editing which file (click a name to jump
+there too), the invite (to bring in
 someone else), your cursor colour, and **Stop sharing this project**. You can
 also change your cursor colour under **Settings → Collaboration**.
 
@@ -309,6 +311,7 @@ The relay is a separate repository, so the GitLaTeX package doesn't ship it.
 | `admin.ts` | The owner's calls to the relay: list, create, re-token and delete rooms. |
 | `session.ts` | One live session for the open project. On joining, it merges the file sets and takes the room's text. After that it mirrors local changes into the room and the room's changes into the Workspace, and so onto disk. It also tracks who is online. |
 | `binding.ts` | Two-way binding between a Monaco model and a `Y.Text`. Remote edits are applied as one batch so your cursor stays put. It also draws other people's cursors and selections. |
+| `peers.ts` | Who is in the room. Each browser has a stable id in its presence, so a page that was reloaded (whose old connection may linger on the relay for a while) never shows up as a second copy of someone, or as someone else to yourself. |
 | `merge.ts` | The rejoin merge: a line-based three-way merge (`node-diff3`) where the room wins overlapping changes, and `applyText`, which writes a new text into a `Y.Text` as the smallest edits (`fast-diff`) so concurrent edits elsewhere survive. |
 | `base.ts` | Each room's text as of the last time this browser was in sync with it, in IndexedDB. Updated while connected and in sync, and when you stop sharing; cleared when the owner deletes the room. |
 
@@ -353,6 +356,7 @@ Small hooks into existing code:
   - typing reaches the other editor;
   - simultaneous typing converges to the same text on both disks;
   - cursors are visible;
+  - clicking a collaborator's avatar opens their file at their cursor;
   - file creation and deletion travel;
   - another project opens unshared;
   - the shared project reconnects when reopened;

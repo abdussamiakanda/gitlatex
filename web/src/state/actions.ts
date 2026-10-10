@@ -25,7 +25,7 @@ import type { CompilerMode, Diagnostic, ProjectMeta } from '../types';
 import { basename, dirname, isTextPath, joinPath, normalisePath, relativePath, stripExt } from '../utils/paths';
 import { KEEP } from './workspace';
 import { TEMPLATES } from '../templates';
-import { setCollabUser, startCollab, stopCollab } from '../collab/session';
+import { locatePeer, setCollabUser, startCollab, stopCollab } from '../collab/session';
 import { moveCollabConfig, readCollabColor, readCollabConfig, sameHost, splitHost, writeCollabAdmin, writeCollabColor, writeCollabConfig, type CollabAdmin, type CollabConfig, type CollabUser } from '../collab/config';
 import { deleteRoom, ensureRoom, rotateRoomToken } from '../collab/admin';
 import { baseKey, clearBase } from '../collab/base';
@@ -248,6 +248,17 @@ export function leaveCollab(quiet = false) {
   writeCollabConfig(ws.project.id, { ...readCollabConfig(ws.project.id), enabled: false });
   stopCollab();
   if (!quiet) toast({ kind: 'info', title: 'Left the live session', message: 'Your files stay as they are on disk.' });
+}
+
+/** Jump the editor to where another person in the room is typing. */
+export function goToPeer(id: number) {
+  const peer = getState().collab?.peers.find((p) => p.id === id);
+  const at = locatePeer(id);
+  if (!at || !ws?.get(at.path)) {
+    toast({ kind: 'info', title: `${peer?.name ?? 'They'} ${at ? 'are in a file that is not in your copy' : 'have no file open right now'}` });
+    return;
+  }
+  openFile(at.path, at.line ?? 1, at.column);
 }
 
 export function setCollabColor(color: string) {

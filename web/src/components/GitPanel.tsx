@@ -90,9 +90,10 @@ function ScmRow({ file, section, busy, sides }: { file: server.ScmFile; section:
       .catch((err: unknown) => toast({ kind: 'error', title: 'Could not load the diff', message: String(err) }));
   };
 
-  const act = (label: string, icon: React.ReactNode, run: () => void) => (
+  const act = (label: string, icon: React.ReactNode, run: () => void, danger = false) => (
     <IconButton
       size="sm"
+      danger={danger}
       label={label}
       disabled={busy}
       onClick={(e) => {
@@ -125,7 +126,7 @@ function ScmRow({ file, section, busy, sides }: { file: server.ScmFile; section:
             {act('Mark resolved (stage)', <Check className="size-3.5" />, () => void scmMarkResolved(file.path))}
           </>
         )}
-        {section === 'changes' && act('Discard changes', <Undo2 className="size-3.5" />, () => scmDiscard([file]))}
+        {section === 'changes' && act('Discard changes', <Undo2 className="size-3.5" />, () => scmDiscard([file]), true)}
         {section === 'changes' && act('Stage changes', <Plus className="size-3.5" />, () => void scmStage([file.path]))}
         {section === 'staged' && act('Unstage changes', <Minus className="size-3.5" />, () => void scmUnstage([file.path]))}
       </span>
@@ -391,7 +392,7 @@ export function GitPanel() {
           busy={!!busy}
           actions={
             <>
-              <IconButton size="sm" label="Discard all changes" onClick={() => scmDiscard(st.changes)}>
+              <IconButton size="sm" danger label="Discard all changes" onClick={() => scmDiscard(st.changes)}>
                 <Undo2 className="size-3.5" />
               </IconButton>
               <IconButton size="sm" label="Stage all changes" onClick={() => void scmStage()}>

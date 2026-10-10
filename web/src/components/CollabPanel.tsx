@@ -9,9 +9,9 @@
  * Everyone appears under their git user.name.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { Cloud, Copy, ExternalLink, KeyRound, LogIn, Radio, RefreshCw, Trash2, Unplug, UserRound } from 'lucide-react';
+import { Cloud, Copy, ExternalLink, KeyRound, LocateFixed, LogIn, Radio, RefreshCw, Trash2, Unplug, UserRound } from 'lucide-react';
 import { openDialog, toast, useStore } from '../state/store';
-import { deleteCollabRoom, gitIdentity, hostCollab, joinCollab, leaveCollab, openFile, rotateCollabRoom, setCollabAdmin, setCollabColor } from '../state/actions';
+import { deleteCollabRoom, gitIdentity, goToPeer, hostCollab, joinCollab, leaveCollab, rotateCollabRoom, setCollabAdmin, setCollabColor } from '../state/actions';
 import { listRooms, type RoomRecord } from '../collab/admin';
 import {
   CLOUDFLARE_CREATE_URL, PEER_COLORS, RELAY_DEPLOY_URL, RELAY_REPO, decodeInvite, encodeInvite, newAdminToken, readCollabConfig, roomName, sameHost, type CollabAdmin,
@@ -83,16 +83,19 @@ function LiveView({ collab }: { collab: CollabState }) {
             <span className="text-[11px] text-faint">you</span>
           </li>
           {collab.peers.map((p) => (
-            <li key={p.id} className="flex items-center gap-2">
-              <Avatar name={p.name} color={p.color} />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-fg">{p.name}</span>
-                {p.path && (
-                  <button className="block max-w-full truncate text-left text-[11px] text-faint hover:text-accent hover:underline" title={`Open ${p.path}`} onClick={() => openFile(p.path!)}>
-                    {p.path}
-                  </button>
-                )}
-              </span>
+            <li key={p.id}>
+              <button
+                onClick={() => goToPeer(p.id)}
+                title={p.path ? `Go to where ${p.name} is editing` : `${p.name} has no file open`}
+                className="focus-ring -mx-1 flex w-[calc(100%+0.5rem)] items-center gap-2 rounded-md px-1 py-0.5 text-left hover:bg-hover"
+              >
+                <Avatar name={p.name} color={p.color} />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-fg">{p.name}</span>
+                  <span className="block truncate text-[11px] text-faint">{p.path ?? 'no file open'}</span>
+                </span>
+                {p.path && <LocateFixed className="size-3.5 shrink-0 text-faint" />}
+              </button>
             </li>
           ))}
         </ul>
@@ -118,7 +121,7 @@ function LiveView({ collab }: { collab: CollabState }) {
 
       {isOwner && admin && <RoomList admin={admin} only={collab.room} />}
 
-      <Button size="sm" variant="ghost" icon={<Unplug className="size-3.5" />} onClick={() => leaveCollab()}>
+      <Button size="sm" variant="danger-subtle" className="self-start" icon={<Unplug className="size-3.5" />} onClick={() => leaveCollab()}>
         Stop sharing this project
       </Button>
     </>
@@ -539,7 +542,7 @@ export function RoomList({ admin, only, onRooms }: { admin: CollabAdmin; only?: 
               <IconButton size="sm" label="Issue a new token" onClick={() => rotate(r.room)}>
                 <KeyRound className="size-3.5" />
               </IconButton>
-              <IconButton size="sm" label="Delete room" onClick={() => remove(r.room)}>
+              <IconButton size="sm" danger label="Delete room" onClick={() => remove(r.room)}>
                 <Trash2 className="size-3.5" />
               </IconButton>
             </li>

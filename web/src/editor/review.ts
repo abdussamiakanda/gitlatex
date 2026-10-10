@@ -458,7 +458,10 @@ function layoutCards() {
   const cards = document.getElementById('review-cards');
   if (!editor || !cards || !isReviewPanelOpen()) return;
   const ed = editor;
-  const offset = ed.getDomNode()!.getBoundingClientRect().top - cards.getBoundingClientRect().top;
+  // The editor may be mid-teardown (a project being reopened); lay out once it is back.
+  const dom = ed.getDomNode();
+  if (!dom) return;
+  const offset = dom.getBoundingClientRect().top - cards.getBoundingClientRect().top;
   const scroll = ed.getScrollTop();
   const topOf = (line: number) => ed.getTopForLineNumber(line) - scroll + offset;
 
@@ -536,6 +539,40 @@ function activate(id: string | null, reveal: boolean) {
   const t = threadById(id);
   if (t && reveal) editor?.revealRangeInCenterIfOutsideViewport(toMonaco(t.range));
   scheduleLayout();
+}
+
+/**
+ * Step to the next (1) or previous (-1) comment in the file, in document order,
+ * wrapping around at the ends. Without an active comment it starts from the
+ * cursor. The editor scrolls to the comment's text and its card becomes active.
+ */
+export function goToComment(step: 1 | -1) {
+  if (!editor || !hasFile()) return;
+  captureRanges();
+  const list = threads
+    .filter(isVisible)
+    .sort((a, b) => a.range.startLine - b.range.startLine || a.range.startColumn - b.range.startColumn);
+  if (!list.length) {
+    toast({ kind: 'info', title: 'No comments in this file' });
+    return;
+  }
+  let i = list.findIndex((t) => t.id === activeId);
+  if (i >= 0) i = (i + step + list.length) % list.length;
+  else {
+    const pos = editor.getPosition() ?? { lineNumber: 1, column: 1 };
+    const after = (t: Thread) => t.range.startLine > pos.lineNumber || (t.range.startLine === pos.lineNumber && t.range.startColumn > pos.column);
+    if (step === 1) i = Math.max(0, list.findIndex(after));
+    else {
+      const before = list.filter((t) => !after(t));
+      i = before.length ? list.indexOf(before[before.length - 1]) : list.length - 1;
+    }
+  }
+  const t = list[i];
+  const range = toMonaco(t.range);
+  activate(t.id, false);
+  editor.setSelection(new monaco.Selection(range.startLineNumber, range.startColumn, range.startLineNumber, range.startColumn));
+  editor.revealRangeInCenter(range, monaco.editor.ScrollType.Smooth);
+  editor.focus();
 }
 
 /** Open the panel (if needed) with this thread's card active beside its line. */

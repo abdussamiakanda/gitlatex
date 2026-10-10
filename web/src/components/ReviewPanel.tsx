@@ -3,14 +3,16 @@
  * editor/review.ts, which keeps each one level with its text as the editor scrolls.
  */
 import { useEffect, useRef, useState } from 'react';
-import { MessageSquarePlus } from 'lucide-react';
-import { onCardsClick, onCardsInput, onCardsKeydown, onCardsWheel, relayoutReview, render, setReviewShowResolved, startComment, REVIEW_SHORTCUT } from '../editor/review';
+import { ChevronDown, ChevronUp, MessageSquarePlus } from 'lucide-react';
+import { goToComment, onCardsClick, onCardsInput, onCardsKeydown, onCardsWheel, relayoutReview, render, setReviewShowResolved, startComment, REVIEW_SHORTCUT } from '../editor/review';
+import { useStore } from '../state/store';
 import { IconButton } from './ui';
 import '../editor/review.css';
 
 export function ReviewPanel() {
   const cards = useRef<HTMLDivElement>(null);
   const [resolved, setResolved] = useState(false);
+  const open = useStore((s) => s.reviewCount);
 
   useEffect(() => {
     const el = cards.current;
@@ -47,6 +49,12 @@ export function ReviewPanel() {
           />
           Resolved
         </label>
+        <IconButton size="sm" label="Previous comment" disabled={!open && !resolved} onClick={() => goToComment(-1)}>
+          <ChevronUp className="size-3.5" />
+        </IconButton>
+        <IconButton size="sm" label="Next comment" disabled={!open && !resolved} onClick={() => goToComment(1)}>
+          <ChevronDown className="size-3.5" />
+        </IconButton>
         <IconButton size="sm" label="Add comment" onClick={startComment}>
           <MessageSquarePlus className="size-3.5" />
         </IconButton>

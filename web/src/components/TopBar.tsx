@@ -1,7 +1,7 @@
 import { Play, Square, ChevronDown, FolderOpen, Plus, FileArchive, FolderInput, Pencil, Copy, Trash2, Download, Moon, Sun, Search, RotateCcw, Zap, FileDown, FileText, Check, PanelLeft, GitBranch, Home } from 'lucide-react';
 import { useStore, openDialog, setState, updateSettings } from '../state/store';
 import {
-  cancelCompile, closeProject, compile, confirmDeleteProject, downloadActive, downloadPdf, downloadZip, duplicateProject, importFolderAsProject, importZipAsProject, newProjectDialog, openProject, promptClone, promptRenameProject, setTheme,
+  cancelCompile, closeProject, compile, confirmDeleteProject, downloadActive, downloadPdf, downloadZip, duplicateProject, importFolderAsProject, importZipAsProject, newProjectDialog, openProject, promptClone, promptRenameProject, setTheme, goToPeer,
 } from '../state/actions';
 import { pickFiles } from '../storage/local-disk';
 import { modKey, timeAgo } from '../utils/misc';
@@ -164,21 +164,33 @@ function OnlinePeers({ collab }: { collab: CollabState | null }) {
   if (!collab?.peers.length) return null;
   const shown = collab.peers.slice(0, 4);
   const more = collab.peers.length - shown.length;
+  const avatar = 'focus-ring flex size-6 items-center justify-center rounded-full text-[10.5px] font-semibold ring-2 ring-panel transition-transform hover:z-10 hover:-translate-y-0.5';
   return (
-    <button
-      onClick={() => setState({ sidebar: 'collab' })}
-      title={`Editing with you: ${collab.peers.map((p) => p.name).join(', ')}`}
-      aria-label={`Live collaboration: ${collab.peers.length} online`}
-      className="focus-ring flex h-8 items-center rounded-md px-1.5 hover:bg-hover"
-    >
+    <div className="flex h-8 items-center px-1.5" role="group" aria-label={`Live collaboration: ${collab.peers.length} online`}>
       <span className="flex -space-x-1.5">
         {shown.map((p) => (
-          <span key={p.id} className="flex size-6 items-center justify-center rounded-full text-[10.5px] font-semibold text-white ring-2 ring-panel" style={{ background: p.color }}>
+          <button
+            key={p.id}
+            onClick={() => goToPeer(p.id)}
+            title={p.path ? `Go to ${p.name}, editing ${p.path}` : `${p.name} has no file open`}
+            aria-label={`Go to ${p.name}`}
+            className={clsx(avatar, 'text-white')}
+            style={{ background: p.color }}
+          >
             {p.name.slice(0, 1).toUpperCase()}
-          </span>
+          </button>
         ))}
-        {more > 0 && <span className="flex size-6 items-center justify-center rounded-full bg-line text-[10px] font-semibold text-muted ring-2 ring-panel">+{more}</span>}
+        {more > 0 && (
+          <button
+            onClick={() => setState({ sidebar: 'collab' })}
+            title={`Also online: ${collab.peers.slice(shown.length).map((p) => p.name).join(', ')}`}
+            aria-label={`${more} more online`}
+            className={clsx(avatar, 'bg-line text-[10px] text-muted')}
+          >
+            +{more}
+          </button>
+        )}
       </span>
-    </button>
+    </div>
   );
 }

@@ -12,6 +12,8 @@
 // The test writes the "paper" project in each repos folder itself, as a git
 // repository whose user.name is Ada or Bob (that is the name others see).
 import { chromium } from 'playwright';
+import * as Y from 'yjs';
+import YProvider from 'y-partyserver/provider';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -132,6 +134,30 @@ try {
 
   check(await until(async () => (await a.state())?.peers.some((p) => p.name === 'Bob'), 'A sees Bob'), 'A sees Bob in the room');
 
+  // Reloading the page must not leave copies of you behind. In production a reloaded
+  // page often leaves its old connection open on the relay for a while; a "zombie"
+  // client with Bob's browser id that goes silent stands in for it.
+  const bobSid = await b.app(() => localStorage.getItem('gitlatex.collab.browser'));
+  const zombieToken = JSON.parse(Buffer.from(invite.slice('gitlatex-invite:'.length), 'base64url').toString()).t;
+  const zombie = new YProvider(relay, ROOM, new Y.Doc(), { party: 'collab', params: { token: zombieToken }, protocol: 'ws', WebSocketPolyfill: WebSocket });
+  zombie.awareness.setLocalStateField('user', { name: 'Bob', color: '#e5484d', sid: bobSid });
+  await until(async () => (await a.state())?.peers.filter((p) => p.name === 'Bob').length === 2 || zombie.wsconnected, 'zombie connected');
+  clearInterval(zombie.awareness._checkInterval); // stops its heartbeats: silent, socket still open
+  for (let k = 0; k < 2; k++) {
+    await b.page.reload();
+    await b.page.waitForFunction(() => window.__GITLATEX__ && !window.__GITLATEX__.store.getState().booting);
+    await b.app(() => window.__GITLATEX__.store.getState().project?.id === 'paper' || window.__GITLATEX__.actions.openProject('paper'));
+    await until(async () => (await b.state())?.status === 'connected', 'B reconnected after reload');
+  }
+  const bobs = async () => (await a.state())?.peers.filter((p) => p.name === 'Bob').length;
+  await until(async () => (await b.state())?.peers.some((p) => p.name === 'Ada'), 'B sees Ada again');
+  await new Promise((r) => setTimeout(r, 1500));
+  check((await bobs()) === 1, `after B reloads twice, A sees one Bob (saw ${await bobs()})`);
+  const bPeers = (await b.state())?.peers.map((p) => p.name) ?? [];
+  check(bPeers.length === 1 && bPeers[0] === 'Ada', `and B sees only Ada, not itself (saw ${bPeers.join(', ')})`);
+  zombie.destroy();
+  await b.app(() => window.__GITLATEX__.actions.openFile('main.tex'));
+
   // Typing in A's editor shows up in B's editor.
   await a.app(() => window.__GITLATEX__.actions.openFile('main.tex'));
   await b.app(() => window.__GITLATEX__.actions.openFile('main.tex'));
@@ -164,6 +190,25 @@ try {
   check(await until(async () => (await a.text('only-b.tex')) === undefined, 'delete on A'), 'a deletion in B removes the file in A');
   await a.flush();
   check(read(dirA, 'only-b.tex') === null, '… and from A’s disk');
+
+  // Clicking a collaborator's avatar takes you to where they are.
+  await a.app(() => window.__GITLATEX__.actions.openFile('chapters/intro.tex'));
+  await b.app(() => window.__GITLATEX__.actions.openFile('main.tex'));
+  await b.app(() => {
+    const e = window.__GITLATEX__.editor.get();
+    e.focus();
+    e.setPosition({ lineNumber: 3, column: 2 });
+  });
+  check(await until(async () => (await a.state())?.peers.some((p) => p.name === 'Bob' && p.path === 'main.tex'), 'Bob in main.tex'), 'A sees which file Bob is in');
+  await a.page.getByRole('button', { name: 'Go to Bob' }).click();
+  const landed = await until(() =>
+    a.app(() => {
+      const s = window.__GITLATEX__.store.getState();
+      const pos = window.__GITLATEX__.editor.get()?.getPosition();
+      return s.activePath === 'main.tex' && pos?.lineNumber === 3 && pos?.column === 2;
+    }),
+  'jump to Bob');
+  check(landed, 'clicking Bob’s avatar opens his file at his cursor');
 
   // Another project is not shared; going back reconnects.
   await a.app(() => window.__GITLATEX__.actions.openProject('other'));

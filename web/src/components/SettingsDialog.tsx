@@ -3,7 +3,7 @@
  * settings on the right.
  */
 import { useEffect, useState } from 'react';
-import { Settings, Palette, SquarePen, SpellCheck, Braces, Cpu, FileText, SlidersHorizontal, Info, ExternalLink, Sun, Moon, Monitor, Wand2, Globe, Users, KeyRound } from 'lucide-react';
+import { Settings, Palette, SquarePen, SpellCheck, Braces, Cpu, FileText, SlidersHorizontal, Info, ExternalLink, Sun, Moon, Monitor, Wand2, Globe, Users, KeyRound, Server } from 'lucide-react';
 import { useStore, closeDialog, updateSettings, getCompilerApi, setCompilerApi } from '../state/store';
 import { gitIdentity, reconfigureEngine, serverInfo, setCollabAdmin, setCompiler, setTheme } from '../state/actions';
 import { AdminLogin, ColorPicker, RoomList } from './CollabPanel';
@@ -208,8 +208,22 @@ function CompilerPage() {
           </Field>
           <div className={clsx(ROW, 'text-[12px] text-muted')}>
             The project is sent as <code>{'{ main, files, engine }'}</code>; the service returns the PDF (and optionally SyncTeX).
-            <a href={COMPILER_API_REPO} target="_blank" rel="noreferrer" className="ml-1 inline-flex items-center gap-1 text-accent hover:underline">
-              Deploy your own Compiler API (latex-fastapi) <ExternalLink className="size-3" />
+          </div>
+          <div className={clsx(ROW, 'flex items-center gap-3')}>
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent">
+              <Server className="size-4" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="text-[13px] text-fg">Need a server?</div>
+              <div className="mt-0.5 text-xs text-muted">Deploy your own Compiler API with latex-fastapi.</div>
+            </div>
+            <a
+              href={COMPILER_API_REPO}
+              target="_blank"
+              rel="noreferrer"
+              className="focus-ring inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md border border-line bg-panel-2 px-2.5 text-xs font-medium text-fg hover:bg-hover"
+            >
+              latex-fastapi <ExternalLink className="size-3" />
             </a>
           </div>
         </Group>

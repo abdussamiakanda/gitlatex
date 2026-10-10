@@ -7,6 +7,7 @@
  */
 import * as Y from 'yjs';
 import { applyText } from './merge';
+import { livePeers } from './peers';
 import type { Awareness } from 'y-protocols/awareness';
 import { monaco } from '../editor/monaco';
 
@@ -14,10 +15,6 @@ import { monaco } from '../editor/monaco';
 export const LOCAL = Symbol('gitlatex-local');
 
 /** What each collaborator publishes through awareness. */
-export interface PeerState {
-  user?: { name: string; color: string };
-  cursor?: { path: string; anchor: unknown; head: unknown } | null;
-}
 
 export class TextBinding {
   private applyingRemote = false;
@@ -135,9 +132,8 @@ export class TextBinding {
     if (this.model.isDisposed()) return;
     const doc = this.ytext.doc!;
     const next: monaco.editor.IModelDeltaDecoration[] = [];
-    this.awareness.getStates().forEach((raw, clientId) => {
-      const state = raw as PeerState;
-      if (clientId === doc.clientID || !state.cursor || state.cursor.path !== this.path) return;
+    livePeers(this.awareness, doc.clientID).forEach((state, clientId) => {
+      if (!state.cursor || state.cursor.path !== this.path) return;
       const anchor = Y.createAbsolutePositionFromRelativePosition(Y.createRelativePositionFromJSON(state.cursor.anchor), doc);
       const head = Y.createAbsolutePositionFromRelativePosition(Y.createRelativePositionFromJSON(state.cursor.head), doc);
       if (!anchor || !head || anchor.type !== this.ytext || head.type !== this.ytext) return;

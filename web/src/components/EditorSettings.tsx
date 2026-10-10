@@ -230,6 +230,7 @@ export function SnippetManager() {
               </IconButton>
               <IconButton
                 size="sm"
+                danger
                 label="Delete snippet"
                 onClick={() => {
                   if (editing?.index === i) setEditing(null);

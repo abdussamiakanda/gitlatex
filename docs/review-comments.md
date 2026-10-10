@@ -9,6 +9,10 @@ An Overleaf-style review panel for leaving comments on your text.
   shows how many comments are open in the current file.
 - Comment cards line up with the text they are about and scroll with the editor.
   Commented text is highlighted, with a marker in the margin.
+- **Step through comments** with the **↑** and **↓** buttons in the panel's
+  header: each press scrolls the editor to the previous or next comment in the
+  file and opens its card. They wrap around at the ends, start from your cursor,
+  and include resolved threads when **Resolved** is ticked.
 - **Hover** over commented text to see a preview of the comment. Click the
   preview to open that thread in the review panel.
 - **Reply** (`Enter` sends, `Shift`+`Enter` adds a new line), **resolve** or

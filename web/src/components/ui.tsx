@@ -8,7 +8,12 @@ import { createPortal } from 'react-dom';
 
 export { clsx };
 
-type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'subtle';
+/**
+ * `danger` is a solid red button (the main action of a destructive dialog);
+ * `danger-subtle` is red text with a faint red border, for a destructive action
+ * that sits beside others.
+ */
+type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'danger-subtle' | 'subtle';
 
 export function Button({
   variant = 'secondary',
@@ -31,6 +36,7 @@ export function Button({
         variant === 'ghost' && 'text-muted hover:bg-hover hover:text-fg',
         variant === 'subtle' && 'bg-hover/60 text-fg hover:bg-hover',
         variant === 'danger' && 'bg-danger text-white hover:brightness-110',
+        variant === 'danger-subtle' && 'border border-danger/35 text-danger hover:border-danger/60 hover:bg-danger/10',
         className,
       )}
     >
@@ -46,8 +52,9 @@ export function IconButton({
   className,
   children,
   size = 'md',
+  danger,
   ...rest
-}: ButtonHTMLAttributes<HTMLButtonElement> & { label: string; active?: boolean; size?: 'sm' | 'md' | 'lg' }) {
+}: ButtonHTMLAttributes<HTMLButtonElement> & { label: string; active?: boolean; size?: 'sm' | 'md' | 'lg'; /** Destructive: turns red on hover. */ danger?: boolean }) {
   return (
     <button
       {...rest}
@@ -56,7 +63,7 @@ export function IconButton({
       className={clsx(
         'focus-ring inline-flex shrink-0 items-center justify-center rounded-md transition-colors disabled:cursor-not-allowed disabled:opacity-40',
         size === 'sm' ? 'size-6' : size === 'lg' ? 'size-10' : 'size-8',
-        active ? 'bg-accent/15 text-accent' : 'text-muted hover:bg-hover hover:text-fg',
+        active ? 'bg-accent/15 text-accent' : danger ? 'text-muted hover:bg-danger/10 hover:text-danger' : 'text-muted hover:bg-hover hover:text-fg',
         className,
       )}
     >

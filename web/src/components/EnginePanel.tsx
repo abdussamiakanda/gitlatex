@@ -186,12 +186,12 @@ function CompilerApi() {
       <Button size="sm" className="mt-3" icon={<Settings className="size-3.5" />} onClick={() => openDialog({ type: 'settings' })}>
         {endpoint ? 'Change in Settings' : 'Set it up in Settings'}
       </Button>
-      <p className="mt-3 text-[11px] text-faint">
-        Need a server?
-        <a href={COMPILER_API_REPO} target="_blank" rel="noreferrer" className="ml-1 inline-flex items-center gap-1 text-accent hover:underline">
-          Deploy your own Compiler API (latex-fastapi) <ExternalLink className="size-3" />
+      <div className="mt-3 border-t border-line pt-3">
+        <div className="text-[11px] text-faint">Need a server?</div>
+        <a href={COMPILER_API_REPO} target="_blank" rel="noreferrer" className="mt-1 flex w-fit items-center gap-1 text-[12px] text-accent hover:underline">
+          Deploy your own with latex-fastapi <ExternalLink className="size-3 shrink-0" />
         </a>
-      </p>
+      </div>
     </div>
   );
 }
@@ -279,6 +279,7 @@ function BrowserEngine() {
         </Button>
         <Button
           size="sm"
+          variant="danger-subtle"
           icon={<Trash2 className="size-3.5" />}
           onClick={() =>
             openDialog({
