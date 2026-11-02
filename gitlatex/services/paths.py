@@ -65,6 +65,46 @@ def count_files_in_dir(dir_path):
     return count
 
 
+
+def project_file_stats(dir_path):
+    """File count and latest source-file modification time for a project.
+
+    Directory mtime is *not* updated when an existing file is saved.  Ignore
+    .git internals and compiler outputs so recompiling does not make an
+    otherwise unchanged project appear recently edited.
+    """
+    from gitlatex.services.sync import BUILD_SUFFIXES
+
+    count = 0
+    latest = None
+    for current, subdirs, filenames in os.walk(dir_path):
+        subdirs[:] = [d for d in subdirs if d != ".git"]
+        in_metadata = ".gitlatex" in Path(current).relative_to(dir_path).parts
+        names = {name.lower() for name in filenames}
+        for name in filenames:
+            count += 1
+            lower = name.lower()
+            if in_metadata or lower.endswith(BUILD_SUFFIXES):
+                continue
+            # A compiled main.pdf is build output, unlike user-supplied figure PDFs.
+            if lower.endswith(".pdf") and lower[:-4] + ".tex" in names:
+                continue
+            try:
+                modified = os.stat(os.path.join(current, name)).st_mtime
+            except OSError:
+                continue
+            if latest is None or modified > latest:
+                latest = modified
+
+    # Empty projects still need an activity date.
+    if latest is None:
+        try:
+            latest = os.stat(dir_path).st_mtime
+        except OSError:
+            pass
+    return count, latest
+
+
 def parse_owner_from_remote_url(url):
     if not url or not isinstance(url, str):
         return None
