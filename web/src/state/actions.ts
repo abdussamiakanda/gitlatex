@@ -23,7 +23,7 @@ import type { SlashCommand } from '../editor/slash-commands';
 import type { CompileResult } from '../engine/protocol';
 import type { CompilerMode, Diagnostic, ProjectMeta } from '../types';
 import { basename, dirname, isTextPath, joinPath, normalisePath, relativePath, stripExt } from '../utils/paths';
-import { KEEP } from './workspace';
+import { BUILD_OUTPUT, KEEP } from './workspace';
 import { TEMPLATES } from '../templates';
 import { locatePeer, setCollabUser, startCollab, stopCollab } from '../collab/session';
 import { moveCollabConfig, readCollabColor, readCollabConfig, sameHost, splitHost, writeCollabAdmin, writeCollabColor, writeCollabConfig, type CollabAdmin, type CollabConfig, type CollabUser } from '../collab/config';
@@ -754,7 +754,7 @@ async function buildLocally(current: Workspace): Promise<Built> {
   const notices = [
     ...(res.error && !pdf ? [res.error] : []),
     ...(res.steps ?? []).filter((st) => st.missing).map((st) => `${st.tool} is not installed, so citations stay unresolved.`),
-    ...(res.steps ?? []).filter((st) => st.message).map((st) => `${st.tool} failed, so citations stay unresolved: ${st.message}`),
+    ...[...new Set((res.steps ?? []).filter((st) => st.message).map((st) => `${st.tool} failed, so citations stay unresolved: ${st.message}`))],
   ];
   return {
     status: !pdf ? 'failed' : hasErrors ? 'errors' : /LaTeX Warning|Package \w+ Warning/.test(log) ? 'warnings' : 'success',
@@ -1357,3 +1357,64 @@ export function applyTheme() {
 
 export const templateById = (id: string) => TEMPLATES.find((t) => t.id === id);
 export const isKeepFile = (p: string) => basename(p) === KEEP;
+
+// ---- "Sync to Overleaf" browser extension ------------------------------------
+// The extension reads and writes project files through the open workspace (not the
+// disk), so open editors update and pending edits are never overwritten by a stale save.
+
+type SyncFile = { path: string; text?: string; base64?: string };
+
+/** Project sources only: no build output, folder placeholders, or hidden folders. */
+function syncable(path: string, current: Workspace) {
+  const name = basename(path);
+  if (name === KEEP || name === '.DS_Store' || /(^|\/)\.[^/]+\//.test(path) || BUILD_OUTPUT.test(path)) return false;
+  return !current.project.mainFile || path !== stripExt(current.project.mainFile) + '.pdf';
+}
+
+const sameData = (a: Uint8Array, b: Uint8Array) => a.length === b.length && a.every((v, i) => v === b[i]);
+
+(window as Window & { __gitlatexSync?: unknown }).__gitlatexSync = {
+  listFiles() {
+    const current = ws;
+    if (!current) throw new Error('No project is open in GitLaTeX');
+    const files: SyncFile[] = [];
+    const skipped: string[] = [];
+    for (const p of current.paths()) {
+      const f = current.get(p);
+      if (!f || !syncable(p, current)) continue;
+      if (f.omitted) skipped.push(p);
+      else if (f.kind === 'text') files.push({ path: p, text: f.text ?? '' });
+      else if (f.data) files.push({ path: p, base64: bytesToBase64(f.data) });
+    }
+    return { project: current.project.name, files, skipped };
+  },
+
+  /** Write the files that differ (never deletes), save them, and refresh open editors. */
+  async writeFiles(files: SyncFile[]) {
+    const current = ws;
+    if (!current) throw new Error('No project is open in GitLaTeX');
+    const written: string[] = [];
+    for (const f of files) {
+      const p = normalisePath(f.path);
+      if (!p || !syncable(p, current)) continue;
+      const old = current.get(p);
+      if (old?.omitted) continue;
+      if (f.text !== undefined) {
+        if (old?.kind === 'text' && old.text === f.text) continue;
+        current.writeFile(p, f.text);
+      } else {
+        const data = base64ToBytes(f.base64 ?? '');
+        if (old?.data && sameData(old.data, data)) continue;
+        current.writeFile(p, data);
+      }
+      written.push(p);
+    }
+    if (written.length) {
+      syncAllModels();
+      patchCompile({ dirtySinceCompile: true });
+      scheduleAutoCompile();
+      await current.flush();
+    }
+    return { written };
+  },
+};

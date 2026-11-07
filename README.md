@@ -103,6 +103,12 @@ automatically as you type.
   cursors, while everyone keeps their own folder and Git.
   [More](https://github.com/abdussamiakanda/gitlatex/blob/master/docs/live-collaboration.md)
 - **Vim mode** with VimTeX-style keys. [More](https://github.com/abdussamiakanda/gitlatex/blob/master/docs/vim-mode.md)
+- **Conceal TeX** — show formulas rendered in the source editor and edit them in
+  a math box (Cmd/Ctrl+M inline, Cmd/Ctrl+Shift+M display); the switch is next
+  to Source | LyX above a .tex file.
+- **Sync to Overleaf** — a browser extension reads and writes the open
+  project's files through the editor (`window.__gitlatexSync`). How it fits
+  together: [docs/flowchart.md](docs/flowchart.md).
 
 <table>
   <tr>

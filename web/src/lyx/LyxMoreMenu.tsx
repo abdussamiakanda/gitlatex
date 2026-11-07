@@ -1,7 +1,8 @@
 /**
  * The LyX-style editor's ☰ menu, at the start of its toolbar: what the toolbar
  * buttons and keys do not already show (find & replace, the command buffer,
- * the outline and code preview panes, bookmarks, document settings, export).
+ * the outline and code preview panes, bookmarks, child documents, document
+ * settings, export).
  * Every entry is a LyX function (lfuns.ts), with its shortcut.
  */
 import { Check, Menu as MenuIcon } from 'lucide-react';
@@ -40,6 +41,9 @@ export function LyxMoreMenu({ ctx, onRun }: { ctx: LfunContext | null; onRun(lin
             item('bookmark-clear'),
           ]
         : [{ label: 'No bookmarks (Ctrl+Shift+1…5 saves one)', disabled: true, onSelect: () => undefined }]),
+      'separator',
+      item('child-open', 'Open child document'),
+      item('buffer-parent', 'Back to parent document'),
       'separator',
       item('dialog-show document', 'Document settings…'),
       item('buffer-export latex', 'Export as LaTeX (.tex)'),

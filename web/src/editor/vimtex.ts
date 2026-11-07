@@ -43,12 +43,8 @@ const DELIM_PAIRS = {
 
 // ----- Parsing helpers (all offsets are into the full model text) -----
 
-/** Replaces comments with spaces, keeping every offset the same. */
-export function maskComments(text) {
-  return text.replace(/(^|[^\\])((?:\\\\)*)%[^\n]*/g, function (m, pre, slashes) {
-    return pre + slashes + " ".repeat(m.length - pre.length - slashes.length);
-  });
-}
+import { maskComments } from './math-spans';
+export { maskComments };
 
 /** Every matched \begin{..}..\end{..} pair, in document order of \begin. */
 export function findEnvPairs(text) {

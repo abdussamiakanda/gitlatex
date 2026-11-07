@@ -1,7 +1,7 @@
-import { Play, Square, ChevronDown, FolderOpen, Plus, FileArchive, FolderInput, Pencil, Copy, Trash2, Download, Moon, Sun, Search, RotateCcw, Zap, FileDown, FileText, Check, PanelLeft, GitBranch, Home } from 'lucide-react';
+import { Play, Square, ChevronDown, FolderOpen, Plus, FileArchive, FolderInput, Pencil, Copy, Trash2, Download, Moon, Sun, Search, RotateCcw, Zap, FileDown, FileText, Check, PanelLeft, GitBranch, Home, Eraser } from 'lucide-react';
 import { useStore, openDialog, setState, updateSettings } from '../state/store';
 import {
-  cancelCompile, closeProject, compile, confirmDeleteProject, downloadActive, downloadPdf, downloadZip, duplicateProject, importFolderAsProject, importZipAsProject, newProjectDialog, openProject, promptClone, promptRenameProject, setTheme, goToPeer,
+  cancelCompile, cleanAuxFiles, closeProject, compile, confirmDeleteProject, downloadActive, downloadPdf, downloadZip, duplicateProject, importFolderAsProject, importZipAsProject, newProjectDialog, openProject, promptClone, promptRenameProject, setTheme, goToPeer,
 } from '../state/actions';
 import { pickFiles } from '../storage/local-disk';
 import { modKey, timeAgo } from '../utils/misc';
@@ -126,6 +126,9 @@ export function TopBar({ compact, mobileView, onMobileView }: { compact: boolean
         </button>
       </div>
 
+      <IconButton label="Clean build files (.aux, .log, …)" disabled={!project} onClick={() => void cleanAuxFiles()}>
+        <Eraser className="size-4" />
+      </IconButton>
       <OnlinePeers collab={collab} />
       <IconButton
         label="Download"

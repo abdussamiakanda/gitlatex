@@ -8,7 +8,7 @@
  * Changes that arrive from elsewhere (the source editor, a pull, a
  * collaborator) are read back in, keeping the cursor's place.
  */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { EditorState, NodeSelection, Selection, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { CellSelection } from 'prosemirror-tables';
@@ -19,7 +19,9 @@ import './lyx.css';
 import { monaco } from '../editor/monaco';
 import { getModel } from '../editor/models';
 import { editorBridge } from '../editor/bridge';
-import { compile, forwardSearch, workspace } from '../state/actions';
+import { compile, forwardSearch, openFile, workspace } from '../state/actions';
+import { basename } from '../utils/paths';
+import { childCandidates, childCommand, findChild, leaveChild, parentOf, rememberChild, type ChildRef } from './children';
 import { getState, openDialog, promptText, useStore } from '../state/store';
 import { Spinner } from '../components/ui';
 import { readTex, type TexDocument } from './tex-reader';
@@ -236,6 +238,31 @@ export function LyxPane({ path }: { path: string }) {
         };
         actRef.current = keyHost.act;
         const fileName = path.split('/').pop()!.replace(/\.tex$/i, '');
+        /** Open the file a child command names, offering to create it when it does not exist yet. */
+        const openChildRef = (ref: ChildRef) => {
+          flush();
+          const ws = workspace();
+          const main = getState().project?.mainFile ?? path;
+          if (!ws) return;
+          const go = (child: string) => {
+            rememberChild(path, child);
+            openFile(child);
+          };
+          const found = findChild(ref, path, main, (p) => !!ws.get(p));
+          if (found) return go(found);
+          const target = childCandidates(ref, path, main)[0];
+          if (!target) return showStatus(`${ref.file} is outside the project`);
+          openDialog({
+            type: 'confirm',
+            title: 'Create child document?',
+            message: `${target} does not exist yet. Create it as an empty file and open it?`,
+            confirm: 'Create',
+            onConfirm: () => {
+              ws.writeFile(target, '');
+              go(target);
+            },
+          });
+        };
         ctxRef.current = {
           get view() {
             return view;
@@ -283,6 +310,34 @@ export function LyxPane({ path }: { path: string }) {
             view.dispatch(clearBookmarks(view.state));
             showStatus('Bookmarks cleared');
           },
+          openChild: (dry) => {
+            // The child command at the cursor's block, else the next one below it.
+            const doc = view.state.doc;
+            let ref: ChildRef | null = null;
+            for (let i = view.state.selection.$head.index(0); i < doc.childCount && !ref; i++) {
+              const block = doc.child(i);
+              if (block.type === schema.nodes.ert_block) ref = childCommand(block.textContent);
+            }
+            if (!ref) {
+              if (!dry) showStatus('No \\input, \\include or \\subfile at or below the cursor');
+              return false;
+            }
+            if (!dry) openChildRef(ref);
+            return true;
+          },
+          backToParent: (dry) => {
+            const p = parentOf(path, workspace()?.textFiles('.tex') ?? [], getState().project?.mainFile ?? path);
+            if (!p) {
+              if (!dry) showStatus('No other file inputs this one');
+              return false;
+            }
+            if (!dry) {
+              flush();
+              leaveChild(path, p.parent);
+              openFile(p.parent, p.line);
+            }
+            return true;
+          },
           focusLayoutBox: keyHost.focusLayoutBox,
         };
         const mathHost = {
@@ -329,6 +384,11 @@ export function LyxPane({ path }: { path: string }) {
             }
             if (node.type === schema.nodes.url) {
               void ask('URL', 'Address', node.attrs.url, 'Save').then((url) => url && set({ url }));
+              return true;
+            }
+            const child = node.type === schema.nodes.ert_block ? childCommand(node.textContent) : null;
+            if (child) {
+              openChildRef(child);
               return true;
             }
             if (node.type === schema.nodes.graphics) {
@@ -498,6 +558,11 @@ export function LyxPane({ path }: { path: string }) {
       ? { ert_block: 'TeX code', ert_inline: 'TeX code', footnote: 'Footnote', table_cell: 'Table cell', note: 'Note' }[$head.parent.type.name] ?? ''
       : '';
   const ctx = view ? ctxRef.current : null;
+  // A child document (input by another file): the way back. Looked up when the file opens.
+  const parent = useMemo(
+    () => (ready ? parentOf(path, workspace()?.textFiles('.tex') ?? [], getState().project?.mainFile ?? path) : null),
+    [ready, path],
+  );
   return (
     <div ref={root} className="flex min-h-0 flex-1 flex-col">
       <LyxToolbar
@@ -513,6 +578,20 @@ export function LyxPane({ path }: { path: string }) {
       <div className="flex min-h-0 flex-1">
         {panels.outline && view && <LyxOutline view={view} theorems={theorems} onRun={runLine} onClose={() => runLine('dialog-toggle toc')} />}
         <div className="flex min-w-0 flex-1 flex-col">
+          {parent && (
+            <div className="flex h-7 shrink-0 items-center gap-2 border-b border-line bg-panel-2/60 px-3 text-[11.5px] text-muted">
+              <button
+                type="button"
+                className="shrink-0 text-accent hover:underline"
+                title={`Back to ${parent.parent}, line ${parent.line}`}
+                onClick={() => runLine('buffer-parent')}
+                data-testid="lyx-back-to-parent"
+              >
+                ← Back to {basename(parent.parent)}
+              </button>
+              <span className="min-w-0 truncate">Child document of {parent.parent}</span>
+            </div>
+          )}
           <div className="lyx-root relative min-h-0 flex-1 overflow-auto" style={{ fontSize: `${fontSize + 2}px` }}>
             {!ready && (
               <div className="absolute inset-0 flex items-center justify-center">

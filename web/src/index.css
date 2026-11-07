@@ -160,11 +160,31 @@ label:has(> input[type='checkbox']) {
 .pdf-dark .pdfViewer .page canvas {
   filter: invert(0.9) hue-rotate(180deg) contrast(0.9);
 }
-/* Bookmarked text in the PDF, until the bookmark is deleted. */
-.pdf-bookmark-hl {
-  border-radius: 2px;
-  background: rgb(var(--c-accent-rgb) / 0.2);
-  box-shadow: inset 0 -2px 0 rgb(var(--c-accent-rgb) / 0.75);
+/* The jump-history pill and panel come styled from pdf_viewer.css (our pdf.js
+   fork); these hand them the app's theme colours instead of Firefox's. */
+:is(#jumpHistory, #jumpHistoryPanel) {
+  --jump-history-border-color: var(--c-line) !important;
+  --jump-history-bg-color: var(--c-panel) !important;
+  --jump-history-text-color: var(--c-fg) !important;
+  --jump-history-hover-color: var(--c-hover) !important;
+  --jump-history-field-bg-color: var(--c-bg) !important;
+  --jump-history-toolbar-height: 36px !important;
+}
+:is(#jumpHistory > .jumpHistoryButton, #jumpHistoryPanel) {
+  font-family: var(--font-sans) !important;
+}
+.jump-history-action {
+  padding: 3px 10px;
+  border: 1px solid var(--c-line);
+  border-radius: 6px;
+  background: var(--c-bg);
+  color: var(--c-fg);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.jump-history-action:hover {
+  border-color: var(--c-accent);
 }
 .synctex-flash {
   animation: synctex-flash 1.8s ease-out forwards;

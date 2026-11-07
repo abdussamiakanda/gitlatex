@@ -14,31 +14,11 @@ let cursorLineOverride: (() => number | null) | null = null;
 /** Set while another editor shows the active file: where wizards and slash commands insert LaTeX. */
 let texInserter: ((tex: string, select?: string) => boolean) | null = null;
 
-/**
- * A Monaco snippet as plain LaTeX, for an editor without snippets: each
- * placeholder becomes its default text (a choice its first option), tab
- * stops vanish, and `select` is the first placeholder's text, to type over.
- */
-export function snippetToTex(snippet: string): { tex: string; select?: string } {
-  let select: string | undefined;
-  // Escaped \$ and \} are set aside first, so `\$5` is a dollar, not tab stop 5.
-  const tex = snippet
-    .replace(/\\\$/g, '')
-    .replace(/\\\}/g, '')
-    .replace(/\$\{(\d+)\|([^,|}]*)[^|}]*\|\}/g, (_m, _n, first: string) => first)
-    .replace(/\$\{(\d+):([^}]*)\}/g, (_m, n: string, text: string) => {
-      if (select === undefined && n !== '0' && text) select = text;
-      return text;
-    })
-    .replace(/\$\{\d+\}|\$\d+/g, '')
-    .replace(//g, '$')
-    .replace(//g, '}');
-  return { tex, select: select?.replace(//g, '$').replace(//g, '}') };
-}
-
 export const editorBridge = {
   set(e: Editor | null) {
     editor = e;
+    // Read by the "Sync to Overleaf" browser extension (text + model URI = open file).
+    (window as Window & { __gitlatexEditor?: Editor | null }).__gitlatexEditor = e;
   },
   get(): Editor | null {
     return editor;
@@ -91,3 +71,41 @@ export const editorBridge = {
     return true;
   },
 };
+
+/**
+ * A Monaco snippet as plain LaTeX: placeholders become their default text, and the
+ * first one is what to select. A `\label{}` made of placeholders is left out (the
+ * LyX-style editor adds labels with Tab).
+ */
+export function snippetToTex(snippet: string): { tex: string; select?: string } {
+  // snippet escapes (\\ \$ \} for \ $ }) are set aside so they are not read as placeholders
+  const ESC: Record<string, string> = { '\\': '\ue000', $: '\ue001', '}': '\ue002' };
+  const unescape = (t: string) => t.replace(/[\ue000-\ue002]/g, (c) => ({ '\ue000': '\\', '\ue001': '$', '\ue002': '}' })[c]!);
+  snippet = snippet.replace(/\\([\\$}])/g, (_m, c: string) => ESC[c]);
+  // a choice ${1|a,b,c|} becomes its first option
+  const choices = new Set<number>();
+  snippet = snippet.replace(/\$\{(\d+)\|([^|]*?)(?:,[^|]*)?\|\}/g, (_m, i: string, first: string) => {
+    choices.add(+i);
+    return `\${${i}:${first}}`;
+  });
+  snippet = snippet.replace(/\\label\{[^{}]*\$\{[^}]*\}[^{}]*\}/g, '');
+  const values = new Map<number, string>();
+  for (const m of snippet.matchAll(/\$\{(\d+):([^}]*)\}/g)) if (!values.has(+m[1])) values.set(+m[1], m[2]);
+  // What to type over: the first placeholder with text that the LyX editor shows once and
+  // as text, so not inside an [option] list, not a choice, and not repeated elsewhere ($1).
+  const candidates: number[] = [];
+  for (const m of snippet.matchAll(/\$\{(\d+):([^}]*)\}/g)) {
+    const i = +m[1];
+    const before = snippet.slice(0, m.index);
+    const inOptions = before.lastIndexOf('[') > before.lastIndexOf(']');
+    const mirrored = new RegExp(`\\$(${i}(?!\\d)|\\{${i}\\})`).test(snippet);
+    if (i > 0 && m[2] && !inOptions && !choices.has(i) && !mirrored) candidates.push(i);
+  }
+  const firstIdx = candidates.sort((a, b) => a - b)[0];
+  const tex = snippet
+    .replace(/\$\{\d+:([^}]*)\}/g, '$1')
+    // a repeated tab stop ($1, ${1}) shows the same text as its placeholder
+    .replace(/\$\{(\d+)\}|\$(\d+)/g, (_m, a?: string, b?: string) => values.get(+(a ?? b!)) ?? '');
+  const select = firstIdx !== undefined ? values.get(firstIdx) : undefined;
+  return { tex: unescape(tex), select: select ? unescape(select) : undefined };
+}

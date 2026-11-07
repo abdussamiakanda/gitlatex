@@ -1,0 +1,23 @@
+{
+  "name": "gitlatex-collab",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Optional realtime collaboration relay for GitLaTeX: a Cloudflare Worker with one Durable Object per room.",
+  "license": "ISC",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "partyserver": "^0.5.10",
+    "y-partyserver": "^2.2.0",
+    "yjs": "^13.6.33"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261007.1",
+    "typescript": "^7.0.2",
+    "wrangler": "^4.148.0"
+  }
+}
