@@ -15,7 +15,8 @@ Modelled on VS Code's:
 - **Stage and unstage** files, or all of them, and **discard** changes.
 - **Commit** the staged changes (`Ctrl`/`Cmd`+`Enter`). With nothing staged,
   Commit takes every change.
-- **Pull, push, sync or fetch**, with ahead/behind counts from the remote.
+- **Pull, push, sync or fetch** with the buttons in the panel header, with
+  ahead/behind counts from the remote.
 - **Create and switch branches**, or **publish** a local repository to a new
   remote.
 

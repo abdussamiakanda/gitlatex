@@ -6,7 +6,7 @@
  */
 import { useEffect, useState } from 'react';
 import {
-  ArrowDownToLine, ArrowUpFromLine, Check, ChevronDown, ChevronRight, CloudUpload, Eraser, FileText, FolderGit2, GitBranch, GitMerge, Minus, MoreHorizontal, Plus, RefreshCw, RotateCcw, Undo2,
+  ArrowDownToLine, ArrowDownUp, ArrowUpFromLine, Check, CloudDownload, ChevronDown, ChevronRight, CloudUpload, Eraser, FileText, FolderGit2, GitBranch, GitMerge, Minus, MoreHorizontal, Plus, RefreshCw, RotateCcw, Undo2,
 } from 'lucide-react';
 import { useStore, openDialog, toast } from '../state/store';
 import {
@@ -238,13 +238,7 @@ export function GitPanel() {
   else primary = { label: 'Commit', icon: <Check className="size-3.5" />, disabled: true };
 
   const moreItems = (): (MenuItem | 'separator')[] => {
-    const remote = !noRemote;
     const items: (MenuItem | 'separator')[] = [
-      { label: 'Pull', icon: <ArrowDownToLine className="size-3.5" />, disabled: !remote || !st.upstream, onSelect: () => void run('pull', scmPull) },
-      { label: 'Push', icon: <ArrowUpFromLine className="size-3.5" />, disabled: !remote || !st.hasCommits, onSelect: () => void run('push', scmPush) },
-      { label: 'Sync', icon: <RefreshCw className="size-3.5" />, disabled: !remote || !st.upstream, onSelect: () => void run('sync', scmSync) },
-      { label: 'Fetch', icon: <RefreshCw className="size-3.5" />, disabled: !remote, onSelect: () => void run('fetch', scmFetch) },
-      'separator',
       { label: 'Stage all changes', icon: <Plus className="size-3.5" />, disabled: !st.changes.length, onSelect: () => void scmStage() },
       { label: 'Unstage all changes', icon: <Minus className="size-3.5" />, disabled: !st.staged.length, onSelect: () => void scmUnstage() },
       { label: 'Discard all changes…', icon: <Undo2 className="size-3.5" />, danger: true, disabled: !st.changes.length, onSelect: () => scmDiscard(st.changes) },
@@ -289,6 +283,18 @@ export function GitPanel() {
           <>
             <IconButton size="sm" label={`Commit (${modKey}+Enter)`} disabled={!!primary.disabled || !hasChanges || !!busy} onClick={commit}>
               <Check className="size-3.5" />
+            </IconButton>
+            <IconButton size="sm" label="Pull" disabled={noRemote || !st.upstream || !!busy} onClick={() => void run('pull', scmPull)}>
+              <ArrowDownToLine className="size-3.5" />
+            </IconButton>
+            <IconButton size="sm" label="Push" disabled={noRemote || !st.hasCommits || !!busy} onClick={() => void run('push', scmPush)}>
+              <ArrowUpFromLine className="size-3.5" />
+            </IconButton>
+            <IconButton size="sm" label="Sync (pull, then push)" disabled={noRemote || !st.upstream || !!busy} onClick={() => void run('sync', scmSync)}>
+              <ArrowDownUp className="size-3.5" />
+            </IconButton>
+            <IconButton size="sm" label="Fetch" disabled={noRemote || !!busy} onClick={() => void run('fetch', scmFetch)}>
+              <CloudDownload className="size-3.5" />
             </IconButton>
             <IconButton size="sm" label="Refresh" onClick={() => void refreshScm()}>
               <RefreshCw className={clsx('size-3.5', busy && 'animate-spin')} />

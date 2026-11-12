@@ -218,6 +218,21 @@ Bookmarks move with the text as you edit, and are kept for the next time you
 open the file. The **☰** menu lists them and has **Clear bookmarks**. These are
 separate from the PDF viewer's bookmarks ([pdf-viewer.md](pdf-viewer.md)).
 
+## Child documents
+
+`\input{chapters/one}`, `\include{chapters/one}` and `\subfile{…}` show as a
+TeX-code box. **Double-click** it, or use **☰ → Open child document** (the one
+at the cursor, else the next one below it), to open that file in the LyX
+editor. The file is found the way TeX finds it: relative to the main file
+(`\subfile`: to the file it is in first), with `.tex` added. If it does not
+exist yet, you are asked whether to create it.
+
+A child document shows **← Back to main.tex** above the editor. Click it, or use
+**☰ → Back to parent document**, to return to the line with its `\input`. The
+link also appears when you open a child file directly from the file tree, as
+long as some file in the project inputs it. Compiling from a child document
+builds the main file as usual.
+
 ## Document settings and export
 
 **☰ → Document settings** edits the document class, its options (`11pt`,

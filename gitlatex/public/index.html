@@ -747,9 +747,39 @@ app.listen(8080, () => console.log("Compiler API on http://localhost:8080/compil
         <button type="button" class="icon-btn" id="pdf-fit-width" title="Fit width" aria-label="Fit width">
           <span class="material-icons" aria-hidden="true">fit_screen</span>
         </button>
-        <span class="pdf-toolbar-hint" title="Cmd/Ctrl+click a line in the editor to find it in the PDF">Double-click the PDF to jump to its source</span>
+        <span class="pdf-toolbar-hint" title="Cmd/Ctrl+click a line in the editor to find it in the PDF. In the PDF: M marks a line, B goes back after a jump, C / Shift+C cycle through marks.">Double-click to jump to source · M mark · B back · C marks</span>
       </div>
-      <div id="pdf-pages"></div>
+      <div id="pdf-pages">
+        <!-- PDFViewer needs an absolutely positioned scroller around .pdfViewer -->
+        <div id="pdf-scroller" tabindex="0"><div class="pdfViewer"></div></div>
+        <button type="button" id="pdf-mark-selection" class="pdf-mark-selection" title="Mark this line (M)" hidden>
+          <span class="material-icons" aria-hidden="true">bookmark_add</span>Mark line
+        </button>
+        <!-- Driven by PDFJumpHistory; the ids are the ones its CSS expects. -->
+        <div id="jumpHistory" role="group" hidden>
+          <button id="jumpHistoryBack" class="jumpHistoryButton" type="button" data-l10n-id="pdfjs-jump-history-back-button-empty" disabled>
+            <svg aria-hidden="true" viewBox="0 0 16 16" width="16" height="16"><path d="M6 3 2.5 6.5 6 10M3 6.5h6.5a3.5 3.5 0 0 1 0 7H7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span class="jumpHistoryPage" aria-hidden="true"></span>
+          </button>
+          <button id="jumpHistoryList" class="jumpHistoryButton" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="jumpHistoryPanel" data-l10n-id="pdfjs-jump-history-list-button">
+            <svg aria-hidden="true" viewBox="0 0 16 16" width="16" height="16"><path d="M5.5 4h8M5.5 8h8M5.5 12h8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="2.5" cy="4" r="1" fill="currentColor"/><circle cx="2.5" cy="8" r="1" fill="currentColor"/><circle cx="2.5" cy="12" r="1" fill="currentColor"/></svg>
+          </button>
+        </div>
+        <div id="jumpHistoryPanel" role="dialog" aria-labelledby="jumpHistoryPanelTitle" hidden>
+          <div class="jumpHistoryPanelHeader">
+            <span id="jumpHistoryPanelTitle" data-l10n-id="pdfjs-jump-history-panel-title"></span>
+            <div class="jumpHistoryPanelActions">
+              <button id="jumpHistoryClear" class="pdf-jump-action" type="button" data-l10n-id="pdfjs-jump-history-clear-button"></button>
+              <button id="jumpHistorySave" class="pdf-jump-action" type="button" data-l10n-id="pdfjs-jump-history-save-button"></button>
+            </div>
+          </div>
+          <ol id="jumpHistoryEntries"></ol>
+          <div class="jumpHistoryPanelFooter">
+            <label for="jumpHistoryMaxEntries" data-l10n-id="pdfjs-jump-history-max-entries-label"></label>
+            <select id="jumpHistoryMaxEntries"></select>
+          </div>
+        </div>
+      </div>
       <iframe id="pdf-fallback" class="hidden" title="PDF preview"></iframe>
       <div id="pdf-empty" class="pdf-empty">Compile to see the PDF here.</div>
     </div>

@@ -1,0 +1,91 @@
+/* Conceal TeX: the source shrinks to nothing; the rendering sits over the reserved room */
+.monaco-editor .tex-conceal-src {
+  font-size: 0 !important;
+  letter-spacing: 0 !important;
+}
+.monaco-editor .tex-conceal {
+  white-space: nowrap;
+  cursor: text;
+  color: var(--vscode-editor-foreground);
+}
+.monaco-editor .tex-conceal .katex {
+  font-size: 1em;
+}
+.monaco-editor .tex-conceal-block {
+  text-align: center;
+  padding-top: 4px;
+}
+.monaco-editor .tex-conceal-block .katex-display {
+  margin: 0;
+}
+.tex-conceal-measure {
+  position: absolute;
+  visibility: hidden;
+  left: -9999px;
+  top: 0;
+  width: 800px;
+}
+
+/* The MathLive box (styles from the demo's liveMath.js) */
+.monaco-editor .tex-conceal-edit {
+  white-space: nowrap;
+}
+.monaco-editor .tex-conceal-edit math-field {
+  border: 0;
+  background: color-mix(in srgb, var(--c-accent, #2563eb) 10%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--c-accent, #2563eb) 45%, transparent);
+  color: var(--vscode-editor-foreground);
+  --caret-color: var(--c-accent, #2563eb);
+  --selection-background-color: color-mix(in srgb, var(--c-accent, #2563eb) 30%, transparent);
+  --contains-highlight-background-color: rgba(127, 127, 127, 0.15);
+}
+.monaco-editor .tex-conceal-edit math-field::part(menu-toggle),
+.monaco-editor .tex-conceal-edit math-field::part(virtual-keyboard-toggle) {
+  display: none;
+}
+.monaco-editor .tex-conceal-edit math-field.inline {
+  display: inline-block;
+  min-width: 0.8em;
+  padding: 0 1px;
+  border-radius: 3px;
+  font-size: 1em;
+}
+.monaco-editor .tex-conceal-edit math-field.inline::part(content) {
+  padding: 0;
+}
+.monaco-editor .tex-conceal-edit math-field.display {
+  display: inline-block;
+  min-width: 4em;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 1.1em;
+}
+
+/* \label{…} names of a rendered display block, at its right edge like equation numbers */
+.monaco-editor .tex-conceal-block {
+  position: relative;
+}
+.monaco-editor .tex-conceal-labels {
+  position: absolute;
+  right: 12px;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  font-family: var(--vscode-editor-font-family);
+  font-size: 0.8em;
+  opacity: 0.6;
+  pointer-events: none;
+}
+.tex-conceal-label-edit {
+  position: fixed;
+  z-index: 1000;
+  padding: 1px 3px;
+  font-family: var(--vscode-editor-font-family, monospace);
+  color: var(--vscode-editor-foreground);
+  background: var(--vscode-editor-background);
+  border: 1px solid var(--c-accent, #2563eb);
+  border-radius: 3px;
+  outline: none;
+}

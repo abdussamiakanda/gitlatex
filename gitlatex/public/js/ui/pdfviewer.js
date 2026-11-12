@@ -1,60 +1,125 @@
 /**
- * The compiled-PDF pane, drawn with PDF.js.
+ * The compiled-PDF pane, drawn with PDF.js's PDFViewer.
  *
  * The browser's own PDF viewer can neither say where it was clicked nor
- * scroll to a spot inside a page, and SyncTeX needs both. Pages are drawn
- * lazily as they scroll into view and dropped again once far away, so long
- * documents stay cheap. If PDF.js cannot load or parse a file, the pane falls
- * back to the old iframe.
+ * scroll to a spot inside a page, and SyncTeX needs both. PDFViewer also makes
+ * links clickable and text selectable, and PDFJumpHistory (from our PDF.js
+ * fork) adds marks and a return point on top:
+ *
+ *   M        mark the selected line, or the line at the top of the view
+ *   B        go back to where the last link / Show in PDF jump started
+ *   C        go to the previous mark (Shift+C: the next one)
+ *
+ * The keys only act while the PDF pane has focus. If PDF.js cannot load or
+ * parse a file, the pane falls back to the old iframe.
  */
 
 import { getApiBase } from "../core/api.js";
+import { state } from "../core/state.js";
 import { changedPageOverlay } from "./pdfchanges.js";
 
-const PDFJS_ROOT = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/";
+//const PDFJS_ROOT = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/";
+const PDFJS_ROOT = "https://cdn.jsdelivr.net/gh/revolutionibus/pdf.js@v1.0.1/";
 const MIN_SCALE = 0.25;
 const MAX_SCALE = 4;
 const ZOOM_STEP = 1.2;
-// Matches the .pdf-pages-inner padding, so fit-width leaves an even margin.
-const PAGE_PADDING = 12;
+const MARKS_KEY = "gitlatex-pdf-marks:";
 
 const view = {
   url: null,
   path: null,       // repo-relative path of the shown PDF, when it has one
   doc: null,
-  pages: [],        // PDFPageProxy per page
-  entries: [],      // { page, viewport, div, canvas, task } per page
   scale: 1,
   fit: true,
   loadId: 0,
-  observer: null,
+  location: null,   // last "updateviewarea" location, to keep place on a rebuild
+  settle: null,     // resolves a showPdf still waiting for its pages
   usingFallback: false,
 };
 
-let pdfjsPromise = null;
+let viewer = null;  // { lib, eventBus, linkService, pdfViewer, jumpHistory }
+let viewerPromise = null;
 let dblclickHandler = null;
 
 function els() {
   return {
     pane: document.getElementById("pdf"),
-    scroller: document.getElementById("pdf-pages"),
+    pages: document.getElementById("pdf-pages"),
+    scroller: document.getElementById("pdf-scroller"),
     fallback: document.getElementById("pdf-fallback"),
     empty: document.getElementById("pdf-empty"),
     zoomLabel: document.getElementById("pdf-zoom-label"),
+    markButton: document.getElementById("pdf-mark-selection"),
   };
 }
 
-function loadPdfJs() {
-  if (!pdfjsPromise) {
-    pdfjsPromise = import(PDFJS_ROOT + "build/pdf.min.mjs").then((lib) => {
+function loadViewer() {
+  if (!viewerPromise) {
+    viewerPromise = (async () => {
+      const lib = await import(PDFJS_ROOT + "build/pdf.min.mjs");
       // PDF.js wraps a cross-origin worker URL in a same-origin blob itself.
       lib.GlobalWorkerOptions.workerSrc = PDFJS_ROOT + "build/pdf.worker.min.mjs";
-      return lib;
-    });
+      // pdf_viewer.mjs takes the library from this global when it loads.
+      globalThis.pdfjsLib = lib;
+      const [ui] = await Promise.all([
+        import(PDFJS_ROOT + "web/pdf_viewer.mjs"),
+        loadStylesheet(PDFJS_ROOT + "web/pdf_viewer.css"),
+      ]);
+      viewer = createViewer(lib, ui);
+      return viewer;
+    })();
     // A failed CDN fetch should be retried on the next PDF, not cached forever.
-    pdfjsPromise.catch(() => { pdfjsPromise = null; });
+    viewerPromise.catch(() => { viewerPromise = null; });
   }
-  return pdfjsPromise;
+  return viewerPromise;
+}
+
+function loadStylesheet(href) {
+  if (document.querySelector(`link[href="${href}"]`)) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = href;
+    link.onload = resolve;
+    link.onerror = () => { link.remove(); reject(new Error("Could not load " + href)); };
+    document.head.appendChild(link);
+  });
+}
+
+function createViewer(lib, ui) {
+  const { scroller, zoomLabel } = els();
+  const byId = (id) => document.getElementById(id);
+  const eventBus = new ui.EventBus();
+  const linkService = new ui.PDFLinkService({ eventBus, externalLinkTarget: ui.LinkTarget.BLANK });
+  const pdfViewer = new ui.PDFViewer({
+    container: scroller,
+    eventBus,
+    linkService,
+    // The annotation editor listens for paste and drop on the whole page,
+    // which would steal them from the rest of the app.
+    annotationEditorMode: lib.AnnotationEditorType.DISABLE,
+  });
+  linkService.setViewer(pdfViewer);
+  const jumpHistory = new ui.PDFJumpHistory({
+    container: byId("jumpHistory"),
+    backButton: byId("jumpHistoryBack"),
+    listButton: byId("jumpHistoryList"),
+    panel: byId("jumpHistoryPanel"),
+    entries: byId("jumpHistoryEntries"),
+    saveButton: byId("jumpHistorySave"),
+    maxEntriesSelect: byId("jumpHistoryMaxEntries"),
+    clearButton: byId("jumpHistoryClear"),
+  }, eventBus, pdfViewer);
+  // Their labels are data-l10n-ids; the viewer's l10n has the English text.
+  pdfViewer.l10n.translate(byId("jumpHistory"));
+  pdfViewer.l10n.translate(byId("jumpHistoryPanel"));
+
+  eventBus.on("updateviewarea", ({ location }) => { view.location = location; });
+  eventBus.on("scalechanging", ({ scale }) => {
+    view.scale = scale;
+    if (zoomLabel) zoomLabel.textContent = Math.round(scale * 100) + "%";
+  });
+  return { lib, eventBus, linkService, pdfViewer, jumpHistory };
 }
 
 /** URL the server serves a repo-relative PDF from. */
@@ -84,21 +149,18 @@ export async function showPdf(url, path = null, options = {}) {
   const id = ++view.loadId;
   const { empty } = els();
   if (empty) empty.classList.add("hidden");
+  let v;
   let doc;
-  let pages;
   try {
-    const lib = await loadPdfJs();
-    doc = await lib.getDocument({
+    v = await loadViewer();
+    doc = await v.lib.getDocument({
       url,
       isEvalSupported: false,
       cMapUrl: PDFJS_ROOT + "cmaps/",
       cMapPacked: true,
       standardFontDataUrl: PDFJS_ROOT + "standard_fonts/",
     }).promise;
-    pages = [];
-    for (let n = 1; n <= doc.numPages; n++) pages.push(await doc.getPage(n));
   } catch (e) {
-    if (doc) doc.destroy();
     if (id !== view.loadId) return false;
     console.warn("PDF.js could not show the PDF, using the browser viewer:", e);
     if (requestedPage) {
@@ -111,42 +173,135 @@ export async function showPdf(url, path = null, options = {}) {
     return false;
   }
   if (id !== view.loadId) {
-    doc.destroy();
+    destroyDoc(doc);
     return false;
   }
   const oldDoc = view.doc;
   const sameFile = view.path && view.path === path && !view.usingFallback;
-  const page = requestedPage ? Math.min(requestedPage, pages.length) : null;
+  const page = requestedPage ? Math.min(requestedPage, doc.numPages) : null;
   let overlay = null;
-  if (options.highlightChanges && sameFile && page && view.pages[page - 1]) {
+  if (options.highlightChanges && sameFile && page && oldDoc && page <= oldDoc.numPages) {
     try {
-      overlay = await changedPageOverlay(view.pages[page - 1], pages[page - 1]);
+      overlay = await changedPageOverlay(await oldDoc.getPage(page), await doc.getPage(page));
     } catch (_) {
       // Rendering/comparison is optional; navigation must still work.
     }
+    if (id !== view.loadId) {
+      destroyDoc(doc);
+      return false;
+    }
   }
-  if (id !== view.loadId) {
-    doc.destroy();
-    return false;
-  }
+  // A rebuild of the same file keeps the reader where they were, unless a page was asked for.
+  const keep = page ? null : sameFile ? view.location : null;
+  const cover = sameFile ? coverPages() : null;
   view.url = url;
   view.path = path;
   view.doc = doc;
-  view.pages = pages;
   view.usingFallback = false;
   hideFallback();
-  const scale = view.fit ? fitScale() : view.scale;
-  // A rebuild of the same file keeps the reader where they were.
-  const { scroller } = els();
-  const keep = sameFile && scroller ? { top: scroller.scrollTop, left: scroller.scrollLeft } : { top: 0, left: 0 };
-  await mountPages(scale, keep, id, page);
-  if (oldDoc && oldDoc !== doc) oldDoc.destroy();
-  if (id !== view.loadId) return false;
-  if (overlay && view.entries[page - 1]) {
-    view.entries[page - 1].div.appendChild(overlay);
+
+  const ready = new Promise((resolve) => {
+    view.settle = resolve;
+    v.eventBus.on("pagesinit", resolve, { once: true });
+  });
+  v.jumpHistory.reset();
+  v.pdfViewer.setDocument(doc);
+  v.linkService.setDocument(doc);
+  await ready;
+  if (oldDoc && oldDoc !== doc) destroyDoc(oldDoc);
+  if (id !== view.loadId) {
+    if (cover) cover.remove();
+    return false;
+  }
+
+  const pdfViewer = v.pdfViewer;
+  if (view.fit) pdfViewer.currentScaleValue = "page-width";
+  else pdfViewer.currentScale = view.scale;
+  if (keep) {
+    pdfViewer.scrollPageIntoView({
+      pageNumber: Math.min(keep.pageNumber, pdfViewer.pagesCount),
+      destArray: [null, { name: "XYZ" }, keep.left, keep.top, null],
+      allowNegativeOffset: true,
+      ignoreDestinationZoom: true,
+    });
+  }
+  if (page) pdfViewer.scrollPageIntoView({ pageNumber: page });
+  if (cover) uncoverWhenDrawn(cover, keep ? keep.pageNumber : page || 1);
+  if (overlay) {
+    pdfViewer.getPageView(page - 1)?.div.appendChild(overlay);
     setTimeout(() => overlay.remove(), 3000);
   }
+  v.jumpHistory.initialize(path ? marksStore(path) : null, path ? path.split("/").pop() : "document.pdf");
   return true;
+}
+
+// PDF.js 6 frees a document through the task that loaded it.
+function destroyDoc(doc) {
+  doc.loadingTask.destroy();
+}
+
+/**
+ * Marks are kept per project and PDF, so they outlive a recompile or reload.
+ * PDFJumpHistory only needs these two methods of PDF.js's ViewHistory.
+ */
+function marksStore(path) {
+  const key = MARKS_KEY + (state.currentRepo || "") + ":" + path;
+  const read = () => {
+    try {
+      return JSON.parse(localStorage.getItem(key)) || {};
+    } catch (_) {
+      return {};
+    }
+  };
+  return {
+    async getMultiple(defaults) {
+      return { ...defaults, ...read() };
+    },
+    async setMultiple(values) {
+      try {
+        localStorage.setItem(key, JSON.stringify({ ...read(), ...values }));
+      } catch (_) {}
+    },
+  };
+}
+
+/**
+ * setDocument drops every page at once. Until the new ones are drawn, a still
+ * copy of the old ones sits on top so a recompile does not flash blank pages.
+ */
+function coverPages() {
+  const { pane, scroller } = els();
+  if (!scroller || !scroller.clientWidth || !scroller.clientHeight) return null;
+  const dpr = window.devicePixelRatio || 1;
+  const box = scroller.getBoundingClientRect();
+  const cover = document.createElement("canvas");
+  cover.className = "pdf-cover";
+  cover.width = Math.floor(scroller.clientWidth * dpr);
+  cover.height = Math.floor(scroller.clientHeight * dpr);
+  cover.style.width = scroller.clientWidth + "px";
+  cover.style.height = scroller.clientHeight + "px";
+  const ctx = cover.getContext("2d");
+  ctx.scale(dpr, dpr);
+  ctx.fillStyle = getComputedStyle(pane).backgroundColor;
+  ctx.fillRect(0, 0, scroller.clientWidth, scroller.clientHeight);
+  scroller.querySelectorAll(".page canvas").forEach((canvas) => {
+    const r = canvas.getBoundingClientRect();
+    if (!r.width || r.bottom < box.top || r.top > box.bottom) return;
+    ctx.drawImage(canvas, r.left - box.left, r.top - box.top, r.width, r.height);
+  });
+  scroller.after(cover);
+  return cover;
+}
+
+function uncoverWhenDrawn(cover, pageNumber) {
+  const onRendered = (e) => { if (e.pageNumber === pageNumber) done(); };
+  const done = () => {
+    clearTimeout(timer);
+    viewer.eventBus.off("pagerendered", onRendered);
+    cover.remove();
+  };
+  const timer = setTimeout(done, 2000);
+  viewer.eventBus.on("pagerendered", onRendered);
 }
 
 // Project PDFs the empty viewer offers, and what picking one does.
@@ -191,26 +346,29 @@ export function clearPdf() {
   choices = { paths: [], onPick: null };
   renderEmpty();
   view.loadId++;   // a load still in flight lands nowhere
-  if (view.observer) view.observer.disconnect();
-  view.observer = null;
-  view.entries.forEach(cancelEntry);
-  if (view.doc) view.doc.destroy();
-  view.url = view.path = view.doc = null;
-  view.pages = [];
-  view.entries = [];
+  if (view.settle) view.settle();
+  if (viewer) {
+    viewer.jumpHistory.reset();
+    viewer.pdfViewer.setDocument(null);
+    viewer.linkService.setDocument(null);
+  }
+  if (view.doc) destroyDoc(view.doc);
+  view.url = view.path = view.doc = view.location = null;
   view.usingFallback = false;
   hideFallback();
-  const { scroller, empty } = els();
-  if (scroller) scroller.querySelectorAll(".pdf-pages-inner").forEach(el => el.remove());
+  hideMarkButton();
+  const { empty } = els();
   if (empty) empty.classList.remove("hidden");
 }
 
 function showFallback(url, path) {
-  const { scroller, fallback } = els();
+  const { pages, fallback } = els();
   view.usingFallback = true;
   view.url = url;
   view.path = path;
-  if (scroller) scroller.classList.add("hidden");
+  if (viewer) viewer.jumpHistory.reset();
+  hideMarkButton();
+  if (pages) pages.classList.add("hidden");
   if (fallback) {
     fallback.classList.remove("hidden");
     fallback.src = url;
@@ -218,141 +376,32 @@ function showFallback(url, path) {
 }
 
 function hideFallback() {
-  const { scroller, fallback } = els();
+  const { pages, fallback } = els();
   if (fallback) {
     fallback.classList.add("hidden");
     fallback.removeAttribute("src");
   }
-  if (scroller) scroller.classList.remove("hidden");
+  if (pages) pages.classList.remove("hidden");
 }
 
-function fitScale() {
-  const { scroller } = els();
-  if (!scroller || !view.pages.length) return 1;
-  const width = view.pages[0].getViewport({ scale: 1 }).width;
-  const avail = Math.max(scroller.clientWidth - 2 * PAGE_PADDING, 100);
-  return clampScale(avail / width);
+function hasPdf() {
+  return !!(viewer && view.doc && !view.usingFallback);
 }
 
 function clampScale(s) {
   return Math.max(MIN_SCALE, Math.min(MAX_SCALE, s));
 }
 
-/**
- * Lays out every page at scale. The new layout is built hidden on top of the
- * old one and the visible pages are drawn before the swap, so a recompile or
- * zoom does not flash blank pages.
- */
-async function mountPages(scale, keep, id, page = null) {
-  const { scroller, zoomLabel } = els();
-  if (!scroller) return;
-  const inner = document.createElement("div");
-  inner.className = "pdf-pages-inner staging";
-  const entries = view.pages.map((page, i) => {
-    const viewport = page.getViewport({ scale });
-    const div = document.createElement("div");
-    div.className = "pdf-page";
-    div.dataset.page = String(i + 1);
-    div.style.width = viewport.width + "px";
-    div.style.height = viewport.height + "px";
-    inner.appendChild(div);
-    return { page, viewport, div, canvas: null, task: null };
-  });
-  scroller.appendChild(inner);
-
-  // Render the destination before swapping layouts, so it is ready on arrival.
-  if (page && entries[page - 1]) keep = { top: entries[page - 1].div.offsetTop, left: 0 };
-  const top = keep.top;
-  const bottom = top + scroller.clientHeight;
-  await Promise.all(entries
-    .filter(e => e.div.offsetTop < bottom && e.div.offsetTop + e.div.offsetHeight > top)
-    .map(renderEntry));
-  if (id !== view.loadId) {
-    inner.remove();
-    return;
-  }
-
-  if (view.observer) view.observer.disconnect();
-  view.entries.forEach(cancelEntry);
-  scroller.querySelectorAll(".pdf-pages-inner:not(.staging)").forEach(el => el.remove());
-  inner.classList.remove("staging");
-  view.entries = entries;
-  view.scale = scale;
-  scroller.scrollTop = keep.top;
-  scroller.scrollLeft = keep.left;
-  if (zoomLabel) zoomLabel.textContent = Math.round(scale * 100) + "%";
-
-  // Draw pages near the viewport, forget the ones far from it.
-  view.observer = new IntersectionObserver((items) => {
-    items.forEach((item) => {
-      const entry = view.entries[Number(item.target.dataset.page) - 1];
-      if (!entry) return;
-      if (item.isIntersecting) renderEntry(entry);
-      else cancelEntry(entry);
-    });
-  }, { root: scroller, rootMargin: "100% 0px" });
-  entries.forEach(e => view.observer.observe(e.div));
-}
-
-function renderEntry(entry) {
-  if (entry.canvas) return Promise.resolve();
-  if (entry.task) return entry.task.promise.catch(() => {});
-  const dpr = window.devicePixelRatio || 1;
-  const { width, height } = entry.viewport;
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.floor(width * dpr);
-  canvas.height = Math.floor(height * dpr);
-  canvas.style.width = width + "px";
-  canvas.style.height = height + "px";
-  const task = entry.page.render({
-    canvasContext: canvas.getContext("2d"),
-    viewport: entry.viewport,
-    transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : null,
-  });
-  entry.task = task;
-  return task.promise.then(() => {
-    if (entry.task !== task) return;
-    entry.task = null;
-    entry.canvas = canvas;
-    entry.div.prepend(canvas);
-  }).catch(() => {
-    if (entry.task === task) entry.task = null;
-  });
-}
-
-function cancelEntry(entry) {
-  if (entry.task) {
-    entry.task.cancel();
-    entry.task = null;
-  }
-  if (entry.canvas) {
-    entry.canvas.remove();
-    // Frees the backing store now rather than whenever GC gets to it.
-    entry.canvas.width = entry.canvas.height = 0;
-    entry.canvas = null;
-  }
-}
-
-function rescale(scale, fit) {
-  if (!view.doc || view.usingFallback) return;
-  const { scroller } = els();
-  if (!scroller) return;
-  const next = clampScale(scale);
-  const ratio = next / view.scale;
-  view.fit = fit;
-  // Keep the point at the top-left of the viewport in place.
-  const keep = { top: scroller.scrollTop * ratio, left: scroller.scrollLeft * ratio };
-  if (Math.abs(ratio - 1) < 0.001) return;
-  mountPages(next, keep, view.loadId);
-}
-
 export function zoomPdf(direction) {
-  rescale(direction > 0 ? view.scale * ZOOM_STEP : view.scale / ZOOM_STEP, false);
+  if (!hasPdf()) return;
+  const current = viewer.pdfViewer.currentScale;
+  view.fit = false;
+  viewer.pdfViewer.currentScale = clampScale(direction > 0 ? current * ZOOM_STEP : current / ZOOM_STEP);
 }
 
 export function fitPdfWidth() {
   view.fit = true;
-  rescale(fitScale(), true);
+  if (hasPdf()) viewer.pdfViewer.currentScaleValue = "page-width";
 }
 
 /**
@@ -360,51 +409,135 @@ export function fitPdfWidth() {
  * and flashes them. Only boxes on the first box's page are marked.
  */
 export function revealPdfBoxes(boxes) {
-  if (view.usingFallback || !boxes || !boxes.length) return false;
+  if (!hasPdf() || !boxes || !boxes.length) return false;
   const { scroller } = els();
   const pageNo = boxes[0].page;
-  const entry = view.entries[pageNo - 1];
-  if (!scroller || !entry) return false;
-  const s = view.scale;
+  const pageView = viewer.pdfViewer.getPageView(pageNo - 1);
+  if (!scroller || !pageView || !pageView.div) return false;
+  const s = pageView.viewport.scale;
   const onPage = boxes.filter(b => b.page === pageNo);
   const top = Math.min(...onPage.map(b => b.v - (b.H || 12)));
   const left = Math.min(...onPage.map(b => b.h));
-  scroller.scrollTop = entry.div.offsetTop + top * s - scroller.clientHeight / 3;
-  if (entry.div.offsetWidth > scroller.clientWidth) {
-    scroller.scrollLeft = entry.div.offsetLeft + left * s - 40;
+  // Show in PDF is a jump too, so B comes back from it.
+  viewer.eventBus.dispatch("beforenavigate", { source: null, pageNumber: pageNo });
+  const div = pageView.div;
+  const origin = pageOrigin(div);
+  scroller.scrollTop = origin.top + top * s - scroller.clientHeight / 3;
+  if (div.offsetWidth > scroller.clientWidth) {
+    scroller.scrollLeft = origin.left + left * s - 40;
   }
   onPage.forEach((b) => {
     const h = b.H > 0 ? b.H : 12;
-    const w = b.W > 0 ? b.W : entry.viewport.width / s - b.h;
+    const w = b.W > 0 ? b.W : pageView.viewport.width / s - b.h;
     const mark = document.createElement("div");
     mark.className = "pdf-sync-mark";
     mark.style.left = b.h * s + "px";
     mark.style.top = (b.v - h) * s + "px";
     mark.style.width = w * s + "px";
     mark.style.height = Math.max(h * s, 4) + "px";
-    entry.div.appendChild(mark);
+    div.appendChild(mark);
     mark.addEventListener("animationend", () => mark.remove());
   });
   return true;
 }
 
-/** Binds the zoom buttons, double-click and fit-on-resize. Call once. */
-export function initPdfViewer() {
+/** Top-left of a page's content, in the scroller's scroll coordinates. */
+function pageOrigin(div) {
   const { scroller } = els();
+  const page = div.getBoundingClientRect();
+  const box = scroller.getBoundingClientRect();
+  return {
+    top: page.top - box.top + scroller.scrollTop + div.clientTop,
+    left: page.left - box.left + scroller.scrollLeft + div.clientLeft,
+  };
+}
+
+/** The selection, when it is text on a PDF page. */
+function pdfSelectionRange() {
+  const sel = document.getSelection();
+  if (!sel || sel.isCollapsed || !sel.rangeCount) return null;
+  const range = sel.getRangeAt(0);
+  const node = range.startContainer;
+  const el = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+  return el && el.closest("#pdf-scroller .textLayer") ? range : null;
+}
+
+/** Floats "Mark line" under a text selection on a page. */
+function showMarkButton() {
+  const { pages, markButton } = els();
+  const range = hasPdf() ? pdfSelectionRange() : null;
+  if (!markButton || !range) {
+    hideMarkButton();
+    return;
+  }
+  const rect = [...range.getClientRects()].filter(r => r.width && r.height).pop();
+  if (!rect) return;
+  const box = pages.getBoundingClientRect();
+  markButton.hidden = false;
+  const maxLeft = pages.clientWidth - markButton.offsetWidth - 8;
+  markButton.style.left = Math.max(8, Math.min(rect.right - box.left - markButton.offsetWidth / 2, maxLeft)) + "px";
+  markButton.style.top = Math.min(rect.bottom - box.top + 6, pages.clientHeight - markButton.offsetHeight - 8) + "px";
+}
+
+function hideMarkButton() {
+  const { markButton } = els();
+  if (markButton) markButton.hidden = true;
+}
+
+function markSelectionOrView() {
+  const jumpHistory = viewer.jumpHistory;
+  if (pdfSelectionRange()) jumpHistory.markSelection();
+  else jumpHistory.markCurrentPosition();
+  hideMarkButton();
+}
+
+function onKeyDown(e) {
+  if (!hasPdf() || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.target.closest("input, select, textarea, [contenteditable]")) return;
+  const jumpHistory = viewer.jumpHistory;
+  const key = e.key.toLowerCase();
+  if (key === "m" && !e.shiftKey) markSelectionOrView();
+  else if (key === "b" && !e.shiftKey && jumpHistory.canReturn) jumpHistory.toggleReturn();
+  else if (key === "c" && jumpHistory.hasMarks) {
+    if (e.shiftKey) jumpHistory.cycleForward();
+    else jumpHistory.cycleBack();
+  } else return;
+  e.preventDefault();
+}
+
+/** Binds the zoom buttons, double-click, shortcuts and fit-on-resize. Call once. */
+export function initPdfViewer() {
+  const { pane, scroller, markButton } = els();
   if (!scroller) return;
   document.getElementById("pdf-zoom-in")?.addEventListener("click", () => zoomPdf(1));
   document.getElementById("pdf-zoom-out")?.addEventListener("click", () => zoomPdf(-1));
   document.getElementById("pdf-fit-width")?.addEventListener("click", fitPdfWidth);
 
   scroller.addEventListener("dblclick", (e) => {
-    const pageDiv = e.target.closest(".pdf-page");
-    if (!pageDiv || !dblclickHandler) return;
+    const pageDiv = e.target.closest(".page");
+    if (!pageDiv || !dblclickHandler || !hasPdf()) return;
+    const pageNumber = Number(pageDiv.dataset.pageNumber);
+    const pageView = viewer.pdfViewer.getPageView(pageNumber - 1);
+    if (!pageView) return;
     e.preventDefault();
+    // A double-click on the text layer also selects a word; drop it.
+    document.getSelection()?.removeAllRanges();
     const rect = pageDiv.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / view.scale;
-    const y = (e.clientY - rect.top) / view.scale;
-    dblclickHandler(getPdfPath(), Number(pageDiv.dataset.page), x, y);
+    const s = pageView.viewport.scale;
+    const x = (e.clientX - rect.left - pageDiv.clientLeft) / s;
+    const y = (e.clientY - rect.top - pageDiv.clientTop) / s;
+    dblclickHandler(getPdfPath(), pageNumber, x, y);
   });
+
+  pane.addEventListener("keydown", onKeyDown);
+  scroller.addEventListener("pointerup", () => setTimeout(showMarkButton, 0));
+  scroller.addEventListener("scroll", hideMarkButton, { passive: true });
+  document.addEventListener("selectionchange", () => { if (!pdfSelectionRange()) hideMarkButton(); });
+  if (markButton) {
+    // Keep the selection, which a click would otherwise clear first.
+    markButton.addEventListener("mousedown", (e) => e.preventDefault());
+    markButton.addEventListener("click", () => { if (hasPdf()) markSelectionOrView(); });
+  }
 
   // Fit-width follows the pane when the resizer or window changes it.
   let resizeTimer = null;
@@ -414,6 +547,6 @@ export function initPdfViewer() {
     lastWidth = scroller.clientWidth;
     if (!view.fit) return;
     clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(() => rescale(fitScale(), true), 150);
+    resizeTimer = setTimeout(fitPdfWidth, 150);
   }).observe(scroller);
 }

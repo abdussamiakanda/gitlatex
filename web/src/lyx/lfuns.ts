@@ -37,6 +37,10 @@ export interface LfunContext {
   bookmarkSave(n: number): void;
   bookmarkGoto(n: number): boolean;
   bookmarksClear(): void;
+  /** Open the child document at the cursor, else the next one below it; with `dry`, only say whether there is one. */
+  openChild(dry: boolean): boolean;
+  /** Go back to the document this child was opened from (or that inputs it). */
+  backToParent(dry: boolean): boolean;
   focusLayoutBox(): void;
 }
 
@@ -180,6 +184,8 @@ export const LFUNS: Lfun[] = [
   { name: 'bookmark-save', label: 'Save bookmark', arg: '1–5', keys: 'Ctrl+Shift+1…5', args: () => ['1', '2', '3', '4', '5'], run: bookmark('save') },
   { name: 'bookmark-goto', label: 'Go to bookmark', arg: '1–5', keys: 'Alt+1…5', args: () => ['1', '2', '3', '4', '5'], run: bookmark('goto') },
   { name: 'bookmark-clear', label: 'Clear bookmarks', run: always((ctx) => ctx.bookmarksClear()) },
+  { name: 'child-open', label: 'Open child document', run: (ctx, _arg, dry) => ctx.openChild(dry) },
+  { name: 'buffer-parent', label: 'Back to parent document', run: (ctx, _arg, dry) => ctx.backToParent(dry) },
 
   // Document
   { name: 'dialog-show document', label: 'Settings…', run: always((ctx) => ctx.documentSettings()) },

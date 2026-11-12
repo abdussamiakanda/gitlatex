@@ -70,6 +70,8 @@ export interface Settings {
   beginnerMode: boolean;
   slashCommands: boolean;
   mathPreview: boolean;
+  /** Show formulas rendered in the editor; the cursor's lines keep the raw TeX. */
+  concealTex: boolean;
   formatBar: boolean;
   /** The LyX-style editor is available (the Source | LyX switch shows); off, .tex files always open as source. */
   lyxEnabled: boolean;
@@ -101,6 +103,7 @@ export const DEFAULT_SETTINGS: Settings = {
   beginnerMode: true,
   slashCommands: true,
   mathPreview: true,
+  concealTex: false,
   formatBar: true,
   lyxEnabled: true,
   editorStyle: 'source',

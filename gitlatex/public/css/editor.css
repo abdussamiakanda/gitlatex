@@ -124,7 +124,7 @@
 #pdf-pages {
   flex: 1 1 0;
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
   position: relative;
 }
 
@@ -134,33 +134,88 @@
   display: none;
 }
 
-/* Padding here is PAGE_PADDING in pdfviewer.js. max-content + margin auto
-   centres pages that fit and lets zoomed ones scroll sideways. */
-.pdf-pages-inner {
-  padding: 12px;
-  width: max-content;
-  min-width: 100%;
-  box-sizing: border-box;
+/* PDFViewer refuses a scroller that is not absolutely positioned. */
+#pdf-scroller {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  outline: none;
 }
 
-.pdf-pages-inner.staging {
+/* Still copy of the old pages while a rebuild draws (pdfviewer.js). */
+.pdf-cover {
   position: absolute;
   top: 0;
   left: 0;
-  visibility: hidden;
   pointer-events: none;
 }
 
-.pdf-page {
-  position: relative;
-  margin: 0 auto 12px;
-  background: #fff;
+.pdf-mark-selection {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px 4px 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  color: var(--text-primary);
   box-shadow: var(--shadow-md);
-  user-select: none;
+  font: 500 0.8rem var(--font-sans);
+  cursor: pointer;
 }
 
-.pdf-page canvas {
-  display: block;
+.pdf-mark-selection[hidden] {
+  display: none;
+}
+
+.pdf-mark-selection:hover {
+  border-color: var(--accent);
+}
+
+.pdf-mark-selection .material-icons {
+  font-size: 16px;
+  color: var(--accent);
+}
+
+/* The jump-history pill and panel come styled from pdf_viewer.css; these
+   hand them the app's theme colours instead of Firefox's. */
+#pdf :is(#jumpHistory, #jumpHistoryPanel) {
+  --jump-history-border-color: var(--border-subtle);
+  --jump-history-bg-color: var(--bg-elevated);
+  --jump-history-text-color: var(--text-primary);
+  --jump-history-hover-color: var(--bg-hover);
+  --jump-history-field-bg-color: var(--bg-app);
+  --jump-history-toolbar-height: 34px;
+}
+
+#pdf :is(#jumpHistory > .jumpHistoryButton, #jumpHistoryPanel) {
+  font-family: var(--font-sans);
+}
+
+#pdf #jumpHistory {
+  inset-block-end: 16px;
+  inset-inline-end: 24px;
+}
+
+#pdf #jumpHistoryPanel {
+  inset-block-end: 62px;
+  inset-inline-end: 24px;
+}
+
+.pdf-jump-action {
+  padding: 3px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-app);
+  color: var(--text-primary);
+  font: 500 0.75rem var(--font-sans);
+  cursor: pointer;
+}
+
+.pdf-jump-action:hover {
+  border-color: var(--accent);
 }
 
 .pdf-sync-mark {
@@ -299,7 +354,7 @@
 }
 
 /* Rebuild changes are separate from the explicit Show in PDF SyncTeX flash. */
-.pdf-page .pdf-change-overlay {
+.pdfViewer .page .pdf-change-overlay {
   position: absolute;
   inset: 0;
   width: 100%;

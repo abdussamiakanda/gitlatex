@@ -1,7 +1,8 @@
 /**
  * Editor area: tabs, formatting bar, the Monaco editor (with slash menu, live
- * math preview, Vim mode, spell checking, snippets and review comments) and
- * previews for binary files.
+ * math preview, Vim mode, spell checking, snippets and review comments), the
+ * LyX-style editor for .tex files when that style is chosen, and previews for
+ * binary files.
  */
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { clsx } from 'clsx';
@@ -16,6 +17,7 @@ import { SlashMenu, MathPreview } from './SlashMenu';
 import { filterSlash, SLASH_COMMANDS, type SlashCommand } from './slash-commands';
 import { useStore, getState, setState, openDialog, promptText, toast, updateSettings } from '../state/store';
 import { installSpellCheck, setSpellCheckEnabled } from './spell';
+import { installConceal, setConcealEnabled } from './conceal';
 import { installSnippets } from './snippets';
 import { installReview } from './review';
 import { installConflictTools } from './conflicts';
@@ -165,6 +167,7 @@ export function EditorPane() {
     });
 
     const spell = installSpellCheck(editor, s.spellCheck);
+    const conceal = installConceal(editor, s.concealTex);
     const review = installReview(editor);
     const conflictTools = installConflictTools(editor, () => getState().scm?.sides);
     const collab = attachCollabEditor(editor);
@@ -221,6 +224,14 @@ export function EditorPane() {
       forwardSearch(pos.lineNumber);
     });
     editor.addCommand(M.CtrlCmd | M.Shift | K.KeyP, () => openDialog({ type: 'command-palette' }));
+    editor.addAction({
+      id: 'gitlatex.insertCitation',
+      label: 'Insert citation…',
+      keybindings: [M.CtrlCmd | M.Shift | K.KeyC],
+      contextMenuGroupId: 'navigation',
+      contextMenuOrder: 0.6,
+      run: () => openDialog({ type: 'wizard', wizard: 'cite' }),
+    });
     const wrap = (cmd: string) => () => {
       const sel = editor.getSelection();
       const model = editor.getModel();
@@ -321,7 +332,7 @@ export function EditorPane() {
       mathTimer = setTimeout(() => {
         const model = editor.getModel();
         const pos = editor.getPosition();
-        const enabled = getState().settings.mathPreview && model && pos && model.getLanguageId() === 'latex' && !slashRef.current;
+        const enabled = getState().settings.mathPreview && !getState().settings.concealTex && model && pos && model.getLanguageId() === 'latex' && !slashRef.current;
         shownMath = enabled ? mathAt(model, pos) : null;
         placeMath();
       }, 180);
@@ -340,6 +351,7 @@ export function EditorPane() {
     return () => {
       syncClickSub.dispose();
       spell.dispose();
+      conceal.dispose();
       review.dispose();
       conflictTools.dispose();
       collab.dispose();
@@ -384,6 +396,7 @@ export function EditorPane() {
   }, [settings.vim]);
 
   useEffect(() => setSpellCheckEnabled(settings.spellCheck), [settings.spellCheck]);
+  useEffect(() => setConcealEnabled(settings.concealTex), [settings.concealTex]);
 
   // ---- switch model when the active file changes -----------------------------------------
   const prevPath = useRef<string | null>(null);
@@ -417,7 +430,7 @@ export function EditorPane() {
   const flash = useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
   useEffect(() => {
     const editor = editorRef.current;
-    if (!editor || !reveal || reveal.path !== activePath) return;
+    if (!editor || !reveal || reveal.path !== activePath || isLyxFile(activePath)) return; // LyxPane shows its own
     const t = setTimeout(() => {
       const line = Math.max(1, Math.min(reveal.line, editor.getModel()?.getLineCount() ?? 1));
       editor.revealLineInCenter(line, monaco.editor.ScrollType.Smooth);
@@ -511,6 +524,16 @@ export function EditorPane() {
             </button>
           ))}
         </div>
+      )}
+      {isText && extname(activePath ?? '') === 'tex' && !lyx && (
+        <button
+          title={`Show formulas rendered and edit them in a math box (${modKey}+M inline, ${modKey}+Shift+M display)`}
+          aria-pressed={settings.concealTex}
+          onClick={() => updateSettings({ concealTex: !settings.concealTex })}
+          className={clsx('mr-1.5 shrink-0 rounded px-2 py-0.5 text-[11.5px]', settings.concealTex ? 'bg-accent/15 font-medium text-fg' : 'text-muted hover:bg-hover hover:text-fg')}
+        >
+          Conceal TeX
+        </button>
       )}
       </div>
 

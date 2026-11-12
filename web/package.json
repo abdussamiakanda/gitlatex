@@ -38,7 +38,7 @@
     "monaco-editor": "^0.57.0",
     "monaco-vim": "^0.4.4",
     "node-diff3": "^3.2.1",
-    "pdfjs-dist": "^6.3.289",
+    "pdfjs-dist": "github:revolutionibus/pdf.js#v1.0.1",
     "prosemirror-commands": "^1.7.2",
     "prosemirror-dropcursor": "^1.8.4",
     "prosemirror-gapcursor": "^1.4.1",

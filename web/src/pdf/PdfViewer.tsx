@@ -1,29 +1,28 @@
 /**
- * PDF viewer built on pdf.js's PDFViewer component: continuous scrolling, lazy
- * HiDPI rendering, selectable text, clickable links (\ref, \eqref, \cite with
- * hyperref, the table of contents, URLs), flicker-free updates after
- * recompiles (a still copy of the old pages covers the swap), zoom, and
- * SyncTeX hooks.
+ * PDF viewer built on pdf.js's PDFViewer: continuous scrolling, lazy HiDPI
+ * rendering, selectable text, clickable links, flicker-free updates after
+ * recompiles (a still copy of the old pages stays on top until the new ones
+ * are painted), zoom, and SyncTeX hooks.
  *
- * Following a link or Show in PDF remembers where you were: the Back button
- * (or B while the PDF has focus) returns there.
+ * PDFJumpHistory (from our pdf.js fork, revolutionibus/pdf.js) adds marks and
+ * a return point on top. While the PDF has focus:
+ *   M        mark the selected line, or the line at the top of the view
+ *   B        go back to where the last link / Show in PDF jump started
+ *   C        go to the previous mark (Shift+C: the next one)
  *
- * Bookmarks save spots to come back to, per project (src/pdf/bookmarks.ts).
- * While the PDF has focus:
- *   M          bookmark the selected text, or the line at the top of the view
- *   C          go to the previous bookmark (Shift+C: the next one)
+ * After a compile the view moves to the cursor's page and briefly highlights
+ * what changed there; a \ref to a figure lands on the whole figure.
  */
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { Bookmark as BookmarkIcon, BookmarkPlus, Undo2, X } from 'lucide-react';
+import { BookmarkPlus } from 'lucide-react';
 // Must come first: pdf_viewer.mjs reads the library from a global set there.
 import { pdfjs } from './pdfjs';
 import * as pdfjsViewer from 'pdfjs-dist/legacy/web/pdf_viewer.mjs';
 import 'pdfjs-dist/legacy/web/pdf_viewer.css';
+import { getState } from '../state/store';
 import type { SyncRect } from '../latex/synctex';
 import { changedPageTiles, type ChangeTile } from './changes';
 import { figureTopAbove, graphicsBoxes } from './link-target';
-import { clsx } from '../components/ui';
-import { addBookmark, loadBookmarks, mergeLineRects, nearestBookmark, saveBookmarks, sortBookmarks, type Bookmark, type Rect } from './bookmarks';
 
 export type Zoom = 'width' | 'page' | number;
 
@@ -35,6 +34,7 @@ interface Viewer {
   eventBus: pdfjsViewer.EventBus;
   linkService: pdfjsViewer.PDFLinkService;
   pdfViewer: pdfjsViewer.PDFViewer;
+  jumpHistory: pdfjsViewer.PDFJumpHistory;
 }
 
 /** What PDFViewer reports in "updateviewarea": the view's top-left, in PDF units. */
@@ -44,10 +44,7 @@ interface ViewLocation {
   top: number;
 }
 
-const MAX_BACK = 50;
-
-/** The floating buttons over the PDF: Back, Bookmarks, and "Bookmark" under a selection. */
-const PILL = 'focus-ring flex items-center gap-1.5 rounded-full border border-line bg-panel text-[12px] font-medium text-fg shadow-pop hover:border-accent';
+const MARKS_KEY = 'gitlatex-pdf-marks:';
 
 function applyZoom(pdfViewer: pdfjsViewer.PDFViewer, zoom: Zoom) {
   if (zoom === 'width') pdfViewer.currentScaleValue = 'page-width';
@@ -55,13 +52,33 @@ function applyZoom(pdfViewer: pdfjsViewer.PDFViewer, zoom: Zoom) {
   else pdfViewer.currentScale = zoom;
 }
 
-function scrollToLocation(pdfViewer: pdfjsViewer.PDFViewer, l: ViewLocation) {
-  pdfViewer.scrollPageIntoView({
-    pageNumber: Math.min(l.pageNumber, pdfViewer.pagesCount),
-    destArray: [null, { name: 'XYZ' }, l.left, l.top, null],
-    allowNegativeOffset: true,
-    ignoreDestinationZoom: true,
-  });
+/**
+ * Marks are kept per project and main file, so they outlive a recompile or a
+ * reload. PDFJumpHistory only needs these two methods of pdf.js's ViewHistory.
+ */
+function marksStore() {
+  const project = getState().project;
+  if (!project) return null;
+  const key = `${MARKS_KEY}${project.id}:${project.mainFile}`;
+  const read = (): Record<string, unknown> => {
+    try {
+      return JSON.parse(localStorage.getItem(key) ?? '{}') ?? {};
+    } catch {
+      return {};
+    }
+  };
+  return {
+    async getMultiple(defaults: Record<string, unknown>) {
+      return { ...defaults, ...read() };
+    },
+    async setMultiple(values: Record<string, unknown>) {
+      try {
+        localStorage.setItem(key, JSON.stringify({ ...read(), ...values }));
+      } catch {
+        // Storage full or blocked: the marks just do not persist.
+      }
+    },
+  };
 }
 
 /** Room left above a link's target (CSS px), so it is not flush with the edge. */
@@ -95,73 +112,19 @@ async function landingFor(pdfViewer: pdfjsViewer.PDFViewer, dest: string | unkno
   };
 }
 
-/** The selection, when it is text on a PDF page inside root. */
-function pdfSelectionRange(root: HTMLElement | null) {
-  const sel = document.getSelection();
-  if (!root || !sel || sel.isCollapsed || !sel.rangeCount) return null;
-  const range = sel.getRangeAt(0);
-  const node = range.startContainer;
-  const el = node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement;
-  return el?.closest('.textLayer') && root.contains(el) ? range : null;
-}
-
-/** The page under screen height `y` in the scroller, or the next one below it (between pages). */
-function pageAtScreenY(scroller: HTMLElement, y: number) {
-  const pages = [...scroller.querySelectorAll<HTMLElement>('.page[data-page-number]')];
-  return pages.find((div) => div.getBoundingClientRect().bottom >= y) ?? null;
-}
-
-type Viewport = pdfjsViewer.PDFPageView['viewport'];
-
 /**
- * The lines covered by `screen` rects (client px) on a page, as PDF rects.
- * Stray giants (pdf.js's end-of-content filler joins a selection) are dropped.
+ * An overlay on a page, positioned in percent so it fits any zoom. pdf.js
+ * clears foreign children when it re-lays a page out (on zoom), which suits
+ * these short-lived highlights.
  */
-function textLines(div: HTMLElement, viewport: Viewport, screen: DOMRect[]): Rect[] {
-  const page = div.getBoundingClientRect();
-  const onPage = screen.filter((r) => r.width && r.height && r.bottom > page.top && r.top < page.bottom);
-  const heights = onPage.map((r) => r.height).sort((a, b) => a - b);
-  const typical = heights[Math.floor(heights.length / 2)] ?? 0;
-  const lines = mergeLineRects(onPage.filter((r) => r.height <= typical * 2.5).map((r) => [r.left, r.top, r.right, r.bottom]));
-  const pdf = (x: number, y: number) => viewport.convertToPdfPoint(x - page.left - div.clientLeft, y - page.top - div.clientTop);
-  return lines.map(([x0, y0, x1, y1]) => {
-    const [a, b] = pdf(x0, y0);
-    const [c, d] = pdf(x1, y1);
-    return [Math.min(a, c), Math.min(b, d), Math.max(a, c), Math.max(b, d)];
-  });
+function addOverlay(page: HTMLElement, className: string, box: { left: string; top: string; width: string; height: string }) {
+  const el = document.createElement('div');
+  el.className = `pointer-events-none absolute z-10 ${className}`;
+  el.setAttribute('aria-hidden', 'true');
+  Object.assign(el.style, box);
+  page.appendChild(el);
+  return el;
 }
-
-/**
- * Screen rects of exactly the selected characters. A range's own client rects
- * also cover every element it touches: a mouse selection in pdf.js's text
- * layer often ends in its hidden filler element, which would make whole spans
- * (whole lines) count as selected. So measure text nodes only, clipped to the
- * selection's ends.
- */
-function selectedCharRects(range: Range): DOMRect[] {
-  const common = range.commonAncestorContainer;
-  const root = common.nodeType === Node.TEXT_NODE ? common.parentNode : common;
-  if (!root) return [];
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-  const rects: DOMRect[] = [];
-  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-    if (!range.intersectsNode(node) || !node.parentElement?.closest('.textLayer')) continue;
-    const part = document.createRange();
-    part.selectNodeContents(node);
-    if (node === range.startContainer) part.setStart(node, range.startOffset);
-    if (node === range.endContainer) part.setEnd(node, range.endOffset);
-    if (!part.collapsed) rects.push(...part.getClientRects());
-  }
-  return rects;
-}
-
-/** Where a bookmark of these lines points: their top-left, in PDF units. */
-const topLeft = (rects: Rect[]) => ({ x: Math.min(...rects.map((r) => r[0])), y: Math.max(...rects.map((r) => r[3])) });
-
-const snippet = (text: string) => {
-  const t = text.replace(/\s+/g, ' ').trim();
-  return t.length > 80 ? `${t.slice(0, 79)}…` : t;
-};
 
 /** Top-left of a page's content, in the scroller's scroll coordinates. */
 function pageOrigin(scroller: HTMLElement, div: HTMLElement) {
@@ -201,18 +164,14 @@ function coverPages(scroller: HTMLElement): HTMLCanvasElement | null {
   return cover;
 }
 
-/**
- * An overlay on a page, positioned in percent so it fits any zoom. pdf.js
- * clears foreign children when it re-lays a page out (on zoom), which suits
- * these short-lived highlights.
- */
-function addOverlay(page: HTMLElement, className: string, box: { left: string; top: string; width: string; height: string }) {
-  const el = document.createElement('div');
-  el.className = `pointer-events-none absolute z-10 ${className}`;
-  el.setAttribute('aria-hidden', 'true');
-  Object.assign(el.style, box);
-  page.appendChild(el);
-  return el;
+/** The selection, when it is text on a PDF page inside root. */
+function pdfSelectionRange(root: HTMLElement | null) {
+  const sel = document.getSelection();
+  if (!root || !sel || sel.isCollapsed || !sel.rangeCount) return null;
+  const range = sel.getRangeAt(0);
+  const node = range.startContainer;
+  const el = node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement;
+  return el?.closest('.textLayer') && root.contains(el) ? range : null;
 }
 
 export const PdfViewer = forwardRef<
@@ -220,6 +179,7 @@ export const PdfViewer = forwardRef<
   {
     data: Uint8Array;
     version: number;
+    /** The page the cursor is on; after a compile the view moves there. */
     cursorPage: number | null;
     zoom: Zoom;
     onZoomChange: (z: Zoom) => void;
@@ -228,40 +188,32 @@ export const PdfViewer = forwardRef<
     onInverseSearch: (page: number, x: number, y: number) => void;
     target: { rects: SyncRect[]; nonce: number } | null;
     dark: boolean;
-    /** Where this document's bookmarks are stored (per project and main file); null keeps none. */
-    bookmarkKey?: string | null;
   }
->(function PdfViewer({ data, version, cursorPage, zoom, onZoomChange, onPageChange, onScaleChange, onInverseSearch, target, dark, bookmarkKey = null }, ref) {
+>(function PdfViewer({ data, version, cursorPage, zoom, onZoomChange, onPageChange, onScaleChange, onInverseSearch, target, dark }, ref) {
+  const wrapper = useRef<HTMLDivElement>(null);
   const scroller = useRef<HTMLDivElement>(null);
+  const jumpBar = useRef<HTMLDivElement>(null);
+  const backButton = useRef<HTMLButtonElement>(null);
+  const listButton = useRef<HTMLButtonElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
+  const entries = useRef<HTMLOListElement>(null);
+  const saveButton = useRef<HTMLButtonElement>(null);
+  const maxEntries = useRef<HTMLSelectElement>(null);
+  const clearButton = useRef<HTMLButtonElement>(null);
+
   const viewerRef = useRef<Viewer | null>(null);
   const taskRef = useRef<pdfjs.PDFDocumentLoadingTask | null>(null);
   const location = useRef<ViewLocation | null>(null);
   const pendingTarget = useRef<{ rects: SyncRect[]; nonce: number } | null>(null);
+  /** The `version` of the document on screen: a target that comes with a rebuild waits for it. */
+  const shownVersion = useRef<number | null>(null);
+  const versionRef = useRef(version);
+  versionRef.current = version;
   const [error, setError] = useState<string | null>(null);
-  // Where each link / Show in PDF jump started; Back pops the last one.
-  // `page` is the page the reader was on (the location's page can be one
-  // whose last sliver shows at the top), for the button's label.
-  const [back, setBack] = useState<(ViewLocation & { page: number })[]>([]);
-  const [pages, setPages] = useState(0);
+  const [markAt, setMarkAt] = useState<{ left: number; top: number } | null>(null);
   // pdf.js events outlive a render; they read the current props from here.
   const props = useRef({ zoom, cursorPage, onPageChange, onScaleChange });
   props.current = { zoom, cursorPage, onPageChange, onScaleChange };
-
-  /** Remember the current view as a place to come back to. */
-  const pushBack = useCallback(() => {
-    const l = location.current;
-    const page = viewerRef.current?.pdfViewer.currentPageNumber ?? l?.pageNumber;
-    if (l && page) setBack((b) => [...b.slice(1 - MAX_BACK), { ...l, page }]);
-  }, []);
-
-  const goBack = useCallback(() => {
-    const pdfViewer = viewerRef.current?.pdfViewer;
-    setBack((b) => {
-      const last = b[b.length - 1];
-      if (last && pdfViewer?.pdfDocument) scrollToLocation(pdfViewer, last);
-      return b.slice(0, -1);
-    });
-  }, []);
 
   // ---- create the viewer (once: it keeps listeners on the DOM below) ---------------------------
   useEffect(() => {
@@ -278,8 +230,20 @@ export const PdfViewer = forwardRef<
       annotationEditorMode: pdfjs.AnnotationEditorType.DISABLE,
     });
     linkService.setViewer(pdfViewer);
-    // The link service reports every internal jump here before making it.
-    linkService.setHistory({ pushCurrentPosition: pushBack, push() {}, pushPage() {} } as never);
+    const jumpHistory = new pdfjsViewer.PDFJumpHistory(
+      {
+        container: jumpBar.current!,
+        backButton: backButton.current!,
+        listButton: listButton.current!,
+        panel: panel.current!,
+        entries: entries.current!,
+        saveButton: saveButton.current!,
+        maxEntriesSelect: maxEntries.current!,
+        clearButton: clearButton.current!,
+      },
+      eventBus,
+      pdfViewer,
+    );
     // Land links with some room above, and a \ref to a figure (which points at
     // its caption) on the whole figure. Worked out before the jump, so the
     // view moves once.
@@ -289,42 +253,44 @@ export const PdfViewer = forwardRef<
       await goToDestination(dest);
       if (land && scroller.current) land(scroller.current);
     };
+    // Their labels are data-l10n-ids; the viewer's l10n has the English text.
+    void pdfViewer.l10n?.translate(jumpBar.current);
+    void pdfViewer.l10n?.translate(panel.current);
 
     eventBus.on('updateviewarea', ({ location: l }: { location: ViewLocation }) => (location.current = l));
     eventBus.on('scalechanging', ({ scale }: { scale: number }) => props.current.onScaleChange?.(scale));
     eventBus.on('pagechanging', ({ pageNumber }: { pageNumber: number }) => props.current.onPageChange(pageNumber, pdfViewer.pagesCount));
-    viewerRef.current = { eventBus, linkService, pdfViewer };
-  }, [pushBack]);
+    viewerRef.current = { eventBus, linkService, pdfViewer, jumpHistory };
+  }, []);
 
   useEffect(() => () => void taskRef.current?.destroy(), []);
 
   // ---- SyncTeX forward search -------------------------------------------------------------------
-  const showTarget = useCallback(
-    (t: { rects: SyncRect[]; nonce: number }) => {
-      const v = viewerRef.current;
-      const el = scroller.current;
-      const first = t.rects[0];
-      const firstView = v?.pdfViewer.getPageView(first.page - 1);
-      if (!v || !el || !firstView?.div) return;
-      pushBack(); // Show in PDF is a jump too, so Back comes back from it.
-      const s = firstView.viewport.scale;
-      el.scrollTo({ top: pageOrigin(el, firstView.div).top + first.y * s - el.clientHeight / 3, behavior: 'smooth' });
-      for (const r of t.rects) {
-        const pageView = v.pdfViewer.getPageView(r.page - 1);
-        if (!pageView?.div) continue;
-        const k = pageView.viewport.scale;
-        const flash = addOverlay(pageView.div, 'synctex-flash rounded-sm', {
-          left: `${r.x * k - 3}px`, top: `${r.y * k - 3}px`, width: `${r.w * k + 6}px`, height: `${r.h * k + 6}px`,
-        });
-        flash.addEventListener('animationend', () => flash.remove());
-      }
-    },
-    [pushBack],
-  );
+  const showTarget = useCallback((t: { rects: SyncRect[]; nonce: number }) => {
+    const v = viewerRef.current;
+    const el = scroller.current;
+    const first = t.rects[0];
+    const firstView = v?.pdfViewer.getPageView(first.page - 1);
+    if (!v || !el || !firstView?.div) return;
+    // Show in PDF is a jump too, so B comes back from it.
+    v.eventBus.dispatch('beforenavigate', { source: null, pageNumber: first.page });
+    const s = firstView.viewport.scale;
+    el.scrollTo({ top: pageOrigin(el, firstView.div).top + first.y * s - el.clientHeight / 3, behavior: 'smooth' });
+    for (const r of t.rects) {
+      const pageView = v.pdfViewer.getPageView(r.page - 1);
+      if (!pageView?.div) continue;
+      const k = pageView.viewport.scale;
+      const flash = document.createElement('div');
+      flash.className = 'synctex-flash pointer-events-none absolute z-10 rounded-sm';
+      Object.assign(flash.style, { left: `${r.x * k - 3}px`, top: `${r.y * k - 3}px`, width: `${r.w * k + 6}px`, height: `${r.h * k + 6}px` });
+      flash.addEventListener('animationend', () => flash.remove());
+      pageView.div.appendChild(flash);
+    }
+  }, []);
 
   useEffect(() => {
     if (!target || !target.rects.length) return;
-    if (viewerRef.current?.pdfViewer.pdfDocument) showTarget(target);
+    if (viewerRef.current?.pdfViewer.pdfDocument && shownVersion.current === versionRef.current) showTarget(target);
     else pendingTarget.current = target;
   }, [target, showTarget]);
 
@@ -356,16 +322,24 @@ export const PdfViewer = forwardRef<
         const cover = oldTask && scroller.current ? coverPages(scroller.current) : null;
         taskRef.current = task;
         setError(null);
-        setBack([]); // old positions may not exist in the new document
+        v.jumpHistory.reset();
         v.eventBus.on(
           'pagesinit',
           () => {
             if (taskRef.current !== task) return void cover?.remove();
+            shownVersion.current = version;
             const { pdfViewer } = v;
             applyZoom(pdfViewer, props.current.zoom);
             // After a compile, show the page being edited; otherwise stay put.
             if (cursor) pdfViewer.scrollPageIntoView({ pageNumber: Math.min(cursor, pdfViewer.pagesCount) });
-            else if (keep) scrollToLocation(pdfViewer, keep);
+            else if (keep) {
+              pdfViewer.scrollPageIntoView({
+                pageNumber: Math.min(keep.pageNumber, pdfViewer.pagesCount),
+                destArray: [null, { name: 'XYZ' }, keep.left, keep.top, null],
+                allowNegativeOffset: true,
+                ignoreDestinationZoom: true,
+              });
+            }
             // [data-page] is what the rest of the app (and the e2e tests) look for.
             for (let i = 0; i < pdfViewer.pagesCount; i++) {
               const div = pdfViewer.getPageView(i)?.div;
@@ -379,7 +353,6 @@ export const PdfViewer = forwardRef<
               setTimeout(() => shown.forEach((el) => el.remove()), 3000);
             }
             props.current.onPageChange(pdfViewer.currentPageNumber, pdfViewer.pagesCount);
-            setPages(pdfViewer.pagesCount);
             if (pendingTarget.current) {
               showTarget(pendingTarget.current);
               pendingTarget.current = null;
@@ -395,6 +368,7 @@ export const PdfViewer = forwardRef<
               const timer = setTimeout(done, 2000);
               v.eventBus.on('pagerendered', onRendered);
             }
+            void v.jumpHistory.initialize(marksStore() as never, `${getState().project?.mainFile.replace(/\.tex$/i, '') ?? 'document'}.pdf`);
           },
           { once: true },
         );
@@ -461,188 +435,52 @@ export const PdfViewer = forwardRef<
 
   useImperativeHandle(ref, () => ({
     scrollToPage(page: number) {
-      // Through the link service, so Back can come back from it.
+      // Through the link service, so B can come back from it.
       viewerRef.current?.linkService.goToPage(page);
     },
   }));
 
-  // ---- bookmarks --------------------------------------------------------------------------------
-  const [bookmarks, setBookmarks] = useState<Bookmark[]>(() => loadBookmarks(bookmarkKey));
-  const keyRef = useRef(bookmarkKey);
-  useEffect(() => {
-    keyRef.current = bookmarkKey;
-    setBookmarks(loadBookmarks(bookmarkKey));
-  }, [bookmarkKey]);
-  /** Change the bookmarks and store them (under the key they were loaded from). */
-  const updateBookmarks = (fn: (list: Bookmark[]) => Bookmark[]) =>
-    setBookmarks((list) => {
-      const next = fn(list);
-      saveBookmarks(keyRef.current, next);
-      return next;
-    });
-  // A recompile can drop pages; their bookmarks wait (hidden) until the pages are back.
-  const shownBookmarks = sortBookmarks(bookmarks.filter((b) => b.page <= pages));
-  const [listOpen, setListOpen] = useState(false);
-  const [selectionAt, setSelectionAt] = useState<{ left: number; top: number } | null>(null);
-  const wrapper = useRef<HTMLDivElement>(null);
-  const listRef = useRef<HTMLDivElement>(null);
-
-  /** Briefly highlight the line at PDF height `y` on `page`. */
-  const flashLine = (page: number, y: number) => {
-    const pageView = viewerRef.current?.pdfViewer.getPageView(page - 1);
-    if (!pageView?.div) return;
-    const [, top] = pageView.viewport.convertToViewportPoint(0, y);
-    const height = Math.max(12, 14 * pageView.viewport.scale);
-    const flash = addOverlay(pageView.div, 'synctex-flash rounded-sm', { left: '6%', width: '88%', top: `${top - 2}px`, height: `${height}px` });
-    flash.addEventListener('animationend', () => flash.remove());
+  // ---- marks ----------------------------------------------------------------------------------
+  const markSelectionOrView = () => {
+    const jumpHistory = viewerRef.current?.jumpHistory;
+    if (!jumpHistory) return;
+    if (pdfSelectionRange(scroller.current)) jumpHistory.markSelection();
+    else jumpHistory.markCurrentPosition();
+    setMarkAt(null);
   };
 
-  /** Where the reader is: the page and PDF height just under the top of the view. */
-  const viewSpot = () => {
-    const el = scroller.current;
-    const pdfViewer = viewerRef.current?.pdfViewer;
-    if (!el || !pdfViewer) return null;
-    const probe = el.getBoundingClientRect().top + LANDING_MARGIN;
-    const div = pageAtScreenY(el, probe);
-    const pageView = div && pdfViewer.getPageView(Number(div.dataset.pageNumber) - 1);
-    if (!div || !pageView) return null;
-    const r = div.getBoundingClientRect();
-    const [x, y] = pageView.viewport.convertToPdfPoint(0, Math.max(0, probe - r.top - div.clientTop));
-    return { page: Number(div.dataset.pageNumber), x, y, div, probe };
-  };
-
-  const goToBookmark = (b: Bookmark) => {
-    const el = scroller.current;
-    const pageView = viewerRef.current?.pdfViewer.getPageView(b.page - 1);
-    if (!el || !pageView?.div) return;
-    pushBack();
-    const [, top] = pageView.viewport.convertToViewportPoint(b.x, b.y);
-    el.scrollTop = pageOrigin(el, pageView.div).top + top - LANDING_MARGIN;
-    flashLine(b.page, b.y);
-  };
-
-  /** Bookmark the selected text, or else the line at the top of the view. */
-  const addBookmarkHere = () => {
-    const el = scroller.current;
-    const pdfViewer = viewerRef.current?.pdfViewer;
-    if (!el || !pdfViewer?.pdfDocument) return;
-    const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-    let b: Bookmark | null = null;
-    const range = pdfSelectionRange(el);
-    const start = range?.startContainer;
-    const div = (start && (start.nodeType === Node.ELEMENT_NODE ? (start as Element) : start.parentElement))?.closest<HTMLElement>('.page');
-    const pageView = div && pdfViewer.getPageView(Number(div.dataset.pageNumber) - 1);
-    const selected = range && div && pageView ? textLines(div, pageView.viewport, selectedCharRects(range)) : [];
-    if (range && div && selected.length) {
-      b = { id, page: Number(div.dataset.pageNumber), ...topLeft(selected), label: snippet(range.toString()), rects: selected };
-    } else {
-      const spot = viewSpot();
-      if (!spot) return;
-      const pv = pdfViewer.getPageView(spot.page - 1);
-      // The first line of text at that spot: named after it, and highlighted.
-      const spans = [...spot.div.querySelectorAll<HTMLElement>('.textLayer span')].filter((span) => span.textContent?.trim());
-      const first = spans.find((span) => span.getBoundingClientRect().bottom > spot.probe);
-      const box = first?.getBoundingClientRect();
-      const line = box ? spans.filter((span) => {
-        const r = span.getBoundingClientRect();
-        return Math.min(r.bottom, box.bottom) - Math.max(r.top, box.top) >= Math.min(r.height, box.height) / 2;
-      }) : [];
-      const rects = pv && line.length ? textLines(spot.div, pv.viewport, line.map((span) => span.getBoundingClientRect())) : [];
-      const label = snippet(line.map((span) => span.textContent).join(' '));
-      b = rects.length
-        ? { id, page: spot.page, ...topLeft(rects), label: label || `Page ${spot.page}`, rects }
-        : { id, page: spot.page, x: spot.x, y: spot.y, label: label || `Page ${spot.page}` };
-    }
-    const added = b;
-    updateBookmarks((list) => addBookmark(list, added));
-    flashLine(added.page, added.y);
-    document.getSelection()?.removeAllRanges();
-    setSelectionAt(null);
-  };
-
-  // Bookmarked text stays highlighted. pdf.js clears a page's extra elements
-  // whenever it re-renders it (zoom, scrolling back to it), so each render
-  // repaints that page's highlights.
-  const bookmarksRef = useRef(bookmarks);
-  bookmarksRef.current = bookmarks;
-  const paintBookmarks = useCallback((pageNumber: number) => {
-    const pageView = viewerRef.current?.pdfViewer.getPageView(pageNumber - 1);
-    const div: HTMLElement | undefined = pageView?.div;
-    if (!pageView || !div) return;
-    div.querySelectorAll('.pdf-bookmark-hl').forEach((el) => el.remove());
-    const [left, , right] = pageView.viewport.viewBox;
-    for (const b of bookmarksRef.current) {
-      if (b.page !== pageNumber) continue;
-      // Old bookmarks have no lines: mark the line they start on.
-      const rects: Rect[] = b.rects?.length ? b.rects : [[left + (right - left) * 0.06, b.y - 12, right - (right - left) * 0.06, b.y]];
-      for (const r of rects) {
-        const [x0, y0] = pageView.viewport.convertToViewportPoint(r[0], r[1]);
-        const [x1, y1] = pageView.viewport.convertToViewportPoint(r[2], r[3]);
-        addOverlay(div, 'pdf-bookmark-hl', {
-          left: `${Math.min(x0, x1) - 1}px`, top: `${Math.min(y0, y1) - 1}px`, width: `${Math.abs(x1 - x0) + 2}px`, height: `${Math.abs(y1 - y0) + 2}px`,
-        });
-      }
-    }
-  }, []);
-  useEffect(() => {
-    const bus = viewerRef.current?.eventBus;
-    if (!bus) return;
-    const onRendered = ({ pageNumber }: { pageNumber: number }) => paintBookmarks(pageNumber);
-    bus.on('pagerendered', onRendered);
-    return () => bus.off('pagerendered', onRendered);
-  }, [paintBookmarks]);
-  useEffect(() => {
-    for (let n = 1; n <= pages; n++) paintBookmarks(n);
-  }, [bookmarks, pages, paintBookmarks]);
-
-  const cycleBookmarks = (dir: 1 | -1) => {
-    const spot = viewSpot();
-    const b = spot && nearestBookmark(shownBookmarks, { page: spot.page, y: spot.y }, dir);
-    if (b) goToBookmark(b);
-  };
-
-  /** Floats "Bookmark" under a text selection on a page. */
-  const showSelectionButton = () => {
+  /** Floats "Mark line" under a text selection on a page. */
+  const showMarkButton = () => {
     const range = pdfSelectionRange(scroller.current);
     const rect = range && [...range.getClientRects()].filter((r) => r.width && r.height).pop();
     const box = wrapper.current?.getBoundingClientRect();
-    if (!rect || !box || !wrapper.current) return setSelectionAt(null);
-    setSelectionAt({
-      left: Math.max(8, Math.min(rect.right - box.left - 50, wrapper.current.clientWidth - 120)),
+    if (!rect || !box || !wrapper.current) return setMarkAt(null);
+    setMarkAt({
+      left: Math.max(8, Math.min(rect.right - box.left - 50, wrapper.current.clientWidth - 116)),
       top: Math.min(rect.bottom - box.top + 6, wrapper.current.clientHeight - 40),
     });
   };
+
   useEffect(() => {
     const onSelectionChange = () => {
-      if (!pdfSelectionRange(scroller.current)) setSelectionAt(null);
+      if (!pdfSelectionRange(scroller.current)) setMarkAt(null);
     };
     document.addEventListener('selectionchange', onSelectionChange);
     return () => document.removeEventListener('selectionchange', onSelectionChange);
   }, []);
 
-  // The list closes on a click elsewhere or Escape.
-  useEffect(() => {
-    if (!listOpen) return;
-    const onDown = (e: PointerEvent) => {
-      if (!listRef.current?.contains(e.target as Node)) setListOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setListOpen(false);
-    document.addEventListener('pointerdown', onDown, true);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('pointerdown', onDown, true);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [listOpen]);
-
   const onKeyDown = (e: React.KeyboardEvent) => {
-    if (e.ctrlKey || e.metaKey || e.altKey || !pages) return;
+    const v = viewerRef.current;
+    if (!v?.pdfViewer.pdfDocument || e.ctrlKey || e.metaKey || e.altKey) return;
     if ((e.target as HTMLElement).closest('input, select, textarea, [contenteditable]')) return;
+    const { jumpHistory } = v;
     const key = e.key.toLowerCase();
-    if (key === 'b' && !e.shiftKey && back.length) goBack();
-    else if (key === 'm' && !e.shiftKey) addBookmarkHere();
-    else if (key === 'c' && shownBookmarks.length) cycleBookmarks(e.shiftKey ? 1 : -1);
-    else return;
+    if (key === 'm' && !e.shiftKey) markSelectionOrView();
+    else if (key === 'b' && !e.shiftKey && jumpHistory.canReturn) jumpHistory.toggleReturn();
+    else if (key === 'c' && jumpHistory.hasMarks) {
+      if (e.shiftKey) jumpHistory.cycleForward();
+      else jumpHistory.cycleBack();
+    } else return;
     e.preventDefault();
   };
 
@@ -657,98 +495,60 @@ export const PdfViewer = forwardRef<
     onInverseSearch(pageNumber, (e.clientX - rect.left - pageEl.clientLeft) / s, (e.clientY - rect.top - pageEl.clientTop) / s);
   };
 
-  const last = back[back.length - 1];
   return (
-    // isolate: pdf.js's layers and our overlays stack inside the viewer, so
-    // the pane's banners (compile errors) always sit on top of them.
     <div ref={wrapper} onKeyDown={onKeyDown} className={dark ? 'pdf-pane pdf-dark relative isolate h-full' : 'pdf-pane relative isolate h-full'}>
       {/* PDFViewer refuses a scroller that is not absolutely positioned. */}
       <div
         ref={scroller}
         tabIndex={0}
         onDoubleClick={onDoubleClick}
-        onPointerUp={() => setTimeout(showSelectionButton, 0)}
-        onScroll={() => selectionAt && setSelectionAt(null)}
+        onPointerUp={() => setTimeout(showMarkButton, 0)}
+        onScroll={() => markAt && setMarkAt(null)}
         className="absolute inset-0 overflow-auto outline-none"
         data-testid="pdf-viewer"
-        title="Double-click to jump to the source · B back after a link · M bookmark · C / Shift+C cycle bookmarks"
+        title="Double-click to jump to the source · M mark a line · B back · C / Shift+C cycle marks"
       >
         <div className="pdfViewer" />
       </div>
 
-      {selectionAt && (
+      {markAt && (
         <button
           type="button"
-          className={clsx(PILL, 'absolute z-20 py-1 pl-2 pr-2.5')}
-          style={selectionAt}
-          title="Bookmark this text (M)"
+          className="absolute z-20 flex items-center gap-1 rounded-full border border-line bg-panel py-1 pl-2 pr-2.5 text-[12px] font-medium text-fg shadow-pop hover:border-accent"
+          style={markAt}
+          title="Mark this line (M)"
           onMouseDown={(e) => e.preventDefault()}
-          onClick={addBookmarkHere}
+          onClick={markSelectionOrView}
         >
-          <BookmarkPlus className="size-3.5 text-accent" /> Bookmark
+          <BookmarkPlus className="size-3.5 text-accent" /> Mark line
         </button>
       )}
 
-      {pages > 0 && (
-        <div ref={listRef} className="absolute bottom-3 left-3 z-20 flex flex-col items-start gap-2">
-          {listOpen && (
-            <div className="flex max-h-80 w-80 flex-col overflow-hidden rounded-lg border border-line bg-panel text-[12.5px] shadow-pop" role="dialog" aria-label="Bookmarks">
-              <div className="flex items-center gap-2 border-b border-line px-3 py-2">
-                <span className="flex-1 font-medium text-fg">Bookmarks</span>
-                <button type="button" onClick={addBookmarkHere} className="flex items-center gap-1 rounded px-1.5 py-0.5 text-muted hover:bg-hover hover:text-fg" title="Bookmark the selected text, or the top of the view (M)">
-                  <BookmarkPlus className="size-3.5" /> Add
-                </button>
-                {!!bookmarks.length && (
-                  <button type="button" onClick={() => updateBookmarks(() => [])} className="rounded px-1.5 py-0.5 text-muted hover:bg-hover hover:text-danger">
-                    Clear
-                  </button>
-                )}
-              </div>
-              {shownBookmarks.length ? (
-                <ol className="min-h-0 flex-1 overflow-y-auto py-1">
-                  {shownBookmarks.map((b) => (
-                    <li key={b.id} className="group flex items-center hover:bg-hover">
-                      <button type="button" onClick={() => goToBookmark(b)} className="flex min-w-0 flex-1 items-baseline gap-2 px-3 py-1.5 text-left">
-                        <span className="shrink-0 text-[11px] tabular-nums text-faint">p. {b.page}</span>
-                        <span className="truncate text-fg">{b.label}</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => updateBookmarks((list) => list.filter((o) => o.id !== b.id))}
-                        className="mr-1.5 rounded p-1 text-faint opacity-0 hover:text-danger group-hover:opacity-100 focus:opacity-100"
-                        aria-label={`Delete bookmark: ${b.label}`}
-                      >
-                        <X className="size-3.5" />
-                      </button>
-                    </li>
-                  ))}
-                </ol>
-              ) : (
-                <p className="px-3 py-3 text-muted">Select text and press M, or click Add, to save a spot. C and Shift+C step through your bookmarks.</p>
-              )}
-            </div>
-          )}
-          <div className="flex items-center gap-2">
-            {last && (
-              <button type="button" onClick={goBack} title="Back to where you were before the jump (B)" className={clsx(PILL, 'px-3 py-1')}>
-                <Undo2 className="size-3.5 text-accent" />
-                Back to page {last.page}
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => setListOpen((o) => !o)}
-              aria-expanded={listOpen}
-              title="Bookmarks (M to add, C / Shift+C to step through)"
-              className={clsx(PILL, 'px-2.5 py-1', listOpen && 'border-accent')}
-            >
-              <BookmarkIcon className="size-3.5 text-accent" />
-              {shownBookmarks.length || ''}
-              <span className="sr-only">Bookmarks</span>
-            </button>
+      {/* Driven by PDFJumpHistory; the ids are the ones its CSS expects. */}
+      <div id="jumpHistory" ref={jumpBar} role="group" hidden>
+        <button id="jumpHistoryBack" ref={backButton} className="jumpHistoryButton" type="button" data-l10n-id="pdfjs-jump-history-back-button-empty" disabled>
+          <svg aria-hidden="true" viewBox="0 0 16 16" width="16" height="16"><path d="M6 3 2.5 6.5 6 10M3 6.5h6.5a3.5 3.5 0 0 1 0 7H7" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          <span className="jumpHistoryPage" aria-hidden="true" />
+        </button>
+        <button id="jumpHistoryList" ref={listButton} className="jumpHistoryButton" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="jumpHistoryPanel" data-l10n-id="pdfjs-jump-history-list-button">
+          <svg aria-hidden="true" viewBox="0 0 16 16" width="16" height="16"><path d="M5.5 4h8M5.5 8h8M5.5 12h8" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /><circle cx="2.5" cy="4" r="1" fill="currentColor" /><circle cx="2.5" cy="8" r="1" fill="currentColor" /><circle cx="2.5" cy="12" r="1" fill="currentColor" /></svg>
+        </button>
+      </div>
+      <div id="jumpHistoryPanel" ref={panel} role="dialog" aria-labelledby="jumpHistoryPanelTitle" hidden>
+        <div className="jumpHistoryPanelHeader">
+          <span id="jumpHistoryPanelTitle" data-l10n-id="pdfjs-jump-history-panel-title" />
+          <div className="jumpHistoryPanelActions">
+            <button id="jumpHistoryClear" ref={clearButton} className="jump-history-action" type="button" data-l10n-id="pdfjs-jump-history-clear-button" />
+            <button id="jumpHistorySave" ref={saveButton} className="jump-history-action" type="button" data-l10n-id="pdfjs-jump-history-save-button" />
           </div>
         </div>
-      )}
+        <ol id="jumpHistoryEntries" ref={entries} />
+        <div className="jumpHistoryPanelFooter">
+          <label htmlFor="jumpHistoryMaxEntries" data-l10n-id="pdfjs-jump-history-max-entries-label" />
+          <select id="jumpHistoryMaxEntries" ref={maxEntries} />
+        </div>
+      </div>
+
       {error && <div className="absolute inset-0 z-20 bg-panel-2 p-6 text-sm text-danger">Could not display the PDF: {error}</div>}
     </div>
   );

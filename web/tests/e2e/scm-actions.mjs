@@ -1,5 +1,5 @@
-// Every button in the Source control panel's header (Commit, Refresh) and in
-// its "More actions" menu (Pull, Push, Sync, Fetch, Stage all, Unstage all,
+// Every button in the Source control panel's header (Commit, Pull, Push, Sync,
+// Fetch, Refresh) and in its "More actions" menu (Stage all, Unstage all,
 // Discard all, Create branch), clicked in the browser against a real remote.
 // Alice works in the browser; Bob pushes from a second clone.
 //
@@ -72,8 +72,17 @@ const settle = async () => {
   await page.waitForTimeout(300);
 };
 const toastSeen = (text) => page.getByText(text).first().isVisible().catch(() => false);
-/** Open "More actions" and click an item; returns false when the item is disabled. */
+/** The header buttons that used to be menu items. */
+const HEADER = { Pull: 'Pull', Push: 'Push', Sync: /^Sync \(/, Fetch: 'Fetch' };
+const header = (label) => HEADER[label] && panel.getByRole('button', { name: HEADER[label], exact: typeof HEADER[label] === 'string' });
+/** Click a header button, or open "More actions" and click an item; returns false when it is disabled. */
 const more = async (label) => {
+  const button = header(label);
+  if (button) {
+    if (await button.isDisabled()) return false;
+    await button.click();
+    return true;
+  }
   await panel.getByRole('button', { name: 'More actions' }).click();
   const item = page.getByRole('menuitem', { name: label, exact: true });
   if (await item.isDisabled()) {
@@ -84,6 +93,8 @@ const more = async (label) => {
   return true;
 };
 const menuDisabled = async (label) => {
+  const button = header(label);
+  if (button) return button.isDisabled();
   await panel.getByRole('button', { name: 'More actions' }).click();
   const disabled = await page.getByRole('menuitem', { name: label, exact: true }).isDisabled();
   await page.keyboard.press('Escape');
