@@ -68,6 +68,13 @@ export function explain(d: Diagnostic): Explanation | null {
 
   if (/Undefined control sequence/.test(msg)) {
     const cmd = undefinedCommandName(d);
+    if (cmd?.includes('@')) {
+      return {
+        title: 'Follow-on error (fix the earlier error first)',
+        detail: `\\${cmd} is a LaTeX-internal command, so this isn't a typo in your document. It is a side effect of an earlier error that left LaTeX confused. Fix the first error in the list and recompile.`,
+        fixes,
+      };
+    }
     const pkg = cmd ? COMMAND_PACKAGES[cmd] : undefined;
     if (pkg) fixes.push({ kind: 'addPackage', label: `Add \\usepackage{${pkg}}`, pkg });
     return {
@@ -139,6 +146,34 @@ export function explain(d: Diagnostic): Explanation | null {
       detail: `\\begin{${mismatch[1]}} (line ${mismatch[2]}) is closed by \\end{${mismatch[3]}}. Environments must be closed in the reverse order they were opened.`,
       fixes,
     };
+  }
+
+  const paraEnded = /Paragraph ended before \\(\S+?)\s+was complete/.exec(msg);
+  if (paraEnded || /Runaway argument/.test(msg)) {
+    const what = paraEnded?.[1];
+    return {
+      title: what === 'end' ? 'Broken \\end{…}' : what ? `Unfinished argument to \\${what}` : 'Unfinished command argument',
+      detail: what === 'end'
+        ? 'An \\end{…} is missing its closing brace, or its name is cut off (e.g. "\\end{abstra"). Write it in full, e.g. \\end{abstract}.'
+        : `A blank line or the end of the file was reached before the closing } of ${what ? `\\${what}'s argument` : 'a command argument'}. Add the missing } near the reported line.`,
+      fixes,
+    };
+  }
+
+  if (/Not in outer par mode/.test(msg)) {
+    return {
+      title: 'Figure or table placed where it is not allowed',
+      detail: "A figure or table was started inside something it can't live in: another float, a box, a minipage, or an environment that was never closed. This is often a side effect of an earlier unclosed environment.",
+      fixes,
+    };
+  }
+
+  if (/Bad register code/.test(msg)) {
+    return { title: 'Follow-on error (fix the earlier error first)', detail: 'This internal TeX error is caused by an earlier problem. Fix the first error in the list and recompile.', fixes };
+  }
+
+  if (/You can't use `\\end' in internal vertical mode/.test(msg)) {
+    return { title: 'Document ended inside an open environment', detail: 'The document reached \\end{document} while an environment or group was still open. Close it (see the mismatched-environment error).', fixes };
   }
 
   if (/Missing \} inserted|Extra \}, or forgotten|Too many \}'s|Missing \{ inserted|Extra alignment tab|Paragraph ended before .* was complete|Runaway argument|File ended while scanning/.test(msg)) {

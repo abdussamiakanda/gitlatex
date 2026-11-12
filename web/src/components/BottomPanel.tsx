@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import { AlertCircle, AlertTriangle, Info, X, Wrench, Copy, Search } from 'lucide-react';
-import { useStore, setState, type BottomView } from '../state/store';
+import { AlertCircle, AlertTriangle, Info, X, Wrench, Copy, Search, FileText } from 'lucide-react';
+import { useStore, setState, toast, type BottomView } from '../state/store';
 import { applyQuickFix, revealDiagnostic } from '../state/actions';
 import { explain } from '../latex/explain';
 import type { Diagnostic, Severity } from '../types';
@@ -58,10 +58,45 @@ const ICON: Record<Severity, React.ReactNode> = {
   info: <Info className="size-3.5 shrink-0 text-info" />,
 };
 
+type ProblemGroup = { d: Diagnostic; ex: ReturnType<typeof explain>; count: number; lines: number[] };
+
+/** Plain-text form of one Problems row, for the clipboard. */
+function problemText({ d, ex, count, lines }: ProblemGroup): string {
+  const where = d.file ? `${d.file}${lines.length ? `:${lines.join(', ')}` : ''}` : d.source === 'engine' ? 'engine' : '';
+  const head = `[${d.severity}]${where ? ` ${where}` : ''}${count > 1 ? ` (×${count})` : ''}`;
+  return [head, ex ? `${ex.title}: ${ex.detail}` : null, d.message, d.raw && d.raw !== d.message ? d.raw : null].filter(Boolean).join('\n');
+}
+
+function copyText(text: string) {
+  void navigator.clipboard?.writeText(text).then(
+    () => toast({ kind: 'info', title: 'Copied to clipboard', timeout: 1500 }),
+    () => toast({ kind: 'error', title: 'Could not copy to the clipboard' }),
+  );
+}
+
 function Problems({ diags, counts }: { diags: Diagnostic[]; counts: Record<Severity, number> }) {
   const [show, setShow] = useState<Record<Severity, boolean>>({ error: true, warning: true, info: false });
   const beginner = useStore((s) => s.settings.beginnerMode);
+  const rawLog = useStore((s) => s.compile.result?.log ?? '');
   const list = diags.filter((d) => show[d.severity]);
+  // Merge repeats: the same error on the same line (TeX often reports one cascade
+  // dozens of times), and the same explained warning across lines (70 undefined
+  // citations become one row listing the lines).
+  const groups = useMemo(() => {
+    const map = new Map<string, ProblemGroup>();
+    for (const d of list) {
+      const ex = d.severity !== 'info' && beginner ? explain(d) : null;
+      const key = d.severity === 'warning' && ex
+        ? `w|${ex.title}|${d.file ?? ''}`
+        : `${d.severity}|${ex?.title ?? d.message}|${d.message}|${d.file ?? ''}|${d.line ?? ''}`;
+      const g = map.get(key);
+      if (g) {
+        g.count++;
+        if (d.line && !g.lines.includes(d.line)) g.lines.push(d.line);
+      } else map.set(key, { d, ex, count: 1, lines: d.line ? [d.line] : [] });
+    }
+    return [...map.values()];
+  }, [list, beginner]);
   return (
     <div>
       <div className="sticky top-0 z-10 flex gap-1 border-b border-line bg-panel px-2 py-1">
@@ -74,40 +109,52 @@ function Problems({ diags, counts }: { diags: Diagnostic[]; counts: Record<Sever
             {ICON[s]} {counts[s]} {s === 'info' ? 'box warnings' : s === 'error' ? 'errors' : 'warnings'}
           </button>
         ))}
+        <span className="ml-auto" />
+        <IconButton size="sm" label="Copy all shown problems" disabled={!groups.length} onClick={() => copyText(groups.map(problemText).join('\n\n'))}>
+          <Copy className="size-3.5" />
+        </IconButton>
+        <IconButton size="sm" label="Copy full raw log" disabled={!rawLog} onClick={() => copyText(rawLog)}>
+          <FileText className="size-3.5" />
+        </IconButton>
       </div>
       {!list.length ? (
         <EmptyState icon={<Info className="size-7" />} title={diags.length ? 'Nothing to show with these filters' : 'No problems'}>
           {diags.length ? null : 'Compile the document to check it for errors.'}
         </EmptyState>
       ) : (
-        list.map((d, i) => {
-          const ex = d.severity !== 'info' && beginner ? explain(d) : null;
-          return (
-            <div key={i} className="group border-b border-line/60 px-3 py-1.5 hover:bg-hover/50">
-              <button className="flex w-full items-start gap-2 text-left" onClick={() => revealDiagnostic(d)}>
-                <span className="mt-0.5">{ICON[d.severity]}</span>
-                <span className="min-w-0 flex-1">
-                  <span className="text-[12.5px] text-fg">{d.message}</span>
-                  {ex && <span className="ml-2 text-[12px] text-muted">— {ex.title}</span>}
-                </span>
-                <span className="shrink-0 font-mono text-[11px] text-faint">
-                  {d.file ?? (d.source === 'engine' ? 'engine' : '')}
-                  {d.line ? `:${d.line}` : ''}
-                </span>
-              </button>
-              {ex && d.severity === 'error' && (
-                <div className="ml-5.5 mt-1 flex flex-wrap items-center gap-2 pl-5.5 text-[12px] text-muted">
-                  <span>{ex.detail}</span>
-                  {ex.fixes.map((f, k) => (
-                    <Button key={k} size="sm" variant="subtle" icon={<Wrench className="size-3" />} onClick={() => applyQuickFix(f)}>
-                      {f.label}
-                    </Button>
-                  ))}
-                </div>
-              )}
+        groups.map(({ d, ex, count, lines }, i) => (
+          <div key={i} className="group border-b border-line/60 px-3 py-1.5 hover:bg-hover/50">
+            <div className="flex items-start gap-1">
+            <button className="flex min-w-0 flex-1 items-start gap-2 text-left" onClick={() => revealDiagnostic(d)}>
+              <span className="mt-0.5">{ICON[d.severity]}</span>
+              <span className="min-w-0 flex-1">
+                <span className="text-[12.5px] text-fg">{ex ? ex.title : d.message}</span>
+                {count > 1 && <span className="ml-2 rounded-full bg-panel-2 px-1.5 text-[10px] tabular-nums text-muted">×{count}</span>}
+                {ex && <span className="mt-0.5 block truncate font-mono text-[11px] text-faint" title={d.message}>{d.message}</span>}
+              </span>
+              <span className="shrink-0 font-mono text-[11px] text-faint" title={lines.length > 1 ? `Lines ${lines.join(', ')}` : undefined}>
+                {d.file ?? (d.source === 'engine' ? 'engine' : '')}
+                {lines.length ? `:${lines[0]}${lines.length > 1 ? ` +${lines.length - 1}` : ''}` : ''}
+              </span>
+            </button>
+            <span className="opacity-0 group-hover:opacity-100 focus-within:opacity-100">
+              <IconButton size="sm" label="Copy this problem" onClick={() => copyText(problemText({ d, ex, count, lines }))}>
+                <Copy className="size-3.5" />
+              </IconButton>
+            </span>
             </div>
-          );
-        })
+            {ex && d.severity !== 'info' && (
+              <div className="mt-1 flex flex-wrap items-center gap-2 pl-5.5 text-[12px] text-muted">
+                <span>{ex.detail}</span>
+                {ex.fixes.map((f, k) => (
+                  <Button key={k} size="sm" variant="subtle" icon={<Wrench className="size-3" />} onClick={() => applyQuickFix(f)}>
+                    {f.label}
+                  </Button>
+                ))}
+              </div>
+            )}
+          </div>
+        ))
       )}
     </div>
   );

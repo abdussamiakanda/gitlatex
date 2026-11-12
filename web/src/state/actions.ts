@@ -717,10 +717,15 @@ async function buildViaApi(current: Workspace, persist: boolean): Promise<Built>
   const pdf = data.success ? await fromWire(data.pdf) : null;
   const synctex = pdf ? await fromWire(data.synctex).catch(() => null) : null;
   if (pdf && persist && getState().settings.savePdf && ws === current) void storePdf(current, pdf, synctex);
-  const log = data.log ?? '';
-  const error = data.error ?? (pdf ? null : `The Compiler API returned HTTP ${res.status} without a PDF`);
+  // Some servers return the TeX transcript in `error` rather than `log`: parse it as the log.
+  const looksLikeTexLog = (s: string) => /^This is (pdf|Xe|Lua|e-|ep)?TeX|^! |^\.?\.?\/?\S+\.\w+:\d+: /m.test(s);
+  const errorIsLog = !data.log && !!data.error && looksLikeTexLog(data.error);
+  const log = data.log || (errorIsLog ? data.error! : '');
+  const error = errorIsLog
+    ? (pdf ? null : 'Compilation failed and no PDF was produced. See the errors listed in Problems.')
+    : data.error ?? (pdf ? null : `The Compiler API returned HTTP ${res.status} without a PDF`);
   return {
-    status: !pdf ? 'failed' : /^! /m.test(log) ? 'errors' : /LaTeX Warning|Package \w+ Warning/.test(log) ? 'warnings' : 'success',
+    status: !pdf ? 'failed' : /^! |^\S+:\d+: /m.test(log) ? 'errors' : /LaTeX Warning|Package \w+ Warning/.test(log) ? 'warnings' : 'success',
     pdf,
     synctex,
     log,
