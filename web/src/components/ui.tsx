@@ -273,8 +273,8 @@ export function EmptyState({ icon, title, children }: { icon: ReactNode; title: 
 export function SectionTitle({ children, actions }: { children: ReactNode; actions?: ReactNode }) {
   return (
     <div className="flex h-9 shrink-0 items-center gap-1 px-3">
-      <span className="flex-1 text-[11px] font-semibold uppercase tracking-wider text-muted">{children}</span>
-      {actions}
+      <span className="min-w-0 flex-1 truncate text-[11px] font-semibold uppercase tracking-wider text-muted">{children}</span>
+      <div className="flex shrink-0 items-center">{actions}</div>
     </div>
   );
 }

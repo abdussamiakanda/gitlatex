@@ -157,7 +157,7 @@ function FileSection({
       <div className="group flex h-6 cursor-pointer select-none items-center gap-1 rounded px-1 text-[11px] font-semibold uppercase tracking-wider text-muted hover:bg-hover" onClick={() => setOpen((v) => !v)}>
         {open ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
         <span className="flex-1 truncate">{title}</span>
-        <span className="hidden items-center group-hover:flex" onClick={(e) => e.stopPropagation()}>
+        <span className="flex shrink-0 items-center" onClick={(e) => e.stopPropagation()}>
           {actions}
         </span>
         <span className="rounded-full bg-panel-2 px-1.5 text-[10px] tabular-nums">{files.length}</span>
@@ -239,6 +239,9 @@ export function GitPanel() {
 
   const moreItems = (): (MenuItem | 'separator')[] => {
     const items: (MenuItem | 'separator')[] = [
+      { label: 'Sync (pull, then push)', icon: <ArrowDownUp className="size-3.5" />, disabled: noRemote || !st.upstream || !!busy, onSelect: () => void run('sync', scmSync) },
+      { label: 'Fetch', icon: <CloudDownload className="size-3.5" />, disabled: noRemote || !!busy, onSelect: () => void run('fetch', scmFetch) },
+      'separator',
       { label: 'Stage all changes', icon: <Plus className="size-3.5" />, disabled: !st.changes.length, onSelect: () => void scmStage() },
       { label: 'Unstage all changes', icon: <Minus className="size-3.5" />, disabled: !st.staged.length, onSelect: () => void scmUnstage() },
       { label: 'Discard all changes…', icon: <Undo2 className="size-3.5" />, danger: true, disabled: !st.changes.length, onSelect: () => scmDiscard(st.changes) },
@@ -281,20 +284,11 @@ export function GitPanel() {
       <SectionTitle
         actions={
           <>
-            <IconButton size="sm" label={`Commit (${modKey}+Enter)`} disabled={!!primary.disabled || !hasChanges || !!busy} onClick={commit}>
-              <Check className="size-3.5" />
-            </IconButton>
             <IconButton size="sm" label="Pull" disabled={noRemote || !st.upstream || !!busy} onClick={() => void run('pull', scmPull)}>
               <ArrowDownToLine className="size-3.5" />
             </IconButton>
             <IconButton size="sm" label="Push" disabled={noRemote || !st.hasCommits || !!busy} onClick={() => void run('push', scmPush)}>
               <ArrowUpFromLine className="size-3.5" />
-            </IconButton>
-            <IconButton size="sm" label="Sync (pull, then push)" disabled={noRemote || !st.upstream || !!busy} onClick={() => void run('sync', scmSync)}>
-              <ArrowDownUp className="size-3.5" />
-            </IconButton>
-            <IconButton size="sm" label="Fetch" disabled={noRemote || !!busy} onClick={() => void run('fetch', scmFetch)}>
-              <CloudDownload className="size-3.5" />
             </IconButton>
             <IconButton size="sm" label="Refresh" onClick={() => void refreshScm()}>
               <RefreshCw className={clsx('size-3.5', busy && 'animate-spin')} />
